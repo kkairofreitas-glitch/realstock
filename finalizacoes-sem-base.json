@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "tipo": "Depósito",
+    "nome": "PAREDE",
+    "inicio": 1,
+    "fim": 30,
+    "sequencia": 1,
+    "status": "pendente",
+    "observacoes": "",
+    "totalPosicoes": 30,
+    "transmissoes": [],
+    "contagensRecebidas": 0,
+    "finalizadoViaColetor": false,
+    "ultimaContagemEm": null,
+    "finalizadoEm": null,
+    "criadoEm": "2026-05-03T20:15:08.953Z",
+    "atualizadoEm": "2026-05-03T20:15:08.953Z"
+  }
+]
