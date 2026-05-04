@@ -9,7 +9,14 @@ const http = require("http");
 const WebSocket = require("ws");
 const ExcelJS = require("exceljs");
 const sqlite3 = require("sqlite3").verbose();
-const db = new sqlite3.Database("./data/inventario.db");
+
+const pastaBanco = path.join(__dirname, "data");
+
+if (!fs.existsSync(pastaBanco)) {
+  fs.mkdirSync(pastaBanco, { recursive: true });
+}
+
+const db = new sqlite3.Database(path.join(pastaBanco, "inventario.db"));
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS produtos (
