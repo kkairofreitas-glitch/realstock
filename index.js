@@ -1,3 +1,4 @@
+
 const express = require("express");
 const fileUpload = require("express-fileupload");
 const session = require("express-session");
@@ -1535,7 +1536,7 @@ app.get("/", autenticar, permitirSomenteLiderOuAdmin, (req, res) =>
   res.sendFile(path.join(__dirname, "public", "index.html"))
 );
 app.get("/coleta-mobile", autenticar, (req, res) =>
-res.sendFile(path.join(__dirname, "contagem-mobile.html"))
+res.sendFile(path.join(__dirname, "contagem-móvel.html"))
 );
 
 

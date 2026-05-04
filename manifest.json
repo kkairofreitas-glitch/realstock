@@ -1,169 +1,21 @@
-<!doctype html>
-<html lang="pt-br">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login - RealStock</title>
-    <style>
-      * {
-        box-sizing: border-box;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: linear-gradient(135deg, #0a1f3d, #162f4a);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
-      }
-
-      .login-container {
-        background-color: #ffffff;
-        padding: 40px 30px;
-        border-radius: 16px;
-        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
-        width: 100%;
-        max-width: 420px;
-        text-align: center;
-        border: 1px solid rgba(215, 231, 247, 0.9);
-      }
-
-      .login-container h2 {
-        margin: 0 0 8px;
-        color: #0a1f3d;
-        font-size: 28px;
-        font-weight: 800;
-      }
-
-      .login-subtitle {
-        margin: 0 0 28px;
-        color: #52667a;
-        font-size: 14px;
-        font-weight: 600;
-      }
-
-      .login-container input[type="text"],
-      .login-container input[type="password"] {
-        width: 100%;
-        padding: 12px 15px;
-        margin: 10px 0 18px 0;
-        border: 1px solid #cfe0f6;
-        border-radius: 10px;
-        font-size: 16px;
-        outline: none;
-        transition: border-color 0.2s, box-shadow 0.2s;
-      }
-
-      .login-container input[type="text"]:focus,
-      .login-container input[type="password"]:focus {
-        border-color: #2770b5;
-        box-shadow: 0 0 0 4px rgba(39, 112, 181, 0.12);
-      }
-
-      .login-container button {
-        width: 100%;
-        padding: 12px;
-        border: none;
-        border-radius: 10px;
-        background: linear-gradient(180deg, #162f4a, #0a1f3d);
-        color: #fff;
-        font-size: 16px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: 0.25s;
-      }
-
-      .login-container button:hover {
-        background: linear-gradient(180deg, #1b3a5a, #102946);
-        transform: translateY(-1px);
-      }
-
-      .error-message {
-        color: #b91c1c;
-        background: #fff5f5;
-        border: 1px solid #fecaca;
-        border-radius: 10px;
-        padding: 10px 12px;
-        margin-bottom: 16px;
-        display: none;
-        font-size: 14px;
-        font-weight: 600;
-      }
-
-      .login-container .footer {
-        margin-top: 20px;
-        font-size: 14px;
-        color: #667085;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="login-container">
-      <h2>Login</h2>
-      <p class="login-subtitle">Acesse o sistema RealStock com seu usuário cadastrado</p>
-
-      <div class="error-message" id="error">Usuário ou senha inválidos!</div>
-
-      <form id="loginForm">
-        <input type="hidden" id="loginRedirect" value="" />
-
-        <input type="text" id="username" placeholder="Usuário" required />
-        <input type="password" id="password" placeholder="Senha" required />
-
-        <button type="submit">Entrar</button>
-      </form>
-
-      <div class="footer">RealStock &copy; 2025</div>
-    </div>
-
-    <script>
-      const loginForm = document.getElementById("loginForm");
-      const errorMessage = document.getElementById("error");
-      const loginRedirect = document.getElementById("loginRedirect");
-
-      (function carregarRedirect() {
-        const params = new URLSearchParams(window.location.search);
-        const redirect = params.get("redirect") || "";
-        loginRedirect.value = redirect;
-
-        if (params.get("erro")) {
-          errorMessage.style.display = "block";
-          errorMessage.textContent = decodeURIComponent(params.get("erro"));
-        }
-      })();
-
-      loginForm.addEventListener("submit", function (e) {
-        e.preventDefault();
-
-        const user = document.getElementById("username").value.trim();
-        const pass = document.getElementById("password").value;
-        const redirect = loginRedirect.value || "";
-
-        errorMessage.style.display = "none";
-
-        fetch("/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body:
-            `usuario=${encodeURIComponent(user)}` +
-            `&senha=${encodeURIComponent(pass)}` +
-            `&redirect=${encodeURIComponent(redirect)}`,
-        })
-          .then((res) => {
-            if (res.redirected) {
-              window.location.href = res.url;
-            } else {
-              errorMessage.style.display = "block";
-            }
-          })
-          .catch((err) => {
-            console.error(err);
-            errorMessage.style.display = "block";
-          });
-      });
-    </script>
-  </body>
-</html>
+{
+  "name": "RealStock Coleta",
+  "short_name": "Coleta",
+  "description": "Sistema mobile de coleta do inventário",
+  "start_url": "/coleta-mobile",
+  "display": "standalone",
+  "background_color": "#1a3a52",
+  "theme_color": "#1a3a52",
+  "icons": [
+    {
+      "src": "/ícones/ícone-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/ícones/ícone-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
