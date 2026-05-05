@@ -1519,28 +1519,32 @@ app.post("/login", (req, res) => {
     status: encontrado.status
   };
 
-  const funcao = String(encontrado.funcao || '').toLowerCase();
-  let destino = '/';
+  const funcao = String(encontrado.funcao || "").toLowerCase();
+let destino = "/";
 
-  if (redirect && String(redirect).trim() !== '') {
-    destino = String(redirect).trim();
-  } else if (funcao === 'operador') {
-    destino = '/coleta-mobile';
-  } else if (
-    funcao === 'líder' ||
-    funcao === 'lider' ||
-    funcao === 'administrador'
-  ) {
-    destino = '/';
-  }
+if (funcao === "operador") {
+  destino = "/coleta-mobile";
+} else if (
+  funcao === "líder" ||
+  funcao === "lider" ||
+  funcao === "administrador"
+) {
+  destino = "/";
+} else {
+  destino = "/login";
+}
 
-  return res.redirect(destino);
+return res.redirect(destino);
 });
 
 app.get("/logout", (req, res) => {
   req.session.destroy(() => res.redirect("/login"));
 });
-
+app.get("/quem-sou-eu", autenticar, (req, res) => {
+  return res.json({
+    usuario: req.session.usuario || null
+  });
+});
 app.get("/", autenticar, permitirSomenteLiderOuAdmin, (req, res) =>
 res.sendFile(caminhoPublico("index.html"))
 );

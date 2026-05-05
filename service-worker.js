@@ -1,9 +1,10 @@
-const CACHE_NAME = "realstock-coleta-v1";
-const URLS_TO_CACHE = [
+const CACHE_NAME = "realstock-v1";
+
+const urlsToCache = [
   "/coleta-mobile",
   "/manifest.json",
-  "/ícones/ícone-192.png",
-"/ícones/ícone-512.png"
+  "/icones/icone-192.png",
+  "/icones/icone-512.png"
 ];
 
 self.addEventListener("install", (event) => {
