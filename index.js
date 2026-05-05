@@ -141,7 +141,7 @@ function autenticar(req, res, next) {
     return res.status(401).json({ erro: "Sessão expirada" });
   }
 
-  return res.redirect("/login");
+  return res.redirect(`/login?redirect=${encodeURIComponent(req.originalUrl || "/")}`);
 }
 function permitirSomenteLiderOuAdmin(req, res, next) {
   if (!req.session?.logado || !req.session?.usuario) {
