@@ -1,4 +1,3 @@
-
 const express = require("express");
 const fileUpload = require("express-fileupload");
 const session = require("express-session");
@@ -44,6 +43,16 @@ const fonts = {
 
 const app = express();
 const port = process.env.PORT || 5000;
+function caminhoPublico(nomeArquivo) {
+  const caminhoRaiz = path.join(__dirname, nomeArquivo);
+  const caminhoPublic = path.join(__dirname, "public", nomeArquivo);
+
+  if (fs.existsSync(caminhoRaiz)) {
+    return caminhoRaiz;
+  }
+
+  return caminhoPublic;
+}
 
 let usuarios = [];
 let inventario = [];
@@ -105,7 +114,7 @@ app.use(fileUpload());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(__dirname));
-
+app.use(express.static(path.join(__dirname, "public")));
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -1480,7 +1489,7 @@ function carregarProdutosDoBanco(callback = null) {
   });
 }
 app.get("/login", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "login.html"))
+res.sendFile(caminhoPublico("login.html"))
 );
 
 app.post("/login", (req, res) => {
@@ -1533,10 +1542,10 @@ app.get("/logout", (req, res) => {
 });
 
 app.get("/", autenticar, permitirSomenteLiderOuAdmin, (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "index.html"))
+res.sendFile(caminhoPublico("index.html"))
 );
 app.get("/coleta-mobile", autenticar, (req, res) =>
-res.sendFile(path.join(__dirname, "contagem-móvel.html"))
+res.sendFile(caminhoPublico("contagem-mobile.html"))
 );
 
 
@@ -2847,7 +2856,7 @@ app.get("/historico-dados", autenticar, (req, res) =>
 );
 
 app.get("/historico", autenticar, (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "historico.html"))
+res.sendFile(caminhoPublico("historico.html"))
 );
 
 app.get("/exportar-txt-alternativo", autenticar, (req, res) => {
