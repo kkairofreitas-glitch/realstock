@@ -113,8 +113,8 @@ app.use(
 app.use(fileUpload());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.static(__dirname));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
+app.use(express.static(__dirname, { index: false }));
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -1548,10 +1548,9 @@ app.get("/quem-sou-eu", autenticar, (req, res) => {
 app.get("/", autenticar, permitirSomenteLiderOuAdmin, (req, res) =>
 res.sendFile(caminhoPublico("index.html"))
 );
-app.get("/coleta-mobile", autenticar, (req, res) =>
-res.sendFile(caminhoPublico("contagem-mobile.html"))
+app.get("/coleta-mobile", autenticar, permitirSomenteOperador, (req, res) =>
+  res.sendFile(caminhoPublico("contagem-mobile.html"))
 );
-
 
 app.get("/modo-operacao", autenticar, (req, res) => {
   return res.json({
