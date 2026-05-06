@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "nome": "Administrador",
+    "usuario": "admin",
+    "senha": "1234",
+    "matricula": "RS-0001",
+    "funcao": "Administrador",
+    "telefone": "",
+    "status": "ativo",
+    "meta": 0,
+    "criadoEm": "2026-03-13T18:15:05.851Z"
+  },
+  {
+    "id": 2,
+    "nome": "João Ferreira",
+    "usuario": "joao",
+    "senha": "1234",
+    "matricula": "RS-0002",
+    "funcao": "Operador",
+    "telefone": "",
+    "status": "ativo",
+    "meta": 3000,
+    "criadoEm": "2026-03-13T18:15:05.851Z"
+  },
+  {
+    "id": 3,
+    "nome": "Juliana",
+    "usuario": "Juliana",
+    "senha": "1234",
+    "matricula": "RS-0003",
+    "funcao": "Líder",
+    "telefone": "92988230748",
+    "status": "ativo",
+    "meta": 3000,
+    "criadoEm": "2026-03-14T03:02:17.326Z"
+  },
+  {
+    "id": 4,
+    "nome": "Lucas Castro",
+    "usuario": "Lucas",
+    "senha": "1234",
+    "matricula": "RS-0004",
+    "funcao": "Operador",
+    "telefone": "",
+    "status": "ativo",
+    "meta": 1000,
+    "criadoEm": "2026-03-23T03:39:04.303Z"
+  },
+  {
+    "id": 5,
+    "nome": "CAIO CASTRO",
+    "usuario": "CAIO",
+    "senha": "1234",
+    "matricula": "RS-0005",
+    "funcao": "Operador",
+    "telefone": "",
+    "status": "ativo",
+    "meta": 0,
+    "criadoEm": "2026-04-14T01:33:09.690Z"
+  }
+]

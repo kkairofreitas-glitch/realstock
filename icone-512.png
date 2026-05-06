@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RealStock - Mobile</title>
+
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0a1f3d" />
+  <link rel="apple-touch-icon" href="/icones/icone-192.png" />
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RealStock Coleta">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f4f6f9;
+      color: #333;
+    }
+
+    header {
+      background: #1a3a52;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .usuario-logado {
+      font-size: 0.9rem;
+      margin-top: 5px;
+      color: #cbd5e1;
+    }
+
+    .container {
+      padding: 16px;
+      max-width: 520px;
+      margin: auto;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tab-btn {
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      background: #cbd5e1;
+      color: #1e293b;
+      cursor: pointer;
+    }
+
+    .tab-btn.ativa {
+      background: #1a3a52;
+      color: white;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      color: #1a3a52;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 6px;
+      color: #2d3748;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      border: 1.5px solid #ccc;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      box-sizing: border-box;
+      background: #fff;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #1a3a52;
+      color: white;
+      transition: background 0.2s;
+      margin-bottom: 10px;
+    }
+
+    button:hover {
+      background: #244e6d;
+    }
+
+    .btn-secundario {
+      background: #64748b;
+    }
+
+    .btn-secundario:hover {
+      background: #475569;
+    }
+
+    .btn-alerta {
+      background: #b91c1c;
+    }
+
+    .btn-alerta:hover {
+      background: #991b1b;
+    }
+
+    .mensagem {
+      margin-top: 10px;
+      text-align: center;
+      font-weight: bold;
+      min-height: 22px;
+    }
+
+    .sucesso { color: green; }
+    .erro { color: red; }
+    .info { color: #1d4ed8; }
+
+    .produto-encontrado,
+    .endereco-atual-box,
+    .modo-operacional-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #1e3a8a;
+      min-height: 22px;
+    }
+
+    .status-filtro {
+      font-size: 0.9rem;
+      color: #475569;
+      font-weight: bold;
+      margin-top: 6px;
+    }
+
+    .item {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item strong {
+      color: #2d3748;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .btn-borda {
+  background: #1a3a52 !important;
+  color: #ffffff !important;
+  border: 1.5px solid #1a3a52 !important;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-borda:hover {
+  background: #163246 !important;
+  color: #ffffff !important;
+}
+.btn-borda-secundario:hover,
+.btn-borda-secundario:hover span {
+  background: #475569 !important;
+  color: #ffffff !important;
+}
+
+    .btn-borda-secundario {
+  background: #fff !important;
+  color: #475569 !important;
+  border: 1.5px solid #64748b !important;
+    }
+
+    .btn-borda-secundario:hover {
+      background: #f8fafc !important;
+    }
+
+    .btn-borda-alerta {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  border: 1.5px solid #b91c1c !important;
+    }
+
+    .btn-borda-alerta:hover {
+  background: #991b1b !important;
+  color: #ffffff !important;
+}
+
+    .btn-borda-transmitir {
+  background: #0f766e !important;
+  color: #ffffff !important;
+  border: 1.5px solid #0f766e !important;
+    }
+
+    .btn-borda-transmitir:hover {
+  background: #0d5c55 !important;
+  color: #ffffff !important;
+}
+
+    .icone-borda {
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid currentColor;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 1;
+      background: transparent;
+      flex-shrink: 0;
+    }
+
+    .topo-transmitir {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .resumo-transmissoes {
+      font-size: 0.88rem;
+      color: #64748b;
+      font-weight: bold;
+    }
+
+    .item-acoes {
+      margin-top: 8px;
+    }
+
+    .item-acoes button {
+      margin-bottom: 0;
+    }
+
+    .secondary-btn {
+      background: linear-gradient(180deg,#0f766e,#115e59);
+      border: 1px solid rgba(45,212,191,.35);
+      box-shadow: 0 8px 18px rgba(15,118,110,.18);
+    }
+
+    .secondary-btn:hover {
+      background: linear-gradient(180deg,#109083,#0f766e);
+    }
+
+    .badge-modo {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ecfeff;
+      border: 1px solid #a5f3fc;
+      color: #0f766e;
+      font-size: 0.8rem;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .dica-sem-base {
+      font-size: 0.84rem;
+      line-height: 1.35;
+      color: #64748b;
+      font-weight: bold;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+<header>
+  RealStock - Mobile
+  <div class="usuario-logado">Usuário: <span id="usuarioLogado">...</span></div>
+</header>
+
+<div class="container">
+  <div class="modo-operacional-box" id="modoOperacionalInfo">
+    Carregando modo operacional...
+  </div>
+
+  <div class="tabs" id="tabsContainer">
+    <button type="button" id="tabColetaBtn" class="tab-btn ativa">Coleta</button>
+    <button type="button" id="tabTransmitirBtn" class="tab-btn">Transmitir</button>
+  </div>
+
+  <div id="abaColeta">
+    <div class="card" id="cardFiltroApp">
+      <h3>Filtro do App</h3>
+      <button type="button" id="btnBaixarFiltro" class="btn-borda">
+        <span class="icone-borda">↓</span>
+        <span>Baixar / Atualizar filtro</span>
+      </button>
+      <div id="statusFiltro" class="status-filtro">Nenhum filtro baixado.</div>
+    </div>
+
+    <div class="card">
+      <h3>Abertura do Endereço</h3>
+      <label for="enderecoAtual">Endereço</label>
+      <input
+        type="text"
+        id="enderecoAtual"
+        placeholder="Escaneie ou digite o endereço"
+      >
+      <button type="button" id="btnAbrirEndereco" class="btn-borda">
+        <span class="icone-borda">⌂</span>
+        <span>Abrir endereço</span>
+      </button>
+      <div id="enderecoAbertoInfo" class="endereco-atual-box">Nenhum endereço aberto.</div>
+    </div>
+
+    <div class="card">
+      <h3>Coleta do Endereço</h3>
+
+      <div class="badge-modo" id="badgeModoColeta">Modo com base</div>
+
+      <label for="codigoBusca">EAN ou Código Interno</label>
+      <input
+        type="text"
+        id="codigoBusca"
+        placeholder="Escaneie ou digite o EAN / código interno"
+        disabled
+      >
+
+      <div id="descricaoProduto" class="produto-encontrado">Nenhum produto localizado.</div>
+
+      <label for="modoEntradaSemBase" id="labelModoEntradaSemBase" class="hidden">Modo de entrada</label>
+      <select id="modoEntradaSemBase" class="hidden">
+        <option value="manual" selected>Manual (Enter)</option>
+        <option value="scanner">Scanner (automático)</option>
+      </select>
+
+      <label for="qtdeContada" id="labelQtdeContada">Quantidade</label>
+      <input
+        type="number"
+        id="qtdeContada"
+        placeholder="Digite a quantidade"
+        min="1"
+        disabled
+      >
+
+      <button type="button" id="btnAdicionar" class="btn-borda" disabled>
+        <span class="icone-borda">+</span>
+        <span>Adicionar</span>
+      </button>
+
+      <button type="button" id="btnExcluirUltimo" class="btn-borda btn-borda-secundario" disabled>
+        <span class="icone-borda">↺</span>
+        <span>Excluir último</span>
+      </button>
+
+      <button type="button" id="btnFinalizarEndereco" class="btn-borda btn-borda-alerta" disabled>
+        <span class="icone-borda">□</span>
+        <span>Finalizar endereço</span>
+      </button>
+
+      <div id="dicaSemBase" class="dica-sem-base hidden">
+        No modo sem base, após abrir o endereço, cada leitura é enviada automaticamente para o dashboard. No modo manual, digite e pressione Enter.
+      </div>
+
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div class="card">
+      <h3 id="tituloItensEndereco">Itens do Endereço Atual</h3>
+      <div id="listaItensEndereco"></div>
+    </div>
+  </div>
+
+  <div id="abaTransmitir" class="hidden">
+    <div class="card">
+      <div class="topo-transmitir">
+        <h3>Endereços prontos para transmitir</h3>
+        <div id="resumoTransmissoes" class="resumo-transmissoes">0 endereço(s)</div>
+      </div>
+
+      <button type="button" id="btnTransmitirTodos" class="btn-borda btn-borda-transmitir">
+        <span class="icone-borda">⇈</span>
+        <span>Transmitir todos</span>
+      </button>
+
+      <div id="listaTransmissoesPendentes"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const usuarioLogado = document.getElementById('usuarioLogado');
+
+  const modoOperacionalInfo = document.getElementById('modoOperacionalInfo');
+  const badgeModoColeta = document.getElementById('badgeModoColeta');
+
+  const tabColetaBtn = document.getElementById('tabColetaBtn');
+  const tabTransmitirBtn = document.getElementById('tabTransmitirBtn');
+  const tabsContainer = document.getElementById('tabsContainer');
+  const abaColeta = document.getElementById('abaColeta');
+  const abaTransmitir = document.getElementById('abaTransmitir');
+
+  const cardFiltroApp = document.getElementById('cardFiltroApp');
+  const btnBaixarFiltro = document.getElementById('btnBaixarFiltro');
+  const statusFiltro = document.getElementById('statusFiltro');
+
+  const enderecoAtualInput = document.getElementById('enderecoAtual');
+  const btnAbrirEndereco = document.getElementById('btnAbrirEndereco');
+  const enderecoAbertoInfo = document.getElementById('enderecoAbertoInfo');
+
+  const codigoBusca = document.getElementById('codigoBusca');
+  const descricaoProduto = document.getElementById('descricaoProduto');
+  const qtdeContada = document.getElementById('qtdeContada');
+  const btnAdicionar = document.getElementById('btnAdicionar');
+  const btnExcluirUltimo = document.getElementById('btnExcluirUltimo');
+  const btnFinalizarEndereco = document.getElementById('btnFinalizarEndereco');
+
+  const labelQtdeContada = document.getElementById('labelQtdeContada');
+  const labelModoEntradaSemBase = document.getElementById('labelModoEntradaSemBase');
+  const modoEntradaSemBase = document.getElementById('modoEntradaSemBase');
+  const dicaSemBase = document.getElementById('dicaSemBase');
+  const tituloItensEndereco = document.getElementById('tituloItensEndereco');
+
+  const mensagem = document.getElementById('mensagem');
+  const listaItensEndereco = document.getElementById('listaItensEndereco');
+  const listaTransmissoesPendentes = document.getElementById('listaTransmissoesPendentes');
+  const btnTransmitirTodos = document.getElementById('btnTransmitirTodos');
+  const resumoTransmissoes = document.getElementById('resumoTransmissoes');
+
+  let filtroApp = [];
+  let produtoAtual = null;
+  let enderecoAberto = null;
+  let itensEnderecoAtual = [];
+  let filaTransmissao = [];
+  let modoOperacaoAtual = 'com-base';
+  let leituraSemBaseTimer = null;
+
+  fetch('/quem-sou-eu')
+    .then(res => res.json())
+    .then(data => {
+      usuarioLogado.textContent =
+        data?.usuario?.nome ||
+        data?.usuario?.usuario ||
+        data?.usuario ||
+        data?.nome ||
+        'desconhecido';
+    })
+    .catch(() => {
+      usuarioLogado.textContent = 'erro';
+    });
+
+  async function carregarModoOperacaoMobile() {
+    try {
+      const res = await fetch('/modo-operacao', {
+        credentials: 'same-origin'
+      });
+
+      const data = await res.json();
+
+      modoOperacaoAtual =
+        data?.modoOperacao === 'sem-base' ? 'sem-base' : 'com-base';
+
+      aplicarModoOperacaoMobile();
+    } catch (erro) {
+      modoOperacaoAtual = 'com-base';
+      aplicarModoOperacaoMobile();
+    }
+  }
+
+  function aplicarModoOperacaoMobile() {
+    if (modoOperacaoAtual === 'sem-base') {
+      modoOperacionalInfo.textContent =
+        'Modo operacional ativo: SEM BASE';
+      badgeModoColeta.textContent = 'Modo sem base';
+      cardFiltroApp.classList.add('hidden');
+      tabsContainer.classList.add('hidden');
+      abaTransmitir.classList.add('hidden');
+      abaColeta.classList.remove('hidden');
+
+      descricaoProduto.textContent =
+        'No modo sem base, a leitura vai direto para o dashboard.';
+      labelQtdeContada.classList.add('hidden');
+      qtdeContada.classList.add('hidden');
+      qtdeContada.value = '1';
+
+      btnAdicionar.classList.add('hidden');
+btnExcluirUltimo.classList.add('hidden');
+btnFinalizarEndereco.classList.remove('hidden');
+btnFinalizarEndereco.disabled = !enderecoAberto;
+
+      labelModoEntradaSemBase.classList.remove('hidden');
+      modoEntradaSemBase.classList.remove('hidden');
+      dicaSemBase.classList.remove('hidden');
+
+      tituloItensEndereco.textContent = 'Últimas leituras do endereço';
+    } else {
+      modoOperacionalInfo.textContent =
+        'Modo operacional ativo: COM BASE';
+      badgeModoColeta.textContent = 'Modo com base';
+      cardFiltroApp.classList.remove('hidden');
+      tabsContainer.classList.remove('hidden');
+
+      labelQtdeContada.classList.remove('hidden');
+      qtdeContada.classList.remove('hidden');
+
+      btnAdicionar.classList.remove('hidden');
+      btnExcluirUltimo.classList.remove('hidden');
+      btnFinalizarEndereco.classList.remove('hidden');
+
+      labelModoEntradaSemBase.classList.add('hidden');
+      modoEntradaSemBase.classList.add('hidden');
+      dicaSemBase.classList.add('hidden');
+
+      tituloItensEndereco.textContent = 'Itens do Endereço Atual';
+    }
+
+    produtoAtual = null;
+    codigoBusca.value = '';
+    qtdeContada.value = '';
+    descricaoProduto.textContent = 'Nenhum produto localizado.';
+    renderItensEnderecoAtual();
+    atualizarEstadoColeta();
+  }
+
+  function mostrarAba(nome) {
+    if (nome === 'coleta') {
+      abaColeta.classList.remove('hidden');
+      abaTransmitir.classList.add('hidden');
+      tabColetaBtn.classList.add('ativa');
+      tabTransmitirBtn.classList.remove('ativa');
+    } else {
+      abaColeta.classList.add('hidden');
+      abaTransmitir.classList.remove('hidden');
+      tabColetaBtn.classList.remove('ativa');
+      tabTransmitirBtn.classList.add('ativa');
+    }
+  }
+
+  tabColetaBtn.addEventListener('click', () => mostrarAba('coleta'));
+  tabTransmitirBtn.addEventListener('click', () => mostrarAba('transmitir'));
+
+  function salvarFiltroLocal(dados) {
+    localStorage.setItem('filtroAppInventario', JSON.stringify(dados.itens || []));
+    localStorage.setItem('filtroAppInventarioMeta', JSON.stringify({
+      atualizadoEm: dados.atualizadoEm || null,
+      total: dados.total || 0
+    }));
+  }
+
+  function carregarFiltroLocal() {
+    try {
+      filtroApp = JSON.parse(localStorage.getItem('filtroAppInventario') || '[]');
+      const meta = JSON.parse(localStorage.getItem('filtroAppInventarioMeta') || '{}');
+
+      if (Array.isArray(filtroApp) && filtroApp.length) {
+        statusFiltro.textContent =
+          `Filtro carregado: ${meta.total || filtroApp.length} itens | Atualizado em: ${meta.atualizadoEm || '--'}`;
+      } else {
+        statusFiltro.textContent = 'Nenhum filtro baixado.';
+      }
+    } catch {
+      filtroApp = [];
+      statusFiltro.textContent = 'Erro ao ler filtro local.';
+    }
+  }
+
+  async function baixarFiltro() {
+    if (modoOperacaoAtual === 'sem-base') {
+      statusFiltro.textContent = 'Modo sem base ativo: filtro desabilitado.';
+      return;
+    }
+
+    try {
+      mensagem.textContent = 'Baixando filtro...';
+      mensagem.className = 'mensagem info';
+
+      const res = await fetch('/filtro-app');
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.erro || 'Erro ao baixar filtro.');
+      }
+
+      salvarFiltroLocal(data);
+      carregarFiltroLocal();
+
+      mensagem.textContent = 'Filtro baixado com sucesso.';
+      mensagem.className = 'mensagem sucesso';
+    } catch (erro) {
+      mensagem.textContent = erro.message || 'Erro ao baixar filtro.';
+      mensagem.className = 'mensagem erro';
+    }
+  }
+
+  function localizarProduto(valorDigitado) {
+    const valor = String(valorDigitado || '').trim();
+
+    if (!valor || !Array.isArray(filtroApp) || !filtroApp.length) {
+      return null;
+    }
+
+    return filtroApp.find((item) => {
+      const ean = String(item.codigoBarras || '').trim();
+      const codigo = String(item.codigo || '').trim();
+      return valor === ean || valor === codigo;
+    }) || null;
+  }
+
+  function atualizarDescricaoProduto() {
+    const valor = codigoBusca.value.trim();
+
+    if (modoOperacaoAtual === 'sem-base') {
+      if (!valor) {
+        descricaoProduto.textContent = 'Nenhum código lido.';
+        return;
+      }
+
+      descricaoProduto.textContent = `Leitura pronta: ${valor}`;
+      return;
+    }
+
+    if (!valor) {
+      produtoAtual = null;
+      descricaoProduto.textContent = 'Nenhum produto localizado.';
+      return;
+    }
+
+    const encontrado = localizarProduto(valor);
+
+    if (encontrado) {
+      produtoAtual = encontrado;
+      descricaoProduto.textContent = encontrado.descricao || 'Descrição não encontrada.';
+    } else {
+      produtoAtual = null;
+      descricaoProduto.textContent = 'Produto não encontrado no filtro.';
+    }
+  }
+
+  function renderItensEnderecoAtual() {
+    listaItensEndereco.innerHTML = '';
+
+    if (!itensEnderecoAtual.length) {
+      listaItensEndereco.innerHTML = '<div class="item">Nenhum item neste endereço ainda.</div>';
+      return;
+    }
+
+    itensEnderecoAtual.forEach((item) => {
+      const div = document.createElement('div');
+      div.className = 'item';
+
+      if (modoOperacaoAtual === 'sem-base') {
+        div.innerHTML = `
+          <strong>${item.eanOuCodigo || '--'}</strong>
+          <span>Qtd: ${item.quantidade}</span>
+          <span>Endereço: ${item.enderecoNumero || '--'}</span>
+        `;
+      } else {
+        div.innerHTML = `
+          <strong>${item.descricao}</strong>
+          <span>Qtd: ${item.quantidade}</span>
+          <span>EAN: ${item.codigoBarras || '--'}</span>
+          <span>Código interno: ${item.codigo || '--'}</span>
+        `;
+      }
+
+      listaItensEndereco.appendChild(div);
+    });
+  }
+
+  function atualizarResumoTransmissoes() {
+    if (!resumoTransmissoes) return;
+
+    const total = filaTransmissao.length;
+    resumoTransmissoes.textContent = `${total} endereço(s)`;
+
+    if (btnTransmitirTodos) {
+      btnTransmitirTodos.disabled = total === 0;
+    }
+  }
+
+  function renderFilaTransmissao() {
+    listaTransmissoesPendentes.innerHTML = '';
+
+    if (!filaTransmissao.length) {
+      listaTransmissoesPendentes.innerHTML = '<div class="item">Nenhum endereço pendente de transmissão.</div>';
+      atualizarResumoTransmissoes();
+      return;
+    }
+
+    filaTransmissao.forEach((lote, index) => {
+      const div = document.createElement('div');
+      div.className = 'item';
+      div.innerHTML = `
+        <strong>Endereço: ${lote.enderecoNumero}</strong>
+        <span>Total de itens: ${lote.itens.length}</span>
+        <span>Operador: ${lote.usuario}</span>
+        <span>Data: ${lote.data}</span>
+        <div class="item-acoes">
+          <button type="button" class="btn-borda btn-borda-transmitir" onclick="transmitirEndereco(${index})">
+            <span class="icone-borda">↑</span>
+            <span>Transmitir</span>
+          </button>
+        </div>
+      `;
+      listaTransmissoesPendentes.appendChild(div);
+    });
+
+    atualizarResumoTransmissoes();
+  }
+
+  function atualizarEstadoColeta() {
+    const habilitado = !!enderecoAberto;
+
+    codigoBusca.disabled = !habilitado;
+
+    if (modoOperacaoAtual === 'sem-base') {
+  qtdeContada.disabled = true;
+  btnAdicionar.disabled = true;
+  btnExcluirUltimo.disabled = true;
+
+  // 🔥 AQUI A CORREÇÃO
+  btnFinalizarEndereco.disabled = !enderecoAberto;
+
+  return;
+}
+
+    qtdeContada.disabled = !habilitado;
+    btnAdicionar.disabled = !habilitado;
+    btnExcluirUltimo.disabled = !habilitado || !itensEnderecoAtual.length;
+    btnFinalizarEndereco.disabled = !habilitado || !itensEnderecoAtual.length;
+  }
+
+  function abrirEndereco() {
+    const valor = enderecoAtualInput.value.trim();
+
+    if (!valor) {
+      mensagem.textContent = 'Digite ou escaneie um endereço.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    enderecoAberto = {
+      enderecoNumero: valor
+    };
+
+    itensEnderecoAtual = [];
+    produtoAtual = null;
+    codigoBusca.value = '';
+    qtdeContada.value = '';
+    descricaoProduto.textContent =
+      modoOperacaoAtual === 'sem-base'
+        ? 'Leia um EAN ou código interno.'
+        : 'Nenhum produto localizado.';
+
+    enderecoAbertoInfo.textContent = `Endereço aberto: ${valor}`;
+    mensagem.textContent = 'Endereço aberto com sucesso.';
+    mensagem.className = 'mensagem sucesso';
+
+    renderItensEnderecoAtual();
+    atualizarEstadoColeta();
+    codigoBusca.focus();
+  }
+
+  async function registrarLeituraSemBaseAutomatica(valorInformado) {
+    const valor = String(valorInformado || '').trim();
+
+    if (!enderecoAberto) {
+      mensagem.textContent = 'Abra um endereço antes de coletar.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    if (!valor) {
+      mensagem.textContent = 'Digite ou escaneie um EAN / código interno.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    try {
+      mensagem.textContent = 'Enviando leitura...';
+      mensagem.className = 'mensagem info';
+
+      const pareceEan = /^\d{8,14}$/.test(valor);
+
+      const payload = {
+        enderecoNumero: enderecoAberto.enderecoNumero
+      };
+
+      if (pareceEan) {
+        payload.ean = valor;
+      } else {
+        payload.codigo = valor;
+      }
+
+      const res = await fetch('/sem-base/leitura', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.erro || 'Erro ao registrar leitura.');
+      }
+
+      const item = data?.item || {};
+
+const enderecoAtualResumo = Array.isArray(item.enderecos)
+  ? item.enderecos.find(
+      (e) => String(e.enderecoNumero || "") === String(enderecoAberto.enderecoNumero || "")
+    )
+  : null;
+
+itensEnderecoAtual.unshift({
+  eanOuCodigo: item.ean || item.codigo || valor,
+  quantidade: Number(enderecoAtualResumo?.quantidade || 1),
+  enderecoNumero: enderecoAberto.enderecoNumero
+});
+      if (itensEnderecoAtual.length > 30) {
+        itensEnderecoAtual = itensEnderecoAtual.slice(0, 30);
+      }
+
+      renderItensEnderecoAtual();
+
+      codigoBusca.value = '';
+      descricaoProduto.textContent = 'Leia um próximo EAN ou código interno.';
+      mensagem.textContent = data.mensagem || 'Leitura registrada com sucesso.';
+      mensagem.className = 'mensagem sucesso';
+      codigoBusca.focus();
+    } catch (erro) {
+      mensagem.textContent = erro.message || 'Erro ao registrar leitura.';
+      mensagem.className = 'mensagem erro';
+    }
+  }
+
+  function adicionarItemLocal() {
+    const codigoDigitado = codigoBusca.value.trim();
+    const quantidade = Number(qtdeContada.value) || 0;
+
+    if (!enderecoAberto) {
+      mensagem.textContent = 'Abra um endereço antes de coletar.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    if (!filtroApp.length) {
+      mensagem.textContent = 'Baixe o filtro antes de coletar.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    if (!codigoDigitado) {
+      mensagem.textContent = 'Digite ou escaneie o EAN / código interno.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    if (!produtoAtual) {
+      mensagem.textContent = 'Produto não encontrado no filtro.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    if (quantidade <= 0) {
+      mensagem.textContent = 'Digite uma quantidade válida.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    itensEnderecoAtual.unshift({
+      codigoDigitado,
+      codigoBarras: produtoAtual.codigoBarras || '',
+      codigo: produtoAtual.codigo || '',
+      descricao: produtoAtual.descricao || '',
+      quantidade
+    });
+
+    renderItensEnderecoAtual();
+    codigoBusca.value = '';
+    qtdeContada.value = '';
+    produtoAtual = null;
+    descricaoProduto.textContent = 'Nenhum produto localizado.';
+    atualizarEstadoColeta();
+
+    mensagem.textContent = 'Item adicionado ao endereço.';
+    mensagem.className = 'mensagem sucesso';
+    codigoBusca.focus();
+  }
+
+  function excluirUltimo() {
+    if (!itensEnderecoAtual.length) {
+      mensagem.textContent = 'Não há item para excluir.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    itensEnderecoAtual.shift();
+    renderItensEnderecoAtual();
+    atualizarEstadoColeta();
+
+    mensagem.textContent = 'Último item removido.';
+    mensagem.className = 'mensagem sucesso';
+  }
+
+  async function finalizarEndereco() {
+  if (!enderecoAberto) {
+    mensagem.textContent = 'Abra um endereço antes de finalizar.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+
+  if (modoOperacaoAtual === 'sem-base') {
+    try {
+      mensagem.textContent = 'Finalizando endereço...';
+      mensagem.className = 'mensagem info';
+
+      const res = await fetch('/sem-base/finalizar-endereco', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          enderecoNumero: enderecoAberto.enderecoNumero
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.erro || 'Erro ao finalizar endereço.');
+      }
+
+      enderecoAberto = null;
+      itensEnderecoAtual = [];
+      produtoAtual = null;
+
+      enderecoAtualInput.value = '';
+      codigoBusca.value = '';
+      qtdeContada.value = '';
+      descricaoProduto.textContent = 'Nenhum produto localizado.';
+      enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
+
+      renderItensEnderecoAtual();
+      atualizarEstadoColeta();
+
+      mensagem.textContent =
+  data.mensagem || 'Endereço finalizado com sucesso.';
+mensagem.className = 'mensagem sucesso';
+
+// 🔥 AVISA O DASHBOARD PRA ATUALIZAR
+try {
+  await fetch('/forcar-atualizacao-dashboard', { method: 'POST' });
+} catch (e) {}
+
+return;
+    } catch (erro) {
+      mensagem.textContent = erro.message || 'Erro ao finalizar endereço.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+  }
+
+  if (!itensEnderecoAtual.length) {
+    mensagem.textContent = 'Não há endereço com itens para finalizar.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+
+  const lote = {
+    enderecoNumero: enderecoAberto.enderecoNumero,
+    usuario: usuarioLogado.textContent || 'desconhecido',
+    data: new Date().toLocaleString('pt-BR'),
+    itens: [...itensEnderecoAtual]
+  };
+
+  filaTransmissao.unshift(lote);
+
+  enderecoAberto = null;
+  itensEnderecoAtual = [];
+  produtoAtual = null;
+  enderecoAtualInput.value = '';
+  codigoBusca.value = '';
+  qtdeContada.value = '';
+  descricaoProduto.textContent = 'Nenhum produto localizado.';
+  enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
+
+  renderItensEnderecoAtual();
+  renderFilaTransmissao();
+  atualizarEstadoColeta();
+
+  mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
+  mensagem.className = 'mensagem sucesso';
+}
+
+  async function transmitirTodos() {
+    if (modoOperacaoAtual === 'sem-base') {
+      mensagem.textContent = 'No modo sem base a transmissão é automática.';
+      mensagem.className = 'mensagem info';
+      return;
+    }
+
+    if (!filaTransmissao.length) {
+      mensagem.textContent = 'Não há endereços para transmitir.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    if (btnTransmitirTodos) {
+      btnTransmitirTodos.disabled = true;
+    }
+
+    let transmitidos = 0;
+    let erros = 0;
+
+    const filaCopia = [...filaTransmissao];
+
+    for (const lote of filaCopia) {
+      try {
+        const res = await fetch('/transmitir-endereco', {
+
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            enderecoNumero: lote.enderecoNumero,
+            itens: lote.itens
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.erro || 'Erro ao transmitir endereço.');
+        }
+
+        const indexAtual = filaTransmissao.findIndex(
+          (item) =>
+            item.enderecoNumero === lote.enderecoNumero &&
+            item.data === lote.data
+        );
+
+        if (indexAtual !== -1) {
+          filaTransmissao.splice(indexAtual, 1);
+        }
+
+        transmitidos++;
+        renderFilaTransmissao();
+      } catch (erro) {
+        erros++;
+      }
+    }
+
+    renderFilaTransmissao();
+
+    if (erros === 0) {
+      mensagem.textContent = `Todos os ${transmitidos} endereço(s) foram transmitidos com sucesso.`;
+      mensagem.className = 'mensagem sucesso';
+    } else {
+      mensagem.textContent = `Transmitidos: ${transmitidos} | Falhas: ${erros}`;
+      mensagem.className = 'mensagem erro';
+    }
+  }
+
+  window.transmitirEndereco = async function(index) {
+    if (modoOperacaoAtual === 'sem-base') {
+      mensagem.textContent = 'No modo sem base a transmissão é automática.';
+      mensagem.className = 'mensagem info';
+      return;
+    }
+
+    const lote = filaTransmissao[index];
+
+    if (!lote) {
+      mensagem.textContent = 'Lote não encontrado.';
+      mensagem.className = 'mensagem erro';
+      return;
+    }
+
+    try {
+      mensagem.textContent = 'Transmitindo endereço...';
+      mensagem.className = 'mensagem info';
+
+      const res = await fetch('/transmitir-endereco', {
+
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enderecoNumero: lote.enderecoNumero,
+          itens: lote.itens
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.erro || 'Erro ao transmitir endereço.');
+      }
+
+      filaTransmissao.splice(index, 1);
+      renderFilaTransmissao();
+
+      mensagem.textContent = data.mensagem || 'Endereço transmitido com sucesso.';
+      mensagem.className = 'mensagem sucesso';
+    } catch (erro) {
+      mensagem.textContent = erro.message || 'Erro ao transmitir endereço.';
+      mensagem.className = 'mensagem erro';
+    }
+  };
+
+  btnBaixarFiltro.addEventListener('click', baixarFiltro);
+  btnAbrirEndereco.addEventListener('click', abrirEndereco);
+
+  codigoBusca.addEventListener('input', () => {
+    atualizarDescricaoProduto();
+
+    if (modoOperacaoAtual !== 'sem-base') {
+      return;
+    }
+
+    clearTimeout(leituraSemBaseTimer);
+
+    if (!enderecoAberto) {
+      return;
+    }
+
+    const modoEntrada = String(modoEntradaSemBase?.value || 'scanner');
+
+    if (modoEntrada !== 'scanner') {
+      return;
+    }
+
+    leituraSemBaseTimer = setTimeout(async () => {
+      const valor = String(codigoBusca.value || '').trim();
+      if (!valor) return;
+
+      await registrarLeituraSemBaseAutomatica(valor);
+    }, 120);
+  });
+
+  codigoBusca.addEventListener('keydown', async (e) => {
+    if (modoOperacaoAtual === 'sem-base') {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        await registrarLeituraSemBaseAutomatica(codigoBusca.value);
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      atualizarDescricaoProduto();
+      qtdeContada.focus();
+    }
+  });
+
+  qtdeContada.addEventListener('keydown', (e) => {
+    if (modoOperacaoAtual === 'sem-base') {
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      adicionarItemLocal();
+    }
+  });
+
+  modoEntradaSemBase.addEventListener('change', () => {
+    if (modoOperacaoAtual !== 'sem-base') return;
+
+    const modoAtual = String(modoEntradaSemBase.value || 'scanner');
+
+    if (modoAtual === 'manual') {
+      mensagem.textContent = 'Modo manual ativo: digite e pressione Enter.';
+      mensagem.className = 'mensagem info';
+    } else {
+      mensagem.textContent = 'Modo scanner ativo: bipou, enviou automaticamente.';
+      mensagem.className = 'mensagem info';
+    }
+
+    codigoBusca.value = '';
+    codigoBusca.focus();
+  });
+
+  btnAdicionar.addEventListener('click', async () => {
+    if (modoOperacaoAtual === 'sem-base') {
+      await registrarLeituraSemBaseAutomatica(codigoBusca.value);
+      return;
+    }
+
+    adicionarItemLocal();
+  });
+
+  btnExcluirUltimo.addEventListener('click', excluirUltimo);
+  btnFinalizarEndereco.addEventListener('click', finalizarEndereco);
+
+  if (btnTransmitirTodos) {
+    btnTransmitirTodos.addEventListener('click', transmitirTodos);
+  }
+
+  carregarFiltroLocal();
+  carregarModoOperacaoMobile();
+  renderItensEnderecoAtual();
+  renderFilaTransmissao();
+  atualizarEstadoColeta();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(() => console.log('Service Worker registrado!'))
+      .catch((err) => console.log('Erro SW:', err));
+  }
+</script>
+</body>
+</html>

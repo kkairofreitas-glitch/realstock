@@ -1,0 +1,5 @@
+{
+  "nomePasta": "encerramento-2026-05-03_16-11-38",
+  "snapshotPath": "/home/projects/stackblitz-starters-pchgdvpi/data/encerramentos/encerramento-2026-05-03_16-11-38/snapshot.json",
+  "encerradoEm": "2026-05-03T20:11:38.228Z"
+}
