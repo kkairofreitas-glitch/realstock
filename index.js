@@ -51,7 +51,11 @@ function caminhoPublico(nomeArquivo) {
     return caminhoRaiz;
   }
 
-  return caminhoPublic;
+  if (fs.existsSync(caminhoPublic)) {
+    return caminhoPublic;
+  }
+
+  return caminhoRaiz;
 }
 
 let usuarios = [];
