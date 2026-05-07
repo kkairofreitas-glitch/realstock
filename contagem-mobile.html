@@ -1208,14 +1208,14 @@ return;
     for (const lote of filaCopia) {
       try {
         const res = await fetch('/transmitir-endereco', {
-
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            enderecoNumero: lote.enderecoNumero,
-            itens: lote.itens
-          })
-        });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'same-origin',
+  body: JSON.stringify({
+    enderecoNumero: lote.enderecoNumero,
+    itens: lote.itens
+  })
+});
 
         const data = await res.json();
 
@@ -1271,14 +1271,14 @@ return;
       mensagem.className = 'mensagem info';
 
       const res = await fetch('/transmitir-endereco', {
-
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          enderecoNumero: lote.enderecoNumero,
-          itens: lote.itens
-        })
-      });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'same-origin',
+  body: JSON.stringify({
+    enderecoNumero: lote.enderecoNumero,
+    itens: lote.itens
+  })
+});
 
       const data = await res.json();
 
@@ -1290,7 +1290,11 @@ return;
       renderFilaTransmissao();
 
       mensagem.textContent = data.mensagem || 'Endereço transmitido com sucesso.';
-      mensagem.className = 'mensagem sucesso';
+mensagem.className = 'mensagem sucesso';
+
+mostrarAba('coleta');
+atualizarTelaPorEndereco();
+enderecoAtualInput.focus();
     } catch (erro) {
       mensagem.textContent = erro.message || 'Erro ao transmitir endereço.';
       mensagem.className = 'mensagem erro';
