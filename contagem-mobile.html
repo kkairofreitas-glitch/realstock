@@ -970,7 +970,25 @@ function restaurarEstadoColetaMobile() {
 function limparEstadoColetaMobile() {
   localStorage.removeItem('realstockEstadoColetaMobile');
 }
-  
+function fecharTecladoMobile() {
+  try {
+    const ativo = document.activeElement;
+
+    if (ativo && typeof ativo.blur === 'function') {
+      ativo.blur();
+    }
+
+    codigoBusca?.blur();
+    qtdeContada?.blur();
+    enderecoAtualInput?.blur();
+
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 120);
+  } catch (erro) {
+    console.log('Não foi possível fechar o teclado:', erro);
+  }
+}
   async function abrirEndereco() {
   const valor = enderecoAtualInput.value.trim();
 
@@ -1157,9 +1175,8 @@ itensEnderecoAtual.unshift({
     atualizarEstadoColeta();
 
     mensagem.textContent = 'Item adicionado ao endereço.';
-    mensagem.className = 'mensagem sucesso';
-    codigoBusca.focus();
-  }
+mensagem.className = 'mensagem sucesso';
+fecharTecladoMobile();
 
   function excluirUltimo() {
     if (!itensEnderecoAtual.length) {
@@ -1178,7 +1195,7 @@ itensEnderecoAtual.unshift({
   }
 
   async function finalizarEndereco() {
-    document.activeElement?.blur();
+    fecharTecladoMobile();
   if (!enderecoAberto) {
     mensagem.textContent = 'Abra um endereço antes de finalizar.';
     mensagem.className = 'mensagem erro';
@@ -1262,11 +1279,12 @@ return;
   enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
 
   renderItensEnderecoAtual();
-  renderFilaTransmissao();
-  atualizarEstadoColeta();
-  atualizarTelaPorEndereco();
+renderFilaTransmissao();
+salvarEstadoColetaMobile();
+atualizarEstadoColeta();
+atualizarTelaPorEndereco();
 
-  mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
+mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
   mensagem.className = 'mensagem sucesso';
 }
 
@@ -1463,6 +1481,7 @@ enderecoAtualInput.focus();
   });
 
   btnAdicionar.addEventListener('click', async () => {
+    fecharTecladoMobile();
     if (modoOperacaoAtual === 'sem-base') {
       await registrarLeituraSemBaseAutomatica(codigoBusca.value);
       return;
@@ -1472,7 +1491,10 @@ enderecoAtualInput.focus();
   });
 
   btnExcluirUltimo.addEventListener('click', excluirUltimo);
-  btnFinalizarEndereco.addEventListener('click', finalizarEndereco);
+  btnFinalizarEndereco.addEventListener('click', () => {
+  fecharTecladoMobile();
+  finalizarEndereco();
+});
 
   if (btnTransmitirTodos) {
     btnTransmitirTodos.addEventListener('click', transmitirTodos);
