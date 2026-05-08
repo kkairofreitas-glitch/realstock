@@ -13218,6 +13218,60 @@ preencherFormularioDadosInventario();
 atualizarResumoDadosInventario();
 atualizarPainelOperacaoDashboard();
 
+async function atualizarDashboardCompleto() {
+  if (typeof carregarDados === "function") {
+    await carregarDados();
+  }
+
+  if (typeof carregarAuditoriaImportacao === "function") {
+    await carregarAuditoriaImportacao();
+  }
+
+  if (typeof carregarRankingUsuarios === "function") {
+    await carregarRankingUsuarios();
+  }
+
+  if (typeof atualizarDashboardComEnderecamento === "function") {
+    await atualizarDashboardComEnderecamento();
+  }
+
+  if (typeof carregarEnderecamentosFrontend === "function") {
+    await carregarEnderecamentosFrontend();
+  }
+
+  if (typeof carregarAuditoriaEnderecosDuplicados === "function") {
+    await carregarAuditoriaEnderecosDuplicados();
+  }
+
+  if (typeof atualizarPainelImportacao === "function") {
+    atualizarPainelImportacao();
+  }
+
+  if (typeof atualizarTipoUltimaImportacaoResumo === "function") {
+    atualizarTipoUltimaImportacaoResumo();
+  }
+
+  if (typeof atualizarPainelExportacao === "function") {
+    atualizarPainelExportacao();
+  }
+
+  if (typeof preencherFormularioDadosInventario === "function") {
+    preencherFormularioDadosInventario();
+  }
+
+  if (typeof atualizarResumoDadosInventario === "function") {
+    atualizarResumoDadosInventario();
+  }
+
+  if (typeof atualizarPainelOperacaoDashboard === "function") {
+    atualizarPainelOperacaoDashboard();
+  }
+
+  if (typeof refreshOperationalPanelsOnly === "function") {
+    refreshOperationalPanelsOnly();
+  }
+}
+
 const btnSalvarModoOperacao = document.getElementById("btnSalvarModoOperacao");
 if (btnSalvarModoOperacao) {
   btnSalvarModoOperacao.addEventListener("click", salvarModoOperacaoFront);
@@ -13230,15 +13284,7 @@ if (btnAtualizarPainel) {
       btnAtualizarPainel.disabled = true;
       btnAtualizarPainel.textContent = "Atualizando...";
 
-      await carregarDados();
-
-      if (typeof carregarRankingUsuarios === "function") {
-        await carregarRankingUsuarios();
-      }
-
-      if (typeof atualizarDashboardComEnderecamento === "function") {
-        await atualizarDashboardComEnderecamento();
-      }
+      await atualizarDashboardCompleto();
 
       showToast("Painel atualizado");
     } catch (e) {
@@ -13252,15 +13298,16 @@ if (btnAtualizarPainel) {
 }
 carregarModoOperacaoFront();
 
-carregarDados().then(() => {
-  atualizarDashboardComEnderecamento();
+window.addEventListener("pageshow", async () => {
+  await atualizarDashboardCompleto();
+});
+
+atualizarDashboardCompleto().then(() => {
   showToast('Dados carregados.');
 });
 
 setInterval(() => {
-  refreshOperationalPanelsOnly();
-  atualizarDashboardComEnderecamento();
-  carregarRankingUsuarios();
+  atualizarDashboardCompleto();
 }, 10000);
     </script>
     <div id="auditActionModal" class="audit-action-overlay" aria-hidden="true">

@@ -5879,7 +5879,47 @@ app.post("/finalizar-endereco", autenticar, (req, res) => {
     return res.status(500).json({ erro: "Falha ao finalizar endereço." });
   }
 });
+app.get("/validar-endereco-mobile/:numero", autenticar, (req, res) => {
+  try {
+    carregarEnderecamentos();
 
+    const numero = Number(req.params.numero);
+
+    if (!Number.isFinite(numero) || numero <= 0) {
+      return res.status(400).json({
+        valido: false,
+        erro: "Endereço inválido."
+      });
+    }
+
+    const endereco = buscarEnderecoPorNumero(numero);
+
+    if (!endereco) {
+      return res.status(404).json({
+        valido: false,
+        erro: `Endereço ${numero} não cadastrado.`
+      });
+    }
+
+    return res.json({
+      valido: true,
+      endereco: {
+        id: endereco.id,
+        nome: endereco.nome,
+        tipo: endereco.tipo,
+        inicio: endereco.inicio,
+        fim: endereco.fim,
+        enderecoNumero: numero
+      }
+    });
+  } catch (erro) {
+    console.error("Erro ao validar endereço mobile:", erro);
+    return res.status(500).json({
+      valido: false,
+      erro: "Falha ao validar endereço."
+    });
+  }
+});
 app.get("/enderecamentos", autenticar, (req, res) => {
   res.json(enderecamentos);
 });

@@ -423,7 +423,8 @@
   <button type="button" id="btnMenuMobile" class="menu-btn">⋮</button>
 
   <div id="menuDropdownMobile" class="menu-dropdown hidden">
-    <button type="button" id="btnLogoutMobile">Sair</button>
+  <button type="button" id="btnAtualizarMobile">Atualizar</button>
+  <button type="button" id="btnLogoutMobile">Sair</button>
   </div>
 </div>
 </header>
@@ -541,12 +542,19 @@
 const btnMenuMobile = document.getElementById('btnMenuMobile');
 const menuDropdownMobile = document.getElementById('menuDropdownMobile');
 const btnLogoutMobile = document.getElementById('btnLogoutMobile');
+const btnAtualizarMobile = document.getElementById('btnAtualizarMobile');
 
+btnAtualizarMobile.addEventListener('click', () => {
+  window.location.reload();
+});
 btnMenuMobile.addEventListener('click', () => {
   menuDropdownMobile.classList.toggle('hidden');
 });
 
 btnLogoutMobile.addEventListener('click', () => {
+  limparEstadoColetaMobile();
+  localStorage.removeItem('filtroAppInventario');
+  localStorage.removeItem('filtroAppInventarioMeta');
   window.location.href = '/logout';
 });
 
@@ -917,13 +925,73 @@ btnFinalizarEndereco.disabled = !enderecoAberto;
     btnFinalizarEndereco.disabled = !habilitado || !itensEnderecoAtual.length;
   }
 
-  function abrirEndereco() {
-    const valor = enderecoAtualInput.value.trim();
+  function salvarEstadoColetaMobile() {
+  const estado = {
+    enderecoAberto,
+    itensEnderecoAtual,
+    filaTransmissao,
+    produtoAtual,
+    modoOperacaoAtual,
+    salvoEm: new Date().toISOString()
+  };
 
-    if (!valor) {
-      mensagem.textContent = 'Digite ou escaneie um endereço.';
-      mensagem.className = 'mensagem erro';
-      return;
+  localStorage.setItem('realstockEstadoColetaMobile', JSON.stringify(estado));
+}
+
+function restaurarEstadoColetaMobile() {
+  try {
+    const bruto = localStorage.getItem('realstockEstadoColetaMobile');
+    if (!bruto) return;
+
+    const estado = JSON.parse(bruto);
+
+    enderecoAberto = estado.enderecoAberto || null;
+    itensEnderecoAtual = Array.isArray(estado.itensEnderecoAtual)
+      ? estado.itensEnderecoAtual
+      : [];
+    filaTransmissao = Array.isArray(estado.filaTransmissao)
+      ? estado.filaTransmissao
+      : [];
+
+    if (enderecoAberto?.enderecoNumero) {
+      enderecoAtualInput.value = enderecoAberto.enderecoNumero;
+      enderecoAbertoInfo.textContent = `Endereço aberto: ${enderecoAberto.enderecoNumero}`;
+    }
+
+    renderItensEnderecoAtual();
+    renderFilaTransmissao();
+    atualizarEstadoColeta();
+    atualizarTelaPorEndereco();
+  } catch (erro) {
+    console.error('Erro ao restaurar coleta mobile:', erro);
+  }
+}
+
+function limparEstadoColetaMobile() {
+  localStorage.removeItem('realstockEstadoColetaMobile');
+}
+  
+  async function abrirEndereco() {
+  const valor = enderecoAtualInput.value.trim();
+
+  if (!valor) {
+    mensagem.textContent = 'Digite ou escaneie um endereço.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+
+  try {
+    mensagem.textContent = 'Validando endereço...';
+    mensagem.className = 'mensagem info';
+
+    const res = await fetch(`/validar-endereco-mobile/${encodeURIComponent(valor)}`, {
+      credentials: 'same-origin'
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.valido) {
+      throw new Error(data.erro || 'Endereço não cadastrado.');
     }
 
     enderecoAberto = {
@@ -940,14 +1008,29 @@ btnFinalizarEndereco.disabled = !enderecoAberto;
         : 'Nenhum produto localizado.';
 
     enderecoAbertoInfo.textContent = `Endereço aberto: ${valor}`;
-    mensagem.textContent = 'Endereço aberto com sucesso.';
+    mensagem.textContent = 'Endereço validado e aberto com sucesso.';
     mensagem.className = 'mensagem sucesso';
 
     renderItensEnderecoAtual();
-atualizarEstadoColeta();
-atualizarTelaPorEndereco();
-codigoBusca.focus();
+    salvarEstadoColetaMobile();
+    atualizarEstadoColeta();
+    atualizarTelaPorEndereco();
+    codigoBusca.focus();
+  } catch (erro) {
+    enderecoAberto = null;
+    itensEnderecoAtual = [];
+    produtoAtual = null;
+
+    enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
+    mensagem.textContent = erro.message || 'Endereço não cadastrado.';
+    mensagem.className = 'mensagem erro';
+
+    renderItensEnderecoAtual();
+    atualizarEstadoColeta();
+    atualizarTelaPorEndereco();
+    enderecoAtualInput.focus();
   }
+}
 
   async function registrarLeituraSemBaseAutomatica(valorInformado) {
     const valor = String(valorInformado || '').trim();
@@ -1066,6 +1149,7 @@ itensEnderecoAtual.unshift({
     });
 
     renderItensEnderecoAtual();
+    salvarEstadoColetaMobile();
     codigoBusca.value = '';
     qtdeContada.value = '';
     produtoAtual = null;
@@ -1085,6 +1169,7 @@ itensEnderecoAtual.unshift({
     }
 
     itensEnderecoAtual.shift();
+    salvarEstadoColetaMobile();
     renderItensEnderecoAtual();
     atualizarEstadoColeta();
 
@@ -1093,6 +1178,7 @@ itensEnderecoAtual.unshift({
   }
 
   async function finalizarEndereco() {
+    document.activeElement?.blur();
   if (!enderecoAberto) {
     mensagem.textContent = 'Abra um endereço antes de finalizar.';
     mensagem.className = 'mensagem erro';
@@ -1131,6 +1217,7 @@ itensEnderecoAtual.unshift({
 
       renderItensEnderecoAtual();
 renderFilaTransmissao();
+salvarEstadoColetaMobile();
 atualizarEstadoColeta();
 atualizarTelaPorEndereco();
 
@@ -1392,11 +1479,11 @@ enderecoAtualInput.focus();
   }
 
   carregarFiltroLocal();
-  carregarModoOperacaoMobile();
-  renderItensEnderecoAtual();
-  renderFilaTransmissao();
-  atualizarEstadoColeta();
-
+carregarModoOperacaoMobile();
+restaurarEstadoColetaMobile();
+renderItensEnderecoAtual();
+renderFilaTransmissao();
+atualizarEstadoColeta();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js')
       .then(() => console.log('Service Worker registrado!'))
