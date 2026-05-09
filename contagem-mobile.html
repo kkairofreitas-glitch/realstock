@@ -342,13 +342,40 @@
   z-index: 999;
 }
 
+.menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 44px;
+  width: 150px;
+  background: #ffffff;
+  border: 1px solid #d7e7f7;
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+  padding: 10px;
+  z-index: 999;
+}
+
 .menu-dropdown button {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: bold;
+}
+
+.menu-dropdown button:last-child {
+  margin-bottom: 0;
+}
+
+#btnAtualizarMobile {
+  background: #1a3a52;
+  color: #ffffff;
+}
+
+#btnLogoutMobile {
   background: #b91c1c;
   color: #ffffff;
-  margin: 0;
-  padding: 10px;
-  border-radius: 8px;
-  font-size: 0.9rem;
 }
 #splashScreen {
   position: fixed;
@@ -404,6 +431,27 @@
     transform: rotate(360deg);
   }
 }
+.toast-mobile {
+  position: fixed;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a3a52;
+  color: #ffffff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+  z-index: 999999;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.toast-mobile.show {
+  opacity: 1;
+}
   </style>
 </head>
 <body>
@@ -423,8 +471,16 @@
   <button type="button" id="btnMenuMobile" class="menu-btn">⋮</button>
 
   <div id="menuDropdownMobile" class="menu-dropdown hidden">
-  <button type="button" id="btnAtualizarMobile">Atualizar</button>
-  <button type="button" id="btnLogoutMobile">Sair</button>
+  <button type="button" id="btnBaixarFiltroMenu">Filtro</button>
+  
+
+<button type="button" id="btnAtualizarMobile">
+  Atualizar
+</button>
+
+<button type="button" id="btnLogoutMobile">
+  Sair
+</button>
   </div>
 </div>
 </header>
@@ -439,7 +495,7 @@
   </div>
 
   <div id="abaColeta">
-    <div class="card" id="cardFiltroApp">
+  <div class="card hidden" id="cardFiltroApp">
       <h3>Filtro do App</h3>
       <button type="button" id="btnBaixarFiltro" class="btn-borda">
         <span class="icone-borda">↓</span>
@@ -461,6 +517,7 @@
         <span>Abrir endereço</span>
       </button>
       <div id="enderecoAbertoInfo" class="endereco-atual-box">Nenhum endereço aberto.</div>
+      <div id="mensagemEndereco" class="mensagem"></div>
     </div>
 
     <div class="card hidden" id="cardColetaEndereco">
@@ -543,10 +600,48 @@ const btnMenuMobile = document.getElementById('btnMenuMobile');
 const menuDropdownMobile = document.getElementById('menuDropdownMobile');
 const btnLogoutMobile = document.getElementById('btnLogoutMobile');
 const btnAtualizarMobile = document.getElementById('btnAtualizarMobile');
+const btnBaixarFiltroMenu = document.getElementById('btnBaixarFiltroMenu');
+
 
 btnAtualizarMobile.addEventListener('click', () => {
   window.location.reload();
 });
+
+function mostrarToastMobile(texto) {
+  const toast = document.createElement('div');
+
+  toast.className = 'toast-mobile';
+  toast.textContent = texto;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 50);
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 2200);
+}
+
+btnBaixarFiltroMenu.addEventListener('click', async () => {
+  mostrarToastMobile('Atualizando filtro...');
+
+  await baixarFiltro();
+
+  mostrarToastMobile(
+    statusFiltro.textContent || 'Filtro atualizado.'
+  );
+
+  setTimeout(() => {
+    menuDropdownMobile.classList.add('hidden');
+  }, 500);
+});
+
 btnMenuMobile.addEventListener('click', () => {
   menuDropdownMobile.classList.toggle('hidden');
 });
@@ -586,6 +681,7 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   const enderecoAtualInput = document.getElementById('enderecoAtual');
   const btnAbrirEndereco = document.getElementById('btnAbrirEndereco');
   const enderecoAbertoInfo = document.getElementById('enderecoAbertoInfo');
+  const mensagemEndereco = document.getElementById('mensagemEndereco');
 
   const codigoBusca = document.getElementById('codigoBusca');
   const descricaoProduto = document.getElementById('descricaoProduto');
@@ -615,18 +711,32 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   let leituraSemBaseTimer = null;
 
   fetch('/quem-sou-eu')
-    .then(res => res.json())
-    .then(data => {
-      usuarioLogado.textContent =
-        data?.usuario?.nome ||
-        data?.usuario?.usuario ||
-        data?.usuario ||
-        data?.nome ||
-        'desconhecido';
-    })
-    .catch(() => {
-      usuarioLogado.textContent = 'erro';
-    });
+  .then(res => res.json())
+  .then(data => {
+
+    if (
+      String(data?.usuario?.status || 'ativo')
+        .toLowerCase() === 'inativo'
+    ) {
+
+      limparEstadoColetaMobile();
+
+      alert('Seu usuário foi inativado.');
+
+      window.location.href = '/logout';
+      return;
+    }
+
+    usuarioLogado.textContent =
+      data?.usuario?.nome ||
+      data?.usuario?.usuario ||
+      data?.usuario ||
+      data?.nome ||
+      'desconhecido';
+  })
+  .catch(() => {
+    usuarioLogado.textContent = 'erro';
+  });
 
   async function carregarModoOperacaoMobile() {
     try {
@@ -651,11 +761,7 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   cardColetaEndereco.classList.toggle('hidden', !aberto);
   cardItensEndereco.classList.toggle('hidden', !aberto);
 
-  if (modoOperacaoAtual === 'com-base') {
-    cardFiltroApp.classList.toggle('hidden', !aberto);
-  } else {
-    cardFiltroApp.classList.add('hidden');
-  }
+  cardFiltroApp.classList.add('hidden');
 
   if (!aberto) {
     mostrarAba('coleta');
@@ -692,7 +798,7 @@ btnFinalizarEndereco.disabled = !enderecoAberto;
       modoOperacionalInfo.textContent =
         'Modo operacional ativo: COM BASE';
       badgeModoColeta.textContent = 'Modo com base';
-      cardFiltroApp.classList.remove('hidden');
+      cardFiltroApp.classList.add('hidden');
       tabsContainer.classList.remove('hidden');
 
       labelQtdeContada.classList.remove('hidden');
@@ -999,8 +1105,9 @@ function fecharTecladoMobile() {
   }
 
   try {
-    mensagem.textContent = 'Validando endereço...';
-    mensagem.className = 'mensagem info';
+    mensagemEndereco.textContent = 'Validando endereço...';
+mensagemEndereco.className = 'mensagem info';
+mensagem.textContent = '';
 
     const res = await fetch(`/validar-endereco-mobile/${encodeURIComponent(valor)}`, {
       credentials: 'same-origin'
@@ -1025,9 +1132,11 @@ function fecharTecladoMobile() {
         ? 'Leia um EAN ou código interno.'
         : 'Nenhum produto localizado.';
 
-    enderecoAbertoInfo.textContent = `Endereço aberto: ${valor}`;
-    mensagem.textContent = 'Endereço validado e aberto com sucesso.';
-    mensagem.className = 'mensagem sucesso';
+        enderecoAbertoInfo.textContent = `Endereço aberto: ${valor}`;
+mensagemEndereco.textContent = 'Endereço validado e aberto com sucesso.';
+mensagemEndereco.className = 'mensagem sucesso';
+mensagem.textContent = '';
+mensagem.className = 'mensagem';
 
     renderItensEnderecoAtual();
     salvarEstadoColetaMobile();
@@ -1040,8 +1149,9 @@ function fecharTecladoMobile() {
     produtoAtual = null;
 
     enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
-    mensagem.textContent = erro.message || 'Endereço não cadastrado.';
-    mensagem.className = 'mensagem erro';
+    mensagemEndereco.textContent = erro.message || 'Endereço não cadastrado.';
+mensagemEndereco.className = 'mensagem erro';
+mensagem.textContent = '';
 
     renderItensEnderecoAtual();
     atualizarEstadoColeta();
@@ -1177,8 +1287,9 @@ itensEnderecoAtual.unshift({
     mensagem.textContent = 'Item adicionado ao endereço.';
 mensagem.className = 'mensagem sucesso';
 fecharTecladoMobile();
+}
 
-  function excluirUltimo() {
+function excluirUltimo() {
     if (!itensEnderecoAtual.length) {
       mensagem.textContent = 'Não há item para excluir.';
       mensagem.className = 'mensagem erro';
@@ -1237,7 +1348,7 @@ renderFilaTransmissao();
 salvarEstadoColetaMobile();
 atualizarEstadoColeta();
 atualizarTelaPorEndereco();
-
+mensagemEndereco.textContent = '';
 mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
 mensagem.className = 'mensagem sucesso';
 
@@ -1283,7 +1394,7 @@ renderFilaTransmissao();
 salvarEstadoColetaMobile();
 atualizarEstadoColeta();
 atualizarTelaPorEndereco();
-
+mensagemEndereco.textContent = '';
 mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
   mensagem.className = 'mensagem sucesso';
 }
@@ -1507,7 +1618,7 @@ renderItensEnderecoAtual();
 renderFilaTransmissao();
 atualizarEstadoColeta();
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('/service-worker.js?v=4')
       .then(() => console.log('Service Worker registrado!'))
       .catch((err) => console.log('Erro SW:', err));
   }

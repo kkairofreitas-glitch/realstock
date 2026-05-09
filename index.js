@@ -1078,8 +1078,14 @@ function carregarUsuarios() {
     }
 
     const conteudo = fs.readFileSync(usuariosPath, "utf8");
-    const lidos = JSON.parse(conteudo || "[]");
-    usuarios = Array.isArray(lidos) ? lidos : [];
+const lidos = JSON.parse(conteudo || "[]");
+
+usuarios = Array.isArray(lidos)
+  ? lidos.map((u) => ({
+      ...u,
+      status: u.status || "ativo"
+    }))
+  : [];
   } catch (erro) {
     console.error("Erro ao carregar usuários:", erro);
     usuarios = [];
@@ -1511,6 +1517,18 @@ app.post("/login", (req, res) => {
           )}`
         : "/login?erro=Usuário ou senha inválidos";
 
+    return res.redirect(destinoErro);
+  }
+  if (
+    String(encontrado.status || "ativo").toLowerCase() === "inativo"
+  ) {
+    const destinoErro =
+      redirect && String(redirect).trim() !== ""
+        ? `/login?erro=Usuário inativo. Procure o administrador.&redirect=${encodeURIComponent(
+            String(redirect).trim()
+          )}`
+        : "/login?erro=Usuário inativo. Procure o administrador.";
+  
     return res.redirect(destinoErro);
   }
 
