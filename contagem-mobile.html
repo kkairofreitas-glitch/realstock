@@ -452,7 +452,278 @@
 .toast-mobile.show {
   opacity: 1;
 }
+/* ================================
+   REALSTOCK MOBILE - VISUAL APP
+   ETAPA 1
+================================ */
+
+:root {
+  --rs-navy: #0a1f3d;
+  --rs-blue: #1a3a52;
+  --rs-bg: #eef2f7;
+  --rs-card: #ffffff;
+  --rs-border: #d6d9de;
+  --rs-text: #0f172a;
+  --rs-muted: #64748b;
+  --rs-green: #16a34a;
+  --rs-red: #dc2626;
+}
+
+body {
+  background: var(--rs-bg) !important;
+  color: var(--rs-text) !important;
+  padding-bottom: 82px !important;
+}
+
+/* TOPO COM CARA DE APP */
+header {
+  background: linear-gradient(180deg, #0a1f3d, #123d63) !important;
+  color: #ffffff !important;
+  padding: 18px 16px 20px !important;
+  border-bottom-left-radius: 22px;
+  border-bottom-right-radius: 22px;
+  box-shadow: 0 14px 32px rgba(10, 31, 61, 0.28);
+}
+
+header h1,
+header h2,
+header strong,
+header span,
+header p {
+  color: #ffffff !important;
+}
+
+header h1 {
+  font-size: 1.25rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.03em;
+}
+
+#usuarioLogado,
+.usuario-logado {
+  color: rgba(255,255,255,0.86) !important;
+  font-weight: 700 !important;
+}
+
+/* BOTÃO DOS 3 PONTOS */
+.menu-mobile-btn,
+#btnMenuMobile {
+  background: rgba(255,255,255,0.14) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  border-radius: 12px !important;
+}
+
+/* MENU FLUTUANTE */
+.menu-dropdown {
+  background: #f3f4f6 !important;
+  border: 1px solid #d6d9de !important;
+  border-radius: 18px !important;
+  padding: 10px !important;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28) !important;
+}
+
+.menu-dropdown button {
+  border-radius: 14px !important;
+  margin-bottom: 10px !important;
+  font-weight: 900 !important;
+}
+
+#btnBaixarFiltroMenu,
+#btnAtualizarMobile {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+}
+
+#btnLogoutMobile {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+}
+
+/* CONTAINER GERAL */
+.container,
+main {
+  padding: 16px !important;
+}
+
+/* CARDS */
+.card {
+  background: var(--rs-card) !important;
+  border: 1px solid var(--rs-border) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08) !important;
+  padding: 16px !important;
+  margin-bottom: 16px !important;
+}
+
+/* TÍTULOS DOS CARDS */
+.card h2,
+.card h3,
+.card-title {
+  color: var(--rs-navy) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em;
+}
+
+/* MODO OPERACIONAL */
+.modo-operacional-box {
+  background: #f1f3f5 !important;
+  border: 1.5px solid #000000 !important;
+  border-radius: 14px !important;
+  color: var(--rs-navy) !important;
+  font-weight: 900 !important;
+}
+
+/* ABAS COLETA / TRANSMITIR */
+.tabs,
+.abas,
+.tab-buttons {
+  background: #dbe3ef !important;
+  border-radius: 16px !important;
+  padding: 5px !important;
+}
+
+.tabs button,
+.abas button,
+.tab-buttons button,
+.btn-aba {
+  border-radius: 13px !important;
+  font-weight: 900 !important;
+}
+
+.tabs button.active,
+.abas button.active,
+.tab-buttons button.active,
+.btn-aba.active {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+}
+
+/* INPUTS */
+input,
+select,
+textarea {
+  border-radius: 14px !important;
+  border: 1.5px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: var(--rs-text) !important;
+  font-weight: 700 !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #1a3a52 !important;
+  box-shadow: 0 0 0 4px rgba(26, 58, 82, 0.14) !important;
+  outline: none !important;
+}
+
+/* BOTÕES PRINCIPAIS */
+button {
+  border-radius: 14px !important;
+}
+
+button:not(.menu-mobile-btn):not(#btnMenuMobile) {
+  font-weight: 900 !important;
+}
+
+.btn-primary,
+button[id*="Abrir"],
+button[id*="Adicionar"],
+button[id*="Coletar"] {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+}
+
+/* FINALIZAR */
+button[id*="Finalizar"],
+.btn-finalizar {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+}
+
+/* CAIXAS DE MENSAGEM */
+.mensagem,
+.produto-encontrado,
+.endereco-atual-box {
+  background: #f1f3f5 !important;
+  border: 1.5px solid #000000 !important;
+  border-radius: 14px !important;
+  color: #374151 !important;
+  font-weight: 800 !important;
+}
+
+/* TOAST */
+.toast-mobile {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+  border-radius: 16px !important;
+  box-shadow: 0 14px 35px rgba(10, 31, 61, 0.32) !important;
+}
+
+/* MENU INFERIOR FIXO */
+.mobile-bottom-nav {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  height: 64px;
+  background: linear-gradient(180deg, #0a1f3d, #07182f);
+  border-radius: 22px;
+  box-shadow: 0 18px 45px rgba(10, 31, 61, 0.38);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  z-index: 99999;
+  overflow: hidden;
+}
+
+.mobile-bottom-nav button {
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.78);
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 0 !important;
+}
+
+.mobile-bottom-nav button i {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.mobile-bottom-nav button small {
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.mobile-bottom-nav button.active {
+  background: rgba(59, 130, 246, 0.28);
+  color: #ffffff;
+}
+
+/* ANIMAÇÃO SUAVE */
+.card,
+button,
+input,
+.menu-dropdown {
+  transition: all 0.22s ease !important;
+}
+
+button:active {
+  transform: scale(0.98);
+}
   </style>
+  <link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+/>
 </head>
 <body>
   <div id="splashScreen">
@@ -594,7 +865,29 @@
     </div>
   </div>
 </div>
+<nav class="mobile-bottom-nav">
 
+<button type="button" class="active" onclick="mostrarAba('coleta')">
+  <i class="fas fa-barcode"></i>
+  <small>Coleta</small>
+</button>
+
+<button type="button" onclick="mostrarAba('transmitir')">
+  <i class="fas fa-cloud-upload-alt"></i>
+  <small>Transmitir</small>
+</button>
+
+<button type="button" onclick="document.getElementById('btnBaixarFiltroMenu')?.click()">
+  <i class="fas fa-filter"></i>
+  <small>Filtro</small>
+</button>
+
+<button type="button" onclick="document.getElementById('btnMenuMobile')?.click()">
+  <i class="fas fa-ellipsis-h"></i>
+  <small>Mais</small>
+</button>
+
+</nav>
 <script>
 const btnMenuMobile = document.getElementById('btnMenuMobile');
 const menuDropdownMobile = document.getElementById('menuDropdownMobile');
@@ -1610,6 +1903,8 @@ enderecoAtualInput.focus();
   if (btnTransmitirTodos) {
     btnTransmitirTodos.addEventListener('click', transmitirTodos);
   }
+
+  
 
   carregarFiltroLocal();
 carregarModoOperacaoMobile();

@@ -4541,13 +4541,920 @@
 .btn-refresh:hover {
   background: rgba(22, 47, 74, 0.08);
 }
+/* ================================
+   REALSTOCK - REFINO VISUAL DASHBOARD
+   ETAPA 1
+================================ */
+
+:root {
+  --rs-bg: #eef2f7;
+  --rs-card: #ffffff;
+  --rs-navy: #0a1f3d;
+  --rs-blue: #1a3a52;
+  --rs-green: #16a34a;
+  --rs-red: #dc2626;
+  --rs-yellow: #f59e0b;
+  --rs-muted: #64748b;
+  --rs-line: #dbe3ef;
+  --rs-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+/* fundo geral */
+body {
+  background: var(--rs-bg) !important;
+}
+
+/* área principal */
+#tabs-shell {
+  background: var(--rs-bg) !important;
+  padding: 18px 28px 32px 28px !important;
+}
+
+/* container principal */
+.container {
+  padding: 0 !important;
+}
+
+/* topo do dashboard */
+.page-head {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border: 1px solid var(--rs-line);
+  border-radius: 18px;
+  padding: 18px 22px;
+  margin-bottom: 16px;
+  box-shadow: var(--rs-shadow);
+}
+
+.page-title {
+  border-left: none !important;
+  padding-left: 0 !important;
+  color: var(--rs-navy) !important;
+  font-size: 1.45rem !important;
+  letter-spacing: -0.03em;
+}
+
+.page-sub {
+  color: var(--rs-muted) !important;
+  font-size: 0.92rem !important;
+}
+
+/* modo operacional mais compacto */
+#modoOperacionalCard {
+  background: #ffffff !important;
+  border: 1px solid var(--rs-line) !important;
+  box-shadow: var(--rs-shadow) !important;
+  border-radius: 18px !important;
+  padding: 14px 18px !important;
+  margin-bottom: 16px !important;
+}
+
+#modoOperacionalCard .layout-config-head h3 {
+  color: var(--rs-muted) !important;
+  font-size: 0.72rem !important;
+  margin-bottom: 8px !important;
+}
+
+.modo-operacional-grid {
+  gap: 10px !important;
+}
+
+.modo-opcao {
+  border-radius: 999px !important;
+  padding: 9px 14px !important;
+  background: #f8fafc !important;
+  border: 1px solid var(--rs-line) !important;
+}
+
+.modo-opcao:has(input:checked) {
+  background: #e8f1ff !important;
+  border-color: #1a3a52 !important;
+  color: #0a1f3d !important;
+}
+
+#statusModoOperacao {
+  margin-top: 10px !important;
+  color: var(--rs-blue) !important;
+}
+
+/* dados do cliente */
+.operation-info-bar {
+  background: #ffffff;
+  border: 1px solid var(--rs-line) !important;
+  border-radius: 18px;
+  padding: 18px !important;
+  margin-bottom: 18px !important;
+  box-shadow: var(--rs-shadow);
+  gap: 14px 20px !important;
+}
+
+.operation-item {
+  background: #f8fafc;
+  border: 1px solid #e5edf7;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.operation-item span {
+  color: var(--rs-muted) !important;
+  font-size: 0.68rem !important;
+}
+
+.operation-item b {
+  color: var(--rs-navy) !important;
+  font-size: 1rem !important;
+}
+
+/* cards principais */
+.dashboard-metrics {
+  gap: 14px !important;
+  margin-bottom: 18px !important;
+}
+
+.metric-card {
+  background: #ffffff !important;
+  border: 1px solid var(--rs-line) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--rs-shadow) !important;
+  min-height: 132px !important;
+  padding: 18px 16px !important;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12) !important;
+}
+
+.metric-card .ico {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 18px !important;
+  background: #f8fafc !important;
+  box-shadow: none !important;
+}
+
+.metric-card .label {
+  font-size: 0.9rem !important;
+  color: var(--rs-muted) !important;
+}
+
+.metric-card .value {
+  font-size: 1.55rem !important;
+  color: var(--rs-navy) !important;
+}
+
+/* cards/blocos gerais */
+.card,
+.panel,
+.dashboard-card,
+.layout-config-card {
+  border-radius: 20px !important;
+  border: 1px solid var(--rs-line) !important;
+  box-shadow: var(--rs-shadow) !important;
+}
+
+/* botões */
+.save-btn,
+.btn-refresh {
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+}
+
+.save-btn {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+}
+
+.btn-refresh {
+  background: #ffffff !important;
+  border: 1px solid var(--rs-line) !important;
+  color: var(--rs-navy) !important;
+}
+
+/* sidebar mais premium */
+.sidebar {
+  background: linear-gradient(180deg, #07182f, #0a1f3d 55%, #061527) !important;
+}
+
+.sidebar-item {
+  border-radius: 14px !important;
+}
+
+.sidebar-item.active {
+  background: linear-gradient(135deg, #1d4ed8, #1a3a52) !important;
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.25) !important;
+}
+
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+/* ================================
+   REALSTOCK - STATUS E AÇÕES
+   ETAPA 2
+================================ */
+
+/* status ativo/inativo */
+.status-ativo,
+.badge-ativo,
+.usuario-ativo {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #86efac !important;
+  font-size: 0.78rem !important;
+  font-weight: 900 !important;
+}
+
+.status-inativo,
+.badge-inativo,
+.usuario-inativo {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fca5a5 !important;
+  font-size: 0.78rem !important;
+  font-weight: 900 !important;
+}
+
+/* botões de ação positiva */
+.btn-ativar,
+button[data-action="ativar"],
+button[onclick*="ativar"] {
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 900 !important;
+}
+
+/* botões de ação perigosa */
+.btn-inativar,
+.btn-danger,
+button[data-action="inativar"],
+button[onclick*="inativar"],
+button[onclick*="excluir"],
+button[onclick*="remover"] {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 900 !important;
+}
+
+/* hover */
+.btn-ativar:hover,
+button[data-action="ativar"]:hover,
+button[onclick*="ativar"]:hover {
+  background: linear-gradient(180deg, #16a34a, #15803d) !important;
+}
+
+.btn-inativar:hover,
+.btn-danger:hover,
+button[data-action="inativar"]:hover,
+button[onclick*="inativar"]:hover,
+button[onclick*="excluir"]:hover,
+button[onclick*="remover"]:hover {
+  background: linear-gradient(180deg, #dc2626, #991b1b) !important;
+}
+
+/* botões pequenos dentro de tabelas/listas */
+table button,
+.user-list button,
+.operadores-list button,
+.lista-operadores button {
+  min-height: 34px;
+  padding: 8px 12px !important;
+  font-size: 0.82rem !important;
+  border-radius: 10px !important;
+}
+
+/* linhas de usuários */
+.usuario-card,
+.operador-card,
+.user-row {
+  border-radius: 14px !important;
+  border: 1px solid #dbe3ef !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* destaque visual para operador inativo */
+.usuario-card.inativo,
+.operador-card.inativo,
+.user-row.inativo {
+  background: #fff7f7 !important;
+  border-color: #fca5a5 !important;
+}
+/* ================================
+   REALSTOCK - PADRONIZAÇÃO DE MODAIS
+   ETAPA 3
+================================ */
+
+/* fundo dos modais */
+.modal,
+.modal-overlay,
+.audit-action-overlay,
+[id^="modal"],
+[class*="modal-overlay"] {
+  backdrop-filter: blur(6px) !important;
+}
+
+/* caixa principal dos modais */
+.modal-box,
+.modal-content,
+.audit-action-box,
+.pdf-modal-box,
+[class*="modal-box"],
+[class*="modal-content"] {
+  border-radius: 22px !important;
+  border: 1px solid #dbe3ef !important;
+  background: #ffffff !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28) !important;
+  overflow: hidden !important;
+}
+
+/* cabeçalho dos modais */
+.modal-header,
+.modal-head,
+.audit-action-head,
+.pdf-modal-header,
+[class*="modal-header"],
+[class*="modal-head"] {
+  background: linear-gradient(135deg, #0a1f3d, #1a3a52) !important;
+  color: #ffffff !important;
+  padding: 18px 22px !important;
+  border-bottom: none !important;
+}
+
+/* títulos */
+.modal-header h2,
+.modal-header h3,
+.modal-head h2,
+.modal-head h3,
+.audit-action-head h2,
+.audit-action-head h3,
+.pdf-modal-header h2,
+.pdf-modal-header h3,
+[class*="modal-header"] h2,
+[class*="modal-header"] h3,
+[class*="modal-head"] h2,
+[class*="modal-head"] h3 {
+  color: #ffffff !important;
+  margin: 0 !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* subtítulos */
+.modal-header p,
+.modal-head p,
+.audit-action-head p,
+.pdf-modal-header p,
+[class*="modal-header"] p,
+[class*="modal-head"] p {
+  color: rgba(255,255,255,0.76) !important;
+  margin-top: 5px !important;
+  font-weight: 700 !important;
+}
+
+/* corpo dos modais */
+.modal-body,
+.modal-main,
+.audit-action-body,
+.pdf-modal-content,
+[class*="modal-body"],
+[class*="modal-main"] {
+  background: #f8fafc !important;
+  padding: 20px !important;
+}
+
+/* rodapé dos modais */
+.modal-footer,
+.audit-action-footer,
+.pdf-modal-footer,
+[class*="modal-footer"] {
+  background: #ffffff !important;
+  border-top: 1px solid #e5e7eb !important;
+  padding: 16px 20px !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+}
+
+/* botão fechar */
+.modal-close,
+.close-modal,
+.btn-fechar,
+[class*="modal-close"],
+button[aria-label="Fechar"] {
+  background: rgba(255,255,255,0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  border-radius: 12px !important;
+  width: 42px !important;
+  height: 42px !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+}
+
+.modal-close:hover,
+.close-modal:hover,
+.btn-fechar:hover,
+[class*="modal-close"]:hover,
+button[aria-label="Fechar"]:hover {
+  background: rgba(255,255,255,0.22) !important;
+}
+
+/* cards internos dos modais */
+.modal-card,
+.modal-mini-card,
+.inventory-form-card,
+.inventory-resume-card,
+.layout-salvo-card,
+.inventory-summary-item,
+.usuario-card,
+.endereco-card {
+  border-radius: 16px !important;
+  border: 1px solid #dbe3ef !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07) !important;
+}
+
+/* inputs dentro dos modais */
+.modal-content input,
+.modal-content select,
+.modal-content textarea,
+.modal-body input,
+.modal-body select,
+.modal-body textarea,
+.audit-action-box input,
+.audit-action-box select,
+.audit-action-box textarea,
+[class*="modal"] input,
+[class*="modal"] select,
+[class*="modal"] textarea {
+  border-radius: 12px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.modal-content input:focus,
+.modal-content select:focus,
+.modal-content textarea:focus,
+.modal-body input:focus,
+.modal-body select:focus,
+.modal-body textarea:focus,
+[class*="modal"] input:focus,
+[class*="modal"] select:focus,
+[class*="modal"] textarea:focus {
+  border-color: #1a3a52 !important;
+  box-shadow: 0 0 0 4px rgba(26, 58, 82, 0.12) !important;
+  outline: none !important;
+}
+
+/* botões principais dentro dos modais */
+.modal-footer button,
+.audit-action-footer button,
+.pdf-modal-footer button,
+[class*="modal-footer"] button {
+  border-radius: 12px !important;
+  padding: 10px 16px !important;
+  font-weight: 900 !important;
+}
+
+/* botão principal */
+.modal-footer button:first-child,
+.audit-action-footer button:first-child,
+.pdf-btn-primary {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+}
+
+/* botão secundário */
+.pdf-btn-outline,
+.modal-footer button:last-child {
+  background: #ffffff !important;
+  color: #0a1f3d !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* ações perigosas */
+.modal-footer .btn-danger,
+.audit-action-footer .btn-danger,
+button[onclick*="excluir"],
+button[onclick*="remover"],
+button[onclick*="inativar"] {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+}
+
+/* scroll interno mais bonito */
+.modal-body,
+.modal-content,
+.audit-action-body,
+.pdf-modal-content {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #e5e7eb;
+}
+
+.modal-body::-webkit-scrollbar,
+.modal-content::-webkit-scrollbar,
+.audit-action-body::-webkit-scrollbar,
+.pdf-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-thumb,
+.modal-content::-webkit-scrollbar-thumb,
+.audit-action-body::-webkit-scrollbar-thumb,
+.pdf-modal-content::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+
+.modal-body::-webkit-scrollbar-track,
+.modal-content::-webkit-scrollbar-track,
+.audit-action-body::-webkit-scrollbar-track,
+.pdf-modal-content::-webkit-scrollbar-track {
+  background: #e5e7eb;
+}
+/* ================================
+   REALSTOCK - REFINO VISUAL AVANÇADO
+   ETAPA 4 - TABELAS / SIDEBAR / TOASTS
+================================ */
+
+/* TABELAS PREMIUM */
+.tabela-container,
+.preview-table-wrap {
+  border-radius: 18px !important;
+  border: 1px solid #dbe3ef !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
+  background: #ffffff !important;
+  overflow: auto !important;
+}
+
+table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+thead th {
+  background: linear-gradient(180deg, #0a1f3d, #1a3a52) !important;
+  color: #ffffff !important;
+  font-size: 0.78rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.45px !important;
+  font-weight: 900 !important;
+  padding: 13px 14px !important;
+}
+
+tbody td {
+  padding: 12px 14px !important;
+  font-size: 0.86rem !important;
+  color: #1f2937 !important;
+  border-bottom: 1px solid #edf2f7 !important;
+}
+
+tbody tr:nth-child(even) td {
+  background: #f8fafc !important;
+}
+
+tbody tr:hover td {
+  background: #eaf3ff !important;
+}
+
+/* BADGES OPERACIONAIS */
+.badge,
+.chip,
+.importacao-badge,
+.forecast-badge {
+  border-radius: 999px !important;
+  padding: 7px 11px !important;
+  font-size: 0.74rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.25px !important;
+}
+
+.chip.pos,
+.badge-ok,
+.status-ok,
+.status-concluido {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #86efac !important;
+}
+
+.chip.neg,
+.badge-erro,
+.status-erro,
+.status-divergente {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fca5a5 !important;
+}
+
+.chip.neu,
+.badge-pendente,
+.status-pendente {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border: 1px solid #fcd34d !important;
+}
+
+/* ALERTAS DO DASHBOARD */
+.alerts-card,
+.progress-card,
+.dashboard-coluna,
+.main-content {
+  border-radius: 22px !important;
+  border: 1px solid #dbe3ef !important;
+  background: #ffffff !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08) !important;
+}
+
+.dashboard-header,
+.progress-top h3 {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  color: #0a1f3d !important;
+  font-size: 1rem !important;
+}
+
+/* LISTAS INTERNAS */
+.caixa-lista {
+  background: #f8fafc !important;
+}
+
+.caixa-lista > div,
+.ranking-item,
+.alert-item {
+  border-radius: 16px !important;
+  border: 1px solid #dbe3ef !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05) !important;
+}
+
+.caixa-lista > div:hover,
+.ranking-item:hover,
+.alert-item:hover {
+  transform: translateY(-2px) !important;
+  background: #f0f7ff !important;
+  border-color: #bfdbfe !important;
+}
+
+/* SIDEBAR MAIS REFINADA */
+#sidebar {
+  background: linear-gradient(180deg, #061527 0%, #0a1f3d 55%, #07182f 100%) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+.sidebar-logo {
+  padding-bottom: 18px !important;
+}
+
+.sidebar-logo img {
+  border-radius: 18px !important;
+  box-shadow: 0 18px 36px rgba(0,0,0,0.25) !important;
+}
+
+.sidebar-item {
+  position: relative !important;
+  border-radius: 14px !important;
+  padding: 13px 15px !important;
+  color: #e5eef8 !important;
+}
+
+.sidebar-item i {
+  color: #93c5fd !important;
+}
+
+.sidebar-item.active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 999px;
+  background: #38bdf8;
+}
+
+.sidebar-item.active {
+  background: rgba(255,255,255,0.14) !important;
+}
+
+.sidebar-item:hover {
+  background: rgba(255,255,255,0.10) !important;
+}
+
+/* TOASTS MAIS PROFISSIONAIS */
+.toast,
+.toast-sistema {
+  border-radius: 16px !important;
+  background: #0f172a !important;
+  color: #ffffff !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.28) !important;
+  border-left: 5px solid #3b82f6 !important;
+}
+
+.toast-sistema.sucesso {
+  border-left-color: #22c55e !important;
+}
+
+.toast-sistema.erro {
+  border-left-color: #ef4444 !important;
+}
+
+.toast-sistema.aviso {
+  border-left-color: #f59e0b !important;
+}
+
+/* INPUTS E FILTROS */
+.filter-actions-bar {
+  background: #ffffff !important;
+  border-radius: 18px 18px 0 0 !important;
+  border-bottom: 1px solid #dbe3ef !important;
+}
+
+.filter-input,
+.filter-select,
+.input-busca {
+  border-radius: 12px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.filter-input:focus,
+.filter-select:focus,
+.input-busca:focus {
+  border-color: #1a3a52 !important;
+  box-shadow: 0 0 0 4px rgba(26, 58, 82, 0.12) !important;
+}
+
+/* ANIMAÇÕES SUAVES */
+.metric-card,
+.alerts-card,
+.progress-card,
+.dashboard-coluna,
+.main-content,
+.ranking-item,
+.alert-item,
+.caixa-lista > div,
+.sidebar-item,
+button {
+  transition: all 0.22s ease !important;
+}
+
+/* BOTÕES GERAIS */
+button {
+  border-radius: 12px !important;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+/* RESPONSIVIDADE DO DASHBOARD */
+@media (max-width: 900px) {
+  #tabs-shell {
+    padding: 14px !important;
+  }
+
+  .page-head {
+    padding: 16px !important;
+  }
+
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(140px, 1fr)) !important;
+  }
+
+  .metric-card {
+    min-height: 118px !important;
+  }
+}
+/* ================================
+   CORREÇÃO SCROLL MODAIS + PDF ENDEREÇO
+================================ */
+
+/* libera a rolagem dos modais */
+.modal-box,
+.modal-content,
+.modal-body,
+.audit-action-box,
+.audit-action-body,
+.pdf-modal-box,
+.pdf-modal-content {
+  overflow: visible !important;
+}
+
+/* conteúdo dos modais com rolagem */
+.modal-content,
+.modal-body,
+.audit-action-body,
+.arq-modal-content,
+#modalDadosInventario .modal-content,
+#modalEnderecamento .modal-content,
+#modalUsuarios .modal-content {
+  max-height: calc(100vh - 180px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 12px !important;
+}
+
+/* modal inteiro não pode cortar conteúdo */
+.modal-box,
+.audit-action-box {
+  max-height: calc(100vh - 60px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* cabeçalho fixo e corpo rolável */
+.modal-head,
+.modal-header,
+.audit-action-head {
+  flex: 0 0 auto !important;
+}
+
+.modal-content,
+.modal-body,
+.audit-action-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+/* corrigir modal de colunas PDF */
+#modal-pdf-colunas .pdf-modal-content {
+  max-height: calc(100vh - 180px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* padronizar todos os labels/itens do PDF, incluindo Endereço */
+#modal-pdf-colunas label,
+#modal-pdf-colunas .pdf-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 14px 15px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(201, 216, 234, 0.95) !important;
+  border-radius: 14px !important;
+  font-weight: 800 !important;
+  color: #16324f !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
+  cursor: pointer !important;
+}
+
+/* checkbox do PDF */
+#modal-pdf-colunas label input[type="checkbox"],
+#modal-pdf-colunas .pdf-item input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  accent-color: #162f4a !important;
+  flex: 0 0 auto !important;
+}
+
+/* grid do PDF */
+#modal-pdf-colunas .pdf-columns-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px 16px !important;
+}
+.usuario-actions button[onclick*="ativarUsuario"],
+.usuario-actions button[onclick*="ativar"],
+button.ativar,
+.btn-ativar {
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+  color: #ffffff !important;
+}
+
+.usuario-actions button[onclick*="inativarUsuario"],
+.usuario-actions button[onclick*="inativar"],
+button.inativar,
+.btn-inativar {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+}
     </style>
   </head>
 
   <body>
     <aside id="sidebar" aria-label="Menu lateral">
       <div class="sidebar-logo">
-      <img src="/logo-realstock.jpg" alt="Logo RealStock Inventário" />
+      <img src="/logo-realstock.jpg?v=2" alt="Logo RealStock Inventário" />
       </div>
      
       <nav class="sidebar-menu">

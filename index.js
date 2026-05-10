@@ -1498,6 +1498,10 @@ function carregarProdutosDoBanco(callback = null) {
     if (callback) callback();
   });
 }
+app.get("/logo-realstock.jpg", (req, res) => {
+  res.sendFile(path.join(__dirname, "logo-realstock.jpg"));
+});
+
 app.get("/login", (req, res) =>
 res.sendFile(caminhoPublico("login.html"))
 );
@@ -2364,12 +2368,14 @@ app.post("/importar-txt", autenticar, async (req, res) => {
     itemAuditoriaAtual = null;
 
     inventario = itensUnicosImportados;
-    salvarProdutosNoBanco(inventario);
+salvarProdutosNoBanco(inventario);
 
-    tipoUltimaImportacao = "Importação base";
-    salvarEnderecamentos();
-    broadcastInventario();
+modoOperacao = "com-base";
+salvarModoOperacao();
 
+tipoUltimaImportacao = "Importação base";
+salvarEnderecamentos();
+broadcastInventario();
     fs.unlinkSync(caminhoTemporario);
 
     res.redirect("/");
