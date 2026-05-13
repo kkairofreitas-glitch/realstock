@@ -1,9 +1,7 @@
-const CACHE_NAME = "realstock-offline-v4";
+const CACHE_NAME = "realstock-offline-v6";
 
 const URLS_TO_CACHE = [
-  "/coleta-mobile",
   "/manifest.json",
-  "/service-worker.js",
   "/icone-192.png",
   "/icone-512.png"
 ];
@@ -41,13 +39,7 @@ self.addEventListener("fetch", (event) => {
 
   if (url.pathname === "/coleta-mobile") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => caches.match(request))
+      fetch(request).catch(() => caches.match("/coleta-mobile-offline"))
     );
     return;
   }
@@ -55,8 +47,7 @@ self.addEventListener("fetch", (event) => {
   if (
     url.pathname === "/manifest.json" ||
     url.pathname === "/icone-192.png" ||
-    url.pathname === "/icone-512.png" ||
-    url.pathname === "/service-worker.js"
+    url.pathname === "/icone-512.png"
   ) {
     event.respondWith(
       caches.match(request).then((cached) => cached || fetch(request))
@@ -64,7 +55,5 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    fetch(request).catch(() => caches.match(request))
-  );
+  event.respondWith(fetch(request));
 });

@@ -28,7 +28,7 @@
         --shadow: 0 10px 30px rgba(10, 31, 61, 0.1);
         --shadow-soft: 0 6px 18px rgba(10, 31, 61, 0.1);
         --radius: 14px;
-        --sidebar-w: 280px;
+        --sidebar-w: 230px;
       }
 
       * {
@@ -446,8 +446,8 @@
 
 .card-produtos .ico { color: #334155; }      /* Total de Produtos */
 .card-congelado .ico { color: #334155; }     /* Valor Congelado */
-.card-contado .ico { color: #16a34a; }       /* Valor Contado */
-.card-itens .ico { color: #16a34a; }        /* Itens Contados */
+.card-contado .ico { color: #334155; }       /* Valor Contado */
+.card-itens .ico { color: #334155; }      /* Itens Contados */
 .card-divergencia .ico { color: #be123c; }   /* Itens com Divergência */
 .card-valor-div .ico { color: #be123c; }     /* Valor Divergente */
 
@@ -5447,6 +5447,258 @@ button.inativar,
 .btn-inativar {
   background: linear-gradient(180deg, #ef4444, #dc2626) !important;
   color: #ffffff !important;
+}
+/* FORÇA BOTÃO ATIVAR VERDE */
+button.btn-ativar,
+.usuario-actions button.btn-ativar,
+button[class*="btn-ativar"] {
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+/* FORÇA BOTÃO INATIVAR VERMELHO */
+button.btn-inativar,
+.usuario-actions button.btn-inativar,
+button[class*="btn-inativar"] {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+/* =========================================
+   MODAL ENCERRAMENTO - PADRÃO REALSTOCK
+   usar com o HTML atual do sistema
+========================================= */
+
+#modalEncerramento {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10080 !important;
+  background: rgba(15, 23, 42, 0.52) !important;
+  backdrop-filter: blur(6px) !important;
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+}
+
+#modalEncerramento.show {
+  display: flex !important;
+}
+
+#modalEncerramento .modal-encerramento-box {
+  width: min(1180px, 96vw) !important;
+  max-height: 92vh !important;
+  overflow: hidden !important;
+  border-radius: 26px !important;
+  background: #f8fafc !important;
+  border: 1px solid #dbe3ef !important;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.34) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#modalEncerramento .modal-encerramento-topo {
+  flex: 0 0 auto !important;
+  background: linear-gradient(135deg, #0a1f3d, #1a3a52) !important;
+  color: #ffffff !important;
+  padding: 24px 28px !important;
+  border-bottom: none !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+}
+
+#modalEncerramento .modal-encerramento-topo h3 {
+  margin: 0 !important;
+  color: #ffffff !important;
+  font-size: 1.35rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.03em !important;
+}
+
+#modalEncerramento .modal-encerramento-topo h3::after {
+  content: "Backup operacional, snapshot e restauração do inventário.";
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+#modalEncerramento .modal-encerramento-topo .icon-btn {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  padding: 0 !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: none !important;
+}
+
+#modalEncerramento .modal-encerramento-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 22px !important;
+  background: #f8fafc !important;
+}
+
+#modalEncerramento .modal-encerramento-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+#modalEncerramento .modal-encerramento-col {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+#modalEncerramento .modal-enc-card {
+  background: #ffffff !important;
+  border: 1px solid #dbe3ef !important;
+  border-radius: 20px !important;
+  padding: 18px !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
+}
+
+#modalEncerramento .modal-enc-card h4 {
+  margin: 0 0 8px !important;
+  color: #0a1f3d !important;
+  font-size: 1rem !important;
+  font-weight: 900 !important;
+}
+
+#modalEncerramento .modal-enc-card p {
+  margin: 0 0 14px !important;
+  color: #52667a !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  line-height: 1.45 !important;
+}
+
+#modalEncerramento .modal-enc-resumo-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+#modalEncerramento .modal-enc-mini {
+  background: #f8fafc !important;
+  border: 1px solid #dbe3ef !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+}
+
+#modalEncerramento .modal-enc-mini span {
+  display: block !important;
+  color: #64748b !important;
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.35px !important;
+  margin-bottom: 5px !important;
+}
+
+#modalEncerramento .modal-enc-mini strong {
+  display: block !important;
+  color: #0f172a !important;
+  font-size: 0.95rem !important;
+  font-weight: 900 !important;
+}
+
+#modalEncerramento .modal-enc-check {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  background: #fffbeb !important;
+  border: 1px solid #fde68a !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+}
+
+#modalEncerramento .modal-enc-check input {
+  margin-top: 3px !important;
+  width: 16px !important;
+  height: 16px !important;
+  accent-color: #0a1f3d !important;
+}
+
+#modalEncerramento .modal-enc-check label {
+  color: #334155 !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+}
+
+#modalEncerramento .modal-enc-acoes {
+  display: flex !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  margin-top: 14px !important;
+}
+
+#modalEncerramento .btn-encerrar-enc,
+#modalEncerramento .btn-restaurar-enc {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 13px !important;
+  padding: 11px 16px !important;
+  min-height: 42px !important;
+  font-weight: 900 !important;
+}
+
+#modalEncerramento .btn-fechar-enc {
+  background: #ffffff !important;
+  color: #0a1f3d !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 13px !important;
+  padding: 11px 16px !important;
+  min-height: 42px !important;
+  font-weight: 900 !important;
+}
+
+#modalEncerramento .modal-enc-info {
+  background: #eaf3ff !important;
+  color: #0f3f7a !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 14px !important;
+  padding: 12px 14px !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+}
+
+#modalEncerramento .modal-enc-alerta {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fca5a5 !important;
+  border-radius: 14px !important;
+  padding: 12px 14px !important;
+  font-weight: 900 !important;
+}
+
+@media (max-width: 900px) {
+  #modalEncerramento {
+    padding: 10px !important;
+  }
+
+  #modalEncerramento .modal-encerramento-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modalEncerramento .modal-enc-resumo-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
     </style>
   </head>
@@ -11438,15 +11690,21 @@ const ordem = document.getElementById('ordenarDivergencia')?.value || '';
             Editar
           </button>
 
-          <button type="button" onclick="inativarUsuario(${item.id}, '${
-              item.status || 'ativo'
-            }')">
-            ${
-              String(item.status || '').toLowerCase() === 'ativo'
-                ? 'Inativar'
-                : 'Ativar'
-            }
-          </button>
+          <button
+  type="button"
+  class="${
+    String(item.status || '').toLowerCase() === 'ativo'
+      ? 'btn-inativar'
+      : 'btn-ativar'
+  }"
+  onclick="inativarUsuario(${item.id}, '${item.status || 'ativo'}')"
+>
+  ${
+    String(item.status || '').toLowerCase() === 'ativo'
+      ? 'Inativar'
+      : 'Ativar'
+  }
+</button>
 
           <button type="button" onclick="excluirUsuario(${
             item.id

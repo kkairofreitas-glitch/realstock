@@ -719,6 +719,182 @@ input,
 button:active {
   transform: scale(0.98);
 }
+.menu-mobile {
+  display: none !important;
+}
+
+.menu-bottom-sheet {
+  position: fixed !important;
+  left: 12px !important;
+  right: 12px !important;
+  bottom: 88px !important;
+  top: auto !important;
+  width: auto !important;
+  background: #f3f4f6 !important;
+  border: 1px solid #d6d9de !important;
+  border-radius: 20px !important;
+  padding: 12px !important;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28) !important;
+  z-index: 999999 !important;
+}
+
+.menu-bottom-sheet button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+  margin-bottom: 10px !important;
+  padding: 14px !important;
+  border-radius: 14px !important;
+}
+
+.menu-bottom-sheet button i {
+  width: 22px;
+  text-align: center;
+}
+
+#btnAtualizarMobile,
+#btnBaixarFiltroMenu {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+}
+
+#btnLogoutMobile {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+}
+html,
+body {
+  overscroll-behavior-y: none !important;
+  overscroll-behavior: none !important;
+}
+/* ================================
+   REALSTOCK MOBILE COMPACTO
+================================ */
+
+/* reduz espaços gerais */
+main,
+.container,
+.mobile-container {
+  padding: 10px !important;
+}
+
+/* cards mais compactos */
+.card,
+.mobile-card,
+.coleta-card,
+.endereco-card {
+  padding: 12px !important;
+  margin-bottom: 10px !important;
+  border-radius: 16px !important;
+}
+
+/* títulos menores */
+.card h2,
+.card h3 {
+  font-size: 0.95rem !important;
+  margin-bottom: 8px !important;
+}
+
+/* endereço aberto */
+.endereco-atual-box,
+#enderecoAtualBox {
+  padding: 10px 12px !important;
+  min-height: auto !important;
+  font-size: 0.95rem !important;
+  font-weight: 900 !important;
+}
+
+/* produto encontrado */
+.produto-encontrado,
+#produtoEncontrado {
+  padding: 10px !important;
+  border-radius: 14px !important;
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+  font-size: 0.88rem !important;
+}
+
+/* inputs menores */
+input,
+select,
+textarea {
+  min-height: 46px !important;
+  padding: 10px 12px !important;
+  font-size: 0.95rem !important;
+}
+
+/* quantidade + botão */
+.qtd-row,
+.quantidade-row {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.qtd-row input,
+.quantidade-row input {
+  flex: 1 !important;
+}
+
+.qtd-row button,
+.quantidade-row button {
+  min-width: 120px !important;
+}
+
+/* botões */
+button {
+  min-height: 46px !important;
+}
+
+/* botão finalizar fixo */
+#btnFinalizarEndereco,
+.btn-finalizar {
+  position: sticky !important;
+  bottom: 78px !important;
+  z-index: 1000 !important;
+  width: 100% !important;
+  border-radius: 18px !important;
+  box-shadow: 0 14px 32px rgba(220,38,38,0.24) !important;
+}
+
+/* toasts compactos */
+.toast-mobile {
+  padding: 12px 16px !important;
+  border-radius: 14px !important;
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+}
+
+/* menos espaço entre blocos */
+.section,
+.bloco,
+.mobile-section {
+  margin-bottom: 10px !important;
+}
+.toast-sucesso {
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+  color: #ffffff !important;
+}
+
+.toast-erro {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+}
+
+.toast-info {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+}
+/* barra inferior começa escondida de verdade */
+.mobile-bottom-nav {
+  display: none !important;
+}
+
+body.mobile-pronto.mobile-autenticado .mobile-bottom-nav {
+  display: grid !important;
+}
   </style>
   <link
   rel="stylesheet"
@@ -738,21 +914,17 @@ button:active {
   <div class="usuario-logado">Usuário: <span id="usuarioLogado">...</span></div>
 </div>
 
-<div class="menu-mobile">
-  <button type="button" id="btnMenuMobile" class="menu-btn">⋮</button>
-
-  <div id="menuDropdownMobile" class="menu-dropdown hidden">
-  <button type="button" id="btnBaixarFiltroMenu">Filtro</button>
-  
-
+<div id="menuDropdownMobile" class="menu-dropdown menu-bottom-sheet hidden">
 <button type="button" id="btnAtualizarMobile">
+  <i class="fas fa-sync-alt"></i>
   Atualizar
 </button>
 
 <button type="button" id="btnLogoutMobile">
+  <i class="fas fa-sign-out-alt"></i>
   Sair
 </button>
-  </div>
+</div>
 </div>
 </header>
 <div class="container">
@@ -865,63 +1037,83 @@ button:active {
     </div>
   </div>
 </div>
-<nav class="mobile-bottom-nav">
-
-<button type="button" class="active" onclick="mostrarAba('coleta')">
+<nav class="mobile-bottom-nav hidden" id="mobileBottomNav">
+<button type="button" class="active" data-nav="coleta" onclick="mostrarAba('coleta')">
   <i class="fas fa-barcode"></i>
   <small>Coleta</small>
 </button>
 
-<button type="button" onclick="mostrarAba('transmitir')">
+<button type="button" data-nav="transmitir" onclick="mostrarAba('transmitir')">
   <i class="fas fa-cloud-upload-alt"></i>
   <small>Transmitir</small>
 </button>
 
-<button type="button" onclick="document.getElementById('btnBaixarFiltroMenu')?.click()">
+<button type="button" data-nav="filtro" onclick="acaoFiltroMobile()">
   <i class="fas fa-filter"></i>
   <small>Filtro</small>
 </button>
 
-<button type="button" onclick="document.getElementById('btnMenuMobile')?.click()">
+<button type="button" data-nav="mais" onclick="abrirMenuMaisMobile()">
   <i class="fas fa-ellipsis-h"></i>
   <small>Mais</small>
 </button>
-
 </nav>
 <script>
-const btnMenuMobile = document.getElementById('btnMenuMobile');
+let toqueInicialY = 0;
+
+document.addEventListener(
+  'touchstart',
+  (e) => {
+    toqueInicialY = e.touches[0].clientY;
+  },
+  { passive: true }
+);
+
+document.addEventListener(
+  'touchmove',
+  (e) => {
+    const toqueAtualY = e.touches[0].clientY;
+    const puxandoParaBaixo = toqueAtualY > toqueInicialY;
+    const noTopo = window.scrollY <= 0;
+
+    if (noTopo && puxandoParaBaixo) {
+      e.preventDefault();
+    }
+  },
+  { passive: false }
+);
+
 const menuDropdownMobile = document.getElementById('menuDropdownMobile');
 const btnLogoutMobile = document.getElementById('btnLogoutMobile');
 const btnAtualizarMobile = document.getElementById('btnAtualizarMobile');
-const btnBaixarFiltroMenu = document.getElementById('btnBaixarFiltroMenu');
+
+const mobileBottomNav = document.getElementById('mobileBottomNav');
 
 
 btnAtualizarMobile.addEventListener('click', () => {
   window.location.reload();
 });
 
-function mostrarToastMobile(texto) {
+function mostrarToastMobile(msg, tipo = 'info') {
   const toast = document.createElement('div');
-
-  toast.className = 'toast-mobile';
-  toast.textContent = texto;
+  toast.className = `toast-mobile toast-${tipo}`;
+  toast.textContent = msg;
 
   document.body.appendChild(toast);
 
   setTimeout(() => {
     toast.classList.add('show');
-  }, 50);
+  }, 30);
 
   setTimeout(() => {
     toast.classList.remove('show');
-
-    setTimeout(() => {
-      toast.remove();
-    }, 300);
-  }, 2200);
+    setTimeout(() => toast.remove(), 300);
+  }, 1800);
 }
+async function acaoFiltroMobile() {
+  marcarNavMobile('filtro');
+  menuDropdownMobile.classList.add('hidden');
 
-btnBaixarFiltroMenu.addEventListener('click', async () => {
   mostrarToastMobile('Atualizando filtro...');
 
   await baixarFiltro();
@@ -931,13 +1123,20 @@ btnBaixarFiltroMenu.addEventListener('click', async () => {
   );
 
   setTimeout(() => {
-    menuDropdownMobile.classList.add('hidden');
-  }, 500);
-});
+    marcarNavMobile('coleta');
+  }, 1200);
+}
 
-btnMenuMobile.addEventListener('click', () => {
+function marcarNavMobile(nome) {
+  document.querySelectorAll('.mobile-bottom-nav button').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.nav === nome);
+  });
+}
+
+function abrirMenuMaisMobile() {
   menuDropdownMobile.classList.toggle('hidden');
-});
+  marcarNavMobile('mais');
+}
 
 btnLogoutMobile.addEventListener('click', () => {
   limparEstadoColetaMobile();
@@ -947,11 +1146,17 @@ btnLogoutMobile.addEventListener('click', () => {
 });
 
 document.addEventListener('click', (e) => {
-  if (
-    !btnMenuMobile.contains(e.target) &&
-    !menuDropdownMobile.contains(e.target)
-  ) {
+  const clicouNaBarraMais = e.target.closest('[data-nav="mais"]');
+  const clicouNoMenu = menuDropdownMobile.contains(e.target);
+
+  if (!clicouNaBarraMais && !clicouNoMenu) {
     menuDropdownMobile.classList.add('hidden');
+
+    if (!abaTransmitir.classList.contains('hidden')) {
+      marcarNavMobile('transmitir');
+    } else {
+      marcarNavMobile('coleta');
+    }
   }
 });
   const usuarioLogado = document.getElementById('usuarioLogado');
@@ -1026,10 +1231,13 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
       data?.usuario ||
       data?.nome ||
       'desconhecido';
+      
   })
+  
   .catch(() => {
-    usuarioLogado.textContent = 'erro';
-  });
+  document.body.classList.remove('mobile-pronto', 'mobile-autenticado');
+  usuarioLogado.textContent = 'erro';
+});
 
   async function carregarModoOperacaoMobile() {
     try {
@@ -1117,21 +1325,22 @@ btnFinalizarEndereco.disabled = !enderecoAberto;
   }
 
   function mostrarAba(nome) {
-    if (nome === 'coleta') {
-      abaColeta.classList.remove('hidden');
-      abaTransmitir.classList.add('hidden');
-      tabColetaBtn.classList.add('ativa');
-      tabTransmitirBtn.classList.remove('ativa');
-    } else {
-      abaColeta.classList.add('hidden');
-      abaTransmitir.classList.remove('hidden');
-      tabColetaBtn.classList.remove('ativa');
-      tabTransmitirBtn.classList.add('ativa');
-    }
-  }
+  menuDropdownMobile.classList.add('hidden');
 
-  tabColetaBtn.addEventListener('click', () => mostrarAba('coleta'));
-  tabTransmitirBtn.addEventListener('click', () => mostrarAba('transmitir'));
+  if (nome === 'coleta') {
+    abaColeta.classList.remove('hidden');
+    abaTransmitir.classList.add('hidden');
+    tabColetaBtn.classList.add('ativa');
+    tabTransmitirBtn.classList.remove('ativa');
+    marcarNavMobile('coleta');
+  } else {
+    abaColeta.classList.add('hidden');
+    abaTransmitir.classList.remove('hidden');
+    tabColetaBtn.classList.remove('ativa');
+    tabTransmitirBtn.classList.add('ativa');
+    marcarNavMobile('transmitir');
+  }
+}
 
   function salvarFiltroLocal(dados) {
     localStorage.setItem('filtroAppInventario', JSON.stringify(dados.itens || []));
@@ -1577,9 +1786,23 @@ itensEnderecoAtual.unshift({
     descricaoProduto.textContent = 'Nenhum produto localizado.';
     atualizarEstadoColeta();
 
-    mensagem.textContent = 'Item adicionado ao endereço.';
+    if (navigator.vibrate) {
+  navigator.vibrate(80);
+}
+
+mostrarToastMobile('Item adicionado com sucesso!', 'sucesso');
+
+mensagem.textContent = 'Item adicionado ao endereço.';
 mensagem.className = 'mensagem sucesso';
-fecharTecladoMobile();
+
+codigoBusca.value = '';
+qtdeContada.value = '';
+produtoAtual = null;
+descricaoProduto.textContent = 'Nenhum produto localizado.';
+
+setTimeout(() => {
+  codigoBusca.focus();
+}, 120);
 }
 
 function excluirUltimo() {
@@ -1904,16 +2127,21 @@ enderecoAtualInput.focus();
     btnTransmitirTodos.addEventListener('click', transmitirTodos);
   }
 
-  
-
   carregarFiltroLocal();
-carregarModoOperacaoMobile();
-restaurarEstadoColetaMobile();
-renderItensEnderecoAtual();
-renderFilaTransmissao();
-atualizarEstadoColeta();
+
+carregarModoOperacaoMobile().then(() => {
+  restaurarEstadoColetaMobile();
+  renderItensEnderecoAtual();
+  renderFilaTransmissao();
+  atualizarEstadoColeta();
+
+  document.body.classList.add('mobile-pronto', 'mobile-autenticado');
+  mobileBottomNav?.classList.remove('hidden');
+});
+
+ 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js?v=4')
+    navigator.serviceWorker.register('/service-worker.js?v=6')
       .then(() => console.log('Service Worker registrado!'))
       .catch((err) => console.log('Erro SW:', err));
   }
