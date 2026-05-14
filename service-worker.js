@@ -1,16 +1,17 @@
-const CACHE_NAME = "realstock-offline-v6";
+const CACHE_NAME = "realstock-mobile-v7";
 
 const URLS_TO_CACHE = [
+  "/coleta-mobile",
   "/manifest.json",
-  "/icone-192.png",
-  "/icone-512.png"
+  "/service-worker.js",
+  "/icones/icone-192.png",
+  "/icones/icone-512.png"
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
   );
-
   self.skipWaiting();
 });
 
@@ -24,36 +25,26 @@ self.addEventListener("activate", (event) => {
       )
     )
   );
-
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
 
-  if (request.method !== "GET") {
-    return;
-  }
+  if (request.method !== "GET") return;
 
   const url = new URL(request.url);
 
   if (url.pathname === "/coleta-mobile") {
     event.respondWith(
-      fetch(request).catch(() => caches.match("/coleta-mobile-offline"))
+      fetch(request).catch(() => caches.match("/coleta-mobile"))
     );
     return;
   }
 
-  if (
-    url.pathname === "/manifest.json" ||
-    url.pathname === "/icone-192.png" ||
-    url.pathname === "/icone-512.png"
-  ) {
-    event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request))
-    );
-    return;
-  }
-
-  event.respondWith(fetch(request));
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      return cached || fetch(request);
+    })
+  );
 });
