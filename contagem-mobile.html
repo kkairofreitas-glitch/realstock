@@ -624,14 +624,17 @@ button[id*="Finalizar"],
 }
 
 /* CAIXAS DE MENSAGEM */
-.mensagem,
-.produto-encontrado,
-.endereco-atual-box {
-  background: #f1f3f5 !important;
-  border: 1.5px solid #000000 !important;
-  border-radius: 14px !important;
-  color: #374151 !important;
+.mobile-info-text,
+.mobile-msg,
+.status-texto {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 4px 2px !important;
+  font-size: 0.78rem !important;
   font-weight: 800 !important;
+  color: #0a1f3d !important;
 }
 
 /* TOAST */
@@ -1041,8 +1044,11 @@ body {
 }
 
 #descricaoProduto {
-  font-size: 0.9rem !important;
+  font-size: 0.95rem !important;
   line-height: 1.35 !important;
+  font-weight: 900 !important;
+  color: #0a1f3d !important;
+  letter-spacing: 0.01em !important;
 }
 
 #btnFinalizarEndereco {
@@ -1634,6 +1640,18 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   let filaTransmissao = [];
   let modoOperacaoAtual = 'com-base';
   let leituraSemBaseTimer = null;
+
+  async function enviarStatusMobile() {
+  try {
+    await fetch('/mobile/status', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+  } catch (erro) {}
+}
+
+enviarStatusMobile();
+setInterval(enviarStatusMobile, 15000);
 
   fetch('/quem-sou-eu')
   .then(res => res.json())

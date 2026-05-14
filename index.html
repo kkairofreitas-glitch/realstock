@@ -1209,7 +1209,33 @@
   font-size: 1rem;
   line-height: 1.15;
 }
+.ranking-status-mobile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #64748b;
+}
 
+.ranking-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.ranking-status-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+.ranking-status-dot.offline {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
 .ranking-matricula {
   font-size: 0.72rem;
   font-weight: 800;
@@ -9813,7 +9839,13 @@ pie.style.background = `conic-gradient(
   ${index + 1}
 </div>
                 <div>
-                  <div class="ranking-name">${item.usuario || 'Usuário'}</div>
+                <div class="ranking-name">
+  ${item.usuario || 'Usuário'}
+  <span class="ranking-status-mobile">
+    <span class="ranking-status-dot ${item.mobileOnline ? 'online' : 'offline'}"></span>
+    ${item.mobileOnline ? 'Online' : 'Off'}
+  </span>
+</div>
                   <div class="ranking-matricula">${
                     item.matricula || 'SEM MATRÍCULA'
                   }</div>

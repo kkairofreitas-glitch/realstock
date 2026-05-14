@@ -1571,6 +1571,25 @@ app.get("/quem-sou-eu", autenticar, (req, res) => {
     usuario: req.session.usuario || null
   });
 });
+const mobileStatusUsuarios = {};
+
+app.post("/mobile/status", autenticar, (req, res) => {
+  const usuarioSessao = req.session.usuario || {};
+  const usuario = usuarioSessao.usuario || usuarioSessao.nome || "desconhecido";
+
+  const nome = usuarioSessao.nome || usuario;
+
+const dadosStatus = {
+  usuario,
+  nome,
+  ultimaAtividade: new Date().toISOString()
+};
+
+mobileStatusUsuarios[usuario] = dadosStatus;
+mobileStatusUsuarios[nome] = dadosStatus;
+
+  res.json({ ok: true });
+});
 app.get("/", autenticar, permitirSomenteLiderOuAdmin, (req, res) =>
 res.sendFile(caminhoPublico("index.html"))
 );
@@ -2178,7 +2197,32 @@ app.get("/ranking-usuarios", autenticar, (req, res) => {
       ? gerarRankingUsuariosSemBase()
       : gerarRankingUsuarios();
 
-  res.json(ranking);
+  const agora = Date.now();
+
+  const rankingComStatus = ranking.map((item) => {
+    const possiveisChaves = [
+      item.usuario,
+      item.nome,
+      item.usuarioNome,
+      item.nomeUsuario
+    ].filter(Boolean);
+    
+    const status = possiveisChaves
+      .map((chave) => mobileStatusUsuarios[chave])
+      .find(Boolean);
+
+    const online =
+      status &&
+      agora - new Date(status.ultimaAtividade).getTime() <= 30000;
+
+    return {
+      ...item,
+      mobileOnline: !!online,
+      ultimaAtividadeMobile: status?.ultimaAtividade || null
+    };
+  });
+
+  res.json(rankingComStatus);
 });
 app.get("/sem-base/resumo-dashboard", autenticar, (req, res) => {
   return res.json(gerarResumoDashboardSemBase());
