@@ -1634,6 +1634,7 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   const resumoTransmissoes = document.getElementById('resumoTransmissoes');
 
   let filtroApp = [];
+  let enderecosFiltroApp = [];
   let produtoAtual = null;
   let enderecoAberto = null;
   let itensEnderecoAtual = [];
@@ -1844,31 +1845,62 @@ function mostrarAba(nome) {
   }
 }
 
-  function salvarFiltroLocal(dados) {
-    localStorage.setItem('filtroAppInventario', JSON.stringify(dados.itens || []));
-    localStorage.setItem('filtroAppInventarioMeta', JSON.stringify({
-      atualizadoEm: dados.atualizadoEm || null,
-      total: dados.total || 0
-    }));
-  }
+function salvarFiltroLocal(dados) {
+  const itens = Array.isArray(dados.itens) ? dados.itens : [];
+  const enderecos = Array.isArray(dados.enderecos) ? dados.enderecos : [];
 
-  function carregarFiltroLocal() {
-    try {
-      filtroApp = JSON.parse(localStorage.getItem('filtroAppInventario') || '[]');
-      const meta = JSON.parse(localStorage.getItem('filtroAppInventarioMeta') || '{}');
+  localStorage.setItem('filtroAppInventario', JSON.stringify(itens));
+  localStorage.setItem('filtroAppEnderecos', JSON.stringify(enderecos));
 
-      if (Array.isArray(filtroApp) && filtroApp.length) {
-        statusFiltro.textContent =
-          `Filtro carregado: ${meta.total || filtroApp.length} itens | Atualizado em: ${meta.atualizadoEm || '--'}`;
-      } else {
-        statusFiltro.textContent = 'Nenhum filtro baixado.';
-      }
-    } catch {
-      filtroApp = [];
-      statusFiltro.textContent = 'Erro ao ler filtro local.';
+  localStorage.setItem('filtroAppInventarioMeta', JSON.stringify({
+    atualizadoEm: dados.atualizadoEm || null,
+    total: dados.total || itens.length,
+    totalEnderecos: dados.totalEnderecos || enderecos.length
+  }));
+}
+
+function carregarFiltroLocal() {
+  try {
+    filtroApp = JSON.parse(localStorage.getItem('filtroAppInventario') || '[]');
+    enderecosFiltroApp = JSON.parse(localStorage.getItem('filtroAppEnderecos') || '[]');
+
+    const meta = JSON.parse(localStorage.getItem('filtroAppInventarioMeta') || '{}');
+
+    if (Array.isArray(filtroApp) && filtroApp.length) {
+      statusFiltro.textContent =
+        `Filtro carregado: ${meta.total || filtroApp.length} itens | ${meta.totalEnderecos || enderecosFiltroApp.length} endereços`;
+    } else {
+      statusFiltro.textContent = 'Nenhum filtro baixado.';
     }
+  } catch {
+    filtroApp = [];
+    enderecosFiltroApp = [];
+    statusFiltro.textContent = 'Erro ao ler filtro local.';
+  }
+}
+function validarEnderecoLocal(valor) {
+  const enderecoDigitado = String(valor || '').trim();
+
+  if (!enderecoDigitado) return false;
+
+  if (!Array.isArray(enderecosFiltroApp) || !enderecosFiltroApp.length) {
+    return false;
   }
 
+  return enderecosFiltroApp.some((endereco) => {
+    if (typeof endereco === 'string' || typeof endereco === 'number') {
+      return String(endereco).trim() === enderecoDigitado;
+    }
+
+    return String(
+      endereco.enderecoNumero ||
+      endereco.numero ||
+      endereco.endereco ||
+      endereco.codigo ||
+      ''
+    ).trim() === enderecoDigitado;
+  });
+}
   async function baixarFiltro() {
     if (modoOperacaoAtual === 'sem-base') {
       statusFiltro.textContent = 'Modo sem base ativo: filtro desabilitado.';
@@ -2113,15 +2145,29 @@ function fecharTecladoMobile() {
 mensagemEndereco.className = 'mensagem info';
 mensagem.textContent = '';
 
+let enderecoValido = false;
+
+if (!navigator.onLine) {
+  enderecoValido = validarEnderecoLocal(valor);
+} else {
+  try {
     const res = await fetch(`/validar-endereco-mobile/${encodeURIComponent(valor)}`, {
       credentials: 'same-origin'
     });
 
     const data = await res.json();
 
-    if (!res.ok || !data.valido) {
-      throw new Error(data.erro || 'Endereço não cadastrado.');
+    if (res.ok && data.valido) {
+      enderecoValido = true;
     }
+  } catch (erro) {
+    enderecoValido = validarEnderecoLocal(valor);
+  }
+}
+
+if (!enderecoValido) {
+  throw new Error('Endereço não cadastrado no filtro baixado.');
+}
 
     enderecoAberto = {
       enderecoNumero: valor

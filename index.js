@@ -1445,34 +1445,41 @@ async function lerLinhasTxtPorStream(caminhoArquivo) {
 }
 
 function salvarProdutosNoBanco(listaProdutos) {
-  db.serialize(() => {
-    db.run("DELETE FROM produtos");
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      db.run("DELETE FROM produtos", (erroDelete) => {
+        if (erroDelete) return reject(erroDelete);
 
-    const stmt = db.prepare(`
-      INSERT INTO produtos (
-        codigoBarras,
-        codigo,
-        descricao,
-        categoria,
-        custoUnitario,
-        qtdeCongelada,
-        qtdeContada
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+        const stmt = db.prepare(`
+          INSERT INTO produtos (
+            codigoBarras,
+            codigo,
+            descricao,
+            categoria,
+            custoUnitario,
+            qtdeCongelada,
+            qtdeContada
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
 
-    listaProdutos.forEach((item) => {
-      stmt.run(
-        item.codigoBarras || "",
-        item.codigo || item.codigoInterno || "",
-        item.descricao || "",
-        item.categoria || "",
-        Number(item.custoUnitario) || 0,
-        Number(item.qtdeCongelada) || 0,
-        Number(item.qtdeContada) || 0
-      );
+        for (const item of listaProdutos) {
+          stmt.run(
+            item.codigoBarras || "",
+            item.codigo || item.codigoInterno || "",
+            item.descricao || "",
+            item.categoria || "",
+            Number(item.custoUnitario) || 0,
+            Number(item.qtdeCongelada) || 0,
+            Number(item.qtdeContada) || 0
+          );
+        }
+
+        stmt.finalize((erroFinalize) => {
+          if (erroFinalize) return reject(erroFinalize);
+          resolve();
+        });
+      });
     });
-
-    stmt.finalize();
   });
 }
 function carregarProdutosDoBanco(callback = null) {
@@ -2412,7 +2419,7 @@ app.post("/importar-txt", autenticar, async (req, res) => {
     itemAuditoriaAtual = null;
 
     inventario = itensUnicosImportados;
-salvarProdutosNoBanco(inventario);
+    await salvarProdutosNoBanco(inventario);
 
 modoOperacao = "com-base";
 salvarModoOperacao();
@@ -2422,6 +2429,15 @@ salvarEnderecamentos();
 broadcastInventario();
     fs.unlinkSync(caminhoTemporario);
 
+    if (req.headers.accept?.includes("application/json")) {
+      return res.json({
+        sucesso: true,
+        mensagem: "Arquivo base importado com sucesso.",
+        total: inventario.length,
+        modoOperacao
+      });
+    }
+    
     res.redirect("/");
   } catch (erro) {
     console.error("Erro ao importar TXT:", erro);
@@ -2620,11 +2636,13 @@ app.get("/filtro-app", autenticar, (req, res) => {
         return descA.localeCompare(descB, "pt-BR");
       });
 
-    res.json({
-      atualizadoEm: new Date().toISOString(),
-      total: filtro.length,
-      itens: filtro,
-    });
+      return res.json({
+        atualizadoEm: new Date().toLocaleString("pt-BR"),
+        total: produtos.length,
+        totalEnderecos: enderecos.length,
+        itens: produtos,
+        enderecos
+      });
   } catch (erro) {
     console.error("Erro ao gerar filtro do app:", erro);
     res.status(500).json({ erro: "Falha ao gerar filtro do app." });

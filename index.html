@@ -10657,20 +10657,49 @@ async function restaurarUltimoEncerramento() {
         if (ultimoStatus) ultimoStatus.textContent = status;
       }
 
-      function handleImportFileSelect(event, tipo) {
-        const input = event.target;
-        const file = input?.files?.[0];
+      async function handleImportFileSelect(event, tipo) {
+  const input = event.target;
+  const file = input?.files?.[0];
 
-        if (!file) return;
+  if (!file) return;
 
-        registrarStatusImportacao(tipo, file.name, 'Arquivo selecionado');
+  const form = input.closest('form');
+  if (!form) return;
 
-        const form = input.closest('form');
-        if (form) {
-          form.submit();
-        }
+  try {
+    registrarStatusImportacao(tipo, file.name, 'Importando arquivo...');
+
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    const res = await fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        Accept: 'application/json'
       }
+    });
 
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.erro || data?.mensagem || 'Erro ao importar arquivo.');
+    }
+
+    registrarStatusImportacao(tipo, file.name, 'Importado com sucesso');
+
+    input.value = '';
+
+    await carregarModoOperacaoFront();
+    await atualizarDashboardCompleto();
+
+    showToast(data?.mensagem || 'Arquivo importado e dashboard atualizado.');
+  } catch (erro) {
+    console.error('Erro ao importar arquivo:', erro);
+    registrarStatusImportacao(tipo, file.name, 'Erro na importação');
+    showToast(erro.message || 'Erro ao importar arquivo.');
+  }
+}
       function registrarStatusExportacao(
         tipo,
         status = 'Exportado com sucesso',
