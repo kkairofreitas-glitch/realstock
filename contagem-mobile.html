@@ -1880,6 +1880,7 @@ function carregarFiltroLocal() {
 }
 function validarEnderecoLocal(valor) {
   const enderecoDigitado = String(valor || '').trim();
+  const numeroDigitado = Number(enderecoDigitado);
 
   if (!enderecoDigitado) return false;
 
@@ -1892,13 +1893,32 @@ function validarEnderecoLocal(valor) {
       return String(endereco).trim() === enderecoDigitado;
     }
 
-    return String(
+    const enderecoNumero = String(
       endereco.enderecoNumero ||
       endereco.numero ||
       endereco.endereco ||
       endereco.codigo ||
       ''
-    ).trim() === enderecoDigitado;
+    ).trim();
+
+    if (enderecoNumero && enderecoNumero === enderecoDigitado) {
+      return true;
+    }
+
+    const inicio = Number(endereco.inicio) || 0;
+    const fim = Number(endereco.fim) || 0;
+
+    if (
+      Number.isFinite(numeroDigitado) &&
+      inicio > 0 &&
+      fim >= inicio &&
+      numeroDigitado >= inicio &&
+      numeroDigitado <= fim
+    ) {
+      return true;
+    }
+
+    return false;
   });
 }
   async function baixarFiltro() {

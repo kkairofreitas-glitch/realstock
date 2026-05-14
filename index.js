@@ -2618,12 +2618,17 @@ app.get("/filtro-app", autenticar, (req, res) => {
   try {
     if (modoOperacao === "sem-base") {
       return res.json({
-        atualizadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toLocaleString("pt-BR"),
         total: 0,
+        totalEnderecos: 0,
         itens: [],
+        enderecos: []
       });
     }
-    const filtro = inventario
+
+    carregarEnderecamentos();
+
+    const itens = inventario
       .map((item) => ({
         codigoBarras: String(item.codigoBarras || "").trim(),
         codigo: String(item.codigo || item.codigoInterno || "").trim(),
@@ -2636,19 +2641,38 @@ app.get("/filtro-app", autenticar, (req, res) => {
         return descA.localeCompare(descB, "pt-BR");
       });
 
-      return res.json({
-        atualizadoEm: new Date().toLocaleString("pt-BR"),
-        total: produtos.length,
-        totalEnderecos: enderecos.length,
-        itens: produtos,
-        enderecos
-      });
+    const enderecos = [];
+
+    enderecamentos.forEach((item) => {
+      const inicio = Number(item.inicio) || 0;
+      const fim = Number(item.fim) || 0;
+
+      if (inicio > 0 && fim >= inicio) {
+        for (let numero = inicio; numero <= fim; numero++) {
+          enderecos.push({
+            enderecoNumero: String(numero),
+            id: item.id,
+            nome: item.nome || "",
+            tipo: item.tipo || "",
+            inicio,
+            fim
+          });
+        }
+      }
+    });
+
+    return res.json({
+      atualizadoEm: new Date().toLocaleString("pt-BR"),
+      total: itens.length,
+      totalEnderecos: enderecos.length,
+      itens,
+      enderecos
+    });
   } catch (erro) {
     console.error("Erro ao gerar filtro do app:", erro);
     res.status(500).json({ erro: "Falha ao gerar filtro do app." });
   }
 });
-
 app.get("/transmissoes-consolidacao", autenticar, (req, res) => {
   try {
     const painel = gerarPainelTransmissoesConsolidacao();
