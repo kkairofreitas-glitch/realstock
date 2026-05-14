@@ -895,6 +895,464 @@ button {
 body.mobile-pronto.mobile-autenticado .mobile-bottom-nav {
   display: grid !important;
 }
+/* ================================
+   REALSTOCK MOBILE - FLUXO COLETOR
+================================ */
+
+body {
+  padding-bottom: 14px !important;
+  background: #eef2f7 !important;
+}
+
+.mobile-bottom-nav {
+  display: none !important;
+}
+
+/* topo estilo app/coletor */
+.mobile-header {
+  min-height: 72px;
+  justify-content: flex-start !important;
+  gap: 12px;
+  padding: 14px 16px !important;
+  text-align: left !important;
+  border-bottom-left-radius: 22px;
+  border-bottom-right-radius: 22px;
+}
+
+.menu-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 14px !important;
+  background: rgba(255,255,255,0.14) !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  color: #ffffff !important;
+  font-size: 1.2rem !important;
+}
+
+.mobile-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mobile-title strong {
+  color: #ffffff;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.mobile-title span {
+  color: rgba(255,255,255,0.82);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.mobile-title b {
+  color: #ffffff;
+}
+
+/* menu solto */
+.menu-dropdown {
+  position: fixed !important;
+  left: 12px !important;
+  right: 12px !important;
+  top: 82px !important;
+  width: auto !important;
+  background: #f3f4f6 !important;
+  border: 1px solid #d6d9de !important;
+  border-radius: 20px !important;
+  padding: 12px !important;
+  box-shadow: 0 20px 45px rgba(15,23,42,0.28) !important;
+  z-index: 999999 !important;
+}
+
+.menu-dropdown button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 44px !important;
+  padding: 11px 14px !important;
+  margin-bottom: 8px !important;
+  border-radius: 14px !important;
+  font-size: 0.92rem !important;
+}
+
+.menu-dropdown button i {
+  width: 22px;
+  text-align: center;
+}
+
+.menu-dropdown button:not(#btnLogoutMobile) {
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+}
+
+#btnLogoutMobile {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+}
+
+/* modo operacional em destaque */
+.modo-operacional-box {
+  text-align: center;
+  border-radius: 16px !important;
+  padding: 10px 12px !important;
+  font-size: 0.9rem !important;
+  font-weight: 900 !important;
+  border: none !important;
+}
+
+.modo-com-base {
+  background: #ffedd5 !important;
+  color: #9a3412 !important;
+  border: 1px solid #fdba74 !important;
+}
+
+.modo-sem-base {
+  background: #fef9c3 !important;
+  color: #854d0e !important;
+  border: 1px solid #fde047 !important;
+}
+
+/* abertura limpa */
+#abaColeta > .card:first-of-type {
+  margin-top: 8px !important;
+}
+
+#abaColeta > .card:first-of-type h3 {
+  font-size: 1rem !important;
+  text-align: center;
+}
+
+#enderecoAtual {
+  text-align: center;
+  font-size: 1.25rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em;
+}
+
+/* durante coleta, mostrar só END */
+.endereco-resumo-coleta {
+  background: linear-gradient(180deg, #0a1f3d, #1a3a52);
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  font-weight: 900;
+  text-align: center;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+}
+
+/* compactação da coleta */
+#cardColetaEndereco h3 {
+  text-align: center;
+  margin-bottom: 8px !important;
+}
+
+#codigoBusca {
+  font-size: 1.08rem !important;
+  font-weight: 900 !important;
+}
+
+#qtdeContada {
+  font-size: 1.1rem !important;
+  font-weight: 900 !important;
+  text-align: center;
+}
+
+#descricaoProduto {
+  font-size: 0.9rem !important;
+  line-height: 1.35 !important;
+}
+
+#btnFinalizarEndereco {
+  position: static !important;
+  margin-top: 8px !important;
+}
+
+/* esconder informações desnecessárias no modo abertura */
+body.sem-endereco-aberto #cardColetaEndereco,
+body.sem-endereco-aberto #cardItensEndereco {
+  display: none !important;
+}
+
+body.com-endereco-aberto #abaColeta > .card:first-of-type {
+  display: none !important;
+}
+/* ================================
+   REALSTOCK MOBILE - TOPO PREMIUM
+================================ */
+
+.mobile-header {
+  min-height: 118px !important;
+  background: linear-gradient(135deg, #07182f, #0a1f3d 55%, #123d63) !important;
+  color: #ffffff !important;
+  padding: 18px 14px 22px !important;
+  display: grid !important;
+  grid-template-columns: 44px 1fr auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  border-bottom-left-radius: 28px !important;
+  border-bottom-right-radius: 28px !important;
+  box-shadow: 0 16px 38px rgba(10, 31, 61, 0.35) !important;
+  position: relative !important;
+  text-align: left !important;
+}
+
+.menu-btn {
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 15px !important;
+  background: rgba(255,255,255,0.13) !important;
+  border: 1px solid rgba(255,255,255,0.22) !important;
+  color: #ffffff !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 1.15rem !important;
+}
+
+.mobile-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+}
+
+.mobile-brand img {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 16px !important;
+  object-fit: cover !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.28) !important;
+}
+
+.mobile-brand strong {
+  display: block !important;
+  color: #ffffff !important;
+  font-size: 1.35rem !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+  letter-spacing: -0.04em !important;
+}
+
+.mobile-brand span {
+  display: block !important;
+  color: #3b82f6 !important;
+  font-size: 0.95rem !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.04em !important;
+  margin-top: 3px !important;
+}
+
+.mobile-user {
+  position: relative !important;
+  text-align: right !important;
+  padding-right: 16px !important;
+  max-width: 112px !important;
+}
+
+.mobile-user small {
+  display: block !important;
+  color: rgba(255,255,255,0.78) !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+}
+
+.mobile-user b {
+  display: block !important;
+  color: #ffffff !important;
+  font-size: 0.9rem !important;
+  font-weight: 900 !important;
+  line-height: 1.15 !important;
+  margin-top: 4px !important;
+  white-space: nowrap !important;
+  max-width: 105px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.online-dot {
+  position: absolute !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 999px !important;
+  background: #22c55e !important;
+  box-shadow: 0 0 0 4px rgba(34,197,94,0.18) !important;
+}
+
+/* card do modo operacional logo abaixo do topo */
+.container {
+  margin-top: -12px !important;
+}
+
+.modo-operacional-box {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  border-radius: 20px !important;
+  padding: 13px 14px !important;
+  margin-bottom: 12px !important;
+  box-shadow: 0 14px 30px rgba(15,23,42,0.12) !important;
+  font-size: 0.95rem !important;
+  font-weight: 950 !important;
+}
+
+.modo-operacional-box::before {
+  content: "\f1c0";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+}
+
+.modo-com-base {
+  background: #ffedd5 !important;
+  color: #9a3412 !important;
+  border: 1px solid #fdba74 !important;
+}
+
+.modo-sem-base {
+  background: #fef9c3 !important;
+  color: #854d0e !important;
+  border: 1px solid #fde047 !important;
+}
+
+/* ================================
+   MENU LATERAL AZUL
+================================ */
+
+.menu-dropdown {
+  position: fixed !important;
+  top: 82px !important;
+  left: 12px !important;
+  right: auto !important;
+  width: 235px !important;
+  max-width: calc(100vw - 24px) !important;
+  background: linear-gradient(180deg, #0a1f3d, #123d63) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  border-radius: 22px !important;
+  padding: 12px !important;
+  box-shadow: 0 22px 55px rgba(10,31,61,0.42) !important;
+  z-index: 999999 !important;
+}
+
+.menu-dropdown button {
+  width: 100% !important;
+  min-height: 42px !important;
+  margin: 0 !important;
+  padding: 10px 8px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  font-size: 0.92rem !important;
+  font-weight: 850 !important;
+  box-shadow: none !important;
+}
+
+.menu-dropdown button:hover,
+.menu-dropdown button:active {
+  background: rgba(255,255,255,0.12) !important;
+}
+
+.menu-dropdown button i {
+  width: 24px !important;
+  text-align: center !important;
+  color: #93c5fd !important;
+  font-size: 1rem !important;
+}
+
+#btnLogoutMobile {
+  color: #fecaca !important;
+}
+
+#btnLogoutMobile i {
+  color: #fecaca !important;
+}
+
+/* apagar qualquer sobra da barra inferior */
+.mobile-bottom-nav {
+  display: none !important;
+}
+/* ================================
+   AJUSTE FINAL TOPO + MODO OPERACIONAL
+================================ */
+
+.mobile-header {
+  min-height: 178px !important;
+  grid-template-columns: 44px 1fr auto !important;
+  grid-template-rows: auto auto !important;
+  align-items: center !important;
+  padding-bottom: 22px !important;
+}
+
+#modoOperacionalInfo {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+  margin: 18px 0 0 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  background: #ffffff !important;
+  border-radius: 22px !important;
+  padding: 14px 16px !important;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.18) !important;
+  border: none !important;
+  font-size: 0.98rem !important;
+  font-weight: 950 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  color: #0a1f3d !important;
+}
+
+#modoOperacionalInfo::before {
+  content: "\f1c0  Modo operacional:";
+  font-family: "Font Awesome 6 Free", Arial, sans-serif;
+  font-weight: 900;
+  color: #0a1f3d !important;
+}
+
+#modoOperacionalInfo::after {
+  content: "● Online";
+  color: #16a34a !important;
+  font-weight: 900 !important;
+}
+
+/* COM BASE verde */
+#modoOperacionalInfo.modo-com-base {
+  color: #16a34a !important;
+}
+
+/* SEM BASE laranja forte */
+#modoOperacionalInfo.modo-sem-base {
+  color: #ea580c !important;
+}
+body.com-endereco-aberto #cardAberturaEndereco {
+  display: none !important;
+}
+
+body.sem-endereco-aberto #cardColetaEndereco,
+body.sem-endereco-aberto #cardItensEndereco {
+  display: none !important;
+}
   </style>
   <link
   rel="stylesheet"
@@ -908,34 +1366,59 @@ body.mobile-pronto.mobile-autenticado .mobile-bottom-nav {
     <p>Sistema de Coleta</p>
     <span class="splash-loader"></span>
   </div>
-<header class="mobile-header">
-<div>
-  RealStock - Mobile
-  <div class="usuario-logado">Usuário: <span id="usuarioLogado">...</span></div>
-</div>
+  <header class="mobile-header">
+  <button type="button" id="btnMenuMobile" class="menu-btn">
+    <i class="fas fa-bars"></i>
+  </button>
 
-<div id="menuDropdownMobile" class="menu-dropdown menu-bottom-sheet hidden">
-<button type="button" id="btnAtualizarMobile">
-  <i class="fas fa-sync-alt"></i>
-  Atualizar
-</button>
+  <div class="mobile-brand">
+    <img src="/logo-realstock.jpg" alt="RealStock" onerror="this.style.display='none'">
+    <div>
+      <strong>RealStock</strong>
+      <span>MOBILE</span>
+    </div>
+  </div>
 
-<button type="button" id="btnLogoutMobile">
-  <i class="fas fa-sign-out-alt"></i>
-  Sair
-</button>
-</div>
+  <div class="mobile-user">
+    <small>Usuário</small>
+    <b id="usuarioLogado">...</b>
+    <span class="online-dot"></span>
+  </div>
+
+  <div id="menuDropdownMobile" class="menu-dropdown hidden">
+    <button type="button" onclick="acaoFiltroMobile()">
+      <i class="fas fa-filter"></i>
+      Baixar filtro
+    </button>
+
+    <button type="button" onclick="mostrarAba('coleta')">
+    <i class="fas fa-barcode"></i>
+    Coleta
+  </button>
+    <button type="button" onclick="mostrarAba('transmitir')">
+      <i class="fas fa-cloud-upload-alt"></i>
+      Transmitir
+    </button>
+
+    <button type="button" id="btnAtualizarMobile">
+      <i class="fas fa-sync-alt"></i>
+      Atualizar
+    </button>
+
+    <button type="button" id="btnLogoutMobile">
+      <i class="fas fa-sign-out-alt"></i>
+      Sair
+    </button>
+  </div>
+  <div class="modo-operacional-box modo-com-base" id="modoOperacionalInfo">
+  Carregando modo operacional...
 </div>
 </header>
 <div class="container">
-  <div class="modo-operacional-box" id="modoOperacionalInfo">
-    Carregando modo operacional...
-  </div>
-
-  <div class="tabs" id="tabsContainer">
-    <button type="button" id="tabColetaBtn" class="tab-btn ativa">Coleta</button>
-    <button type="button" id="tabTransmitirBtn" class="tab-btn">Transmitir</button>
-  </div>
+<div class="tabs hidden" id="tabsContainer">
+<button type="button" id="tabColetaBtn" class="tab-btn ativa">Coleta</button>
+<button type="button" id="tabTransmitirBtn" class="tab-btn">Transmitir</button>
+</div>
 
   <div id="abaColeta">
   <div class="card hidden" id="cardFiltroApp">
@@ -947,8 +1430,8 @@ body.mobile-pronto.mobile-autenticado .mobile-bottom-nav {
       <div id="statusFiltro" class="status-filtro">Nenhum filtro baixado.</div>
     </div>
 
-    <div class="card">
-      <h3>Abertura do Endereço</h3>
+    <div class="card" id="cardAberturaEndereco">
+    <h3>Abertura do Endereço</h3>
       <label for="enderecoAtual">Endereço</label>
       <input
         type="text"
@@ -964,7 +1447,8 @@ body.mobile-pronto.mobile-autenticado .mobile-bottom-nav {
     </div>
 
     <div class="card hidden" id="cardColetaEndereco">
-      <h3>Coleta do Endereço</h3>
+    <div id="enderecoResumoColeta" class="endereco-resumo-coleta">END: ----</div>
+    <h3>Coleta</h3>
 
       <div class="badge-modo" id="badgeModoColeta">Modo com base</div>
 
@@ -1037,27 +1521,7 @@ body.mobile-pronto.mobile-autenticado .mobile-bottom-nav {
     </div>
   </div>
 </div>
-<nav class="mobile-bottom-nav hidden" id="mobileBottomNav">
-<button type="button" class="active" data-nav="coleta" onclick="mostrarAba('coleta')">
-  <i class="fas fa-barcode"></i>
-  <small>Coleta</small>
-</button>
 
-<button type="button" data-nav="transmitir" onclick="mostrarAba('transmitir')">
-  <i class="fas fa-cloud-upload-alt"></i>
-  <small>Transmitir</small>
-</button>
-
-<button type="button" data-nav="filtro" onclick="acaoFiltroMobile()">
-  <i class="fas fa-filter"></i>
-  <small>Filtro</small>
-</button>
-
-<button type="button" data-nav="mais" onclick="abrirMenuMaisMobile()">
-  <i class="fas fa-ellipsis-h"></i>
-  <small>Mais</small>
-</button>
-</nav>
 <script>
 let toqueInicialY = 0;
 
@@ -1087,7 +1551,6 @@ const menuDropdownMobile = document.getElementById('menuDropdownMobile');
 const btnLogoutMobile = document.getElementById('btnLogoutMobile');
 const btnAtualizarMobile = document.getElementById('btnAtualizarMobile');
 
-const mobileBottomNav = document.getElementById('mobileBottomNav');
 
 
 btnAtualizarMobile.addEventListener('click', () => {
@@ -1111,31 +1574,16 @@ function mostrarToastMobile(msg, tipo = 'info') {
   }, 1800);
 }
 async function acaoFiltroMobile() {
-  marcarNavMobile('filtro');
   menuDropdownMobile.classList.add('hidden');
 
-  mostrarToastMobile('Atualizando filtro...');
+  mostrarToastMobile('Atualizando filtro...', 'info');
 
   await baixarFiltro();
 
   mostrarToastMobile(
-    statusFiltro.textContent || 'Filtro atualizado.'
+    statusFiltro.textContent || 'Filtro atualizado.',
+    'sucesso'
   );
-
-  setTimeout(() => {
-    marcarNavMobile('coleta');
-  }, 1200);
-}
-
-function marcarNavMobile(nome) {
-  document.querySelectorAll('.mobile-bottom-nav button').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.nav === nome);
-  });
-}
-
-function abrirMenuMaisMobile() {
-  menuDropdownMobile.classList.toggle('hidden');
-  marcarNavMobile('mais');
 }
 
 btnLogoutMobile.addEventListener('click', () => {
@@ -1145,18 +1593,17 @@ btnLogoutMobile.addEventListener('click', () => {
   window.location.href = '/logout';
 });
 
+btnMenuMobile.addEventListener('click', (e) => {
+  e.stopPropagation();
+  menuDropdownMobile.classList.toggle('hidden');
+});
+
 document.addEventListener('click', (e) => {
-  const clicouNaBarraMais = e.target.closest('[data-nav="mais"]');
   const clicouNoMenu = menuDropdownMobile.contains(e.target);
+  const clicouNoBotao = btnMenuMobile.contains(e.target);
 
-  if (!clicouNaBarraMais && !clicouNoMenu) {
+  if (!clicouNoMenu && !clicouNoBotao) {
     menuDropdownMobile.classList.add('hidden');
-
-    if (!abaTransmitir.classList.contains('hidden')) {
-      marcarNavMobile('transmitir');
-    } else {
-      marcarNavMobile('coleta');
-    }
   }
 });
   const usuarioLogado = document.getElementById('usuarioLogado');
@@ -1171,6 +1618,7 @@ document.addEventListener('click', (e) => {
   const abaTransmitir = document.getElementById('abaTransmitir');
 
   const cardFiltroApp = document.getElementById('cardFiltroApp');
+  const cardAberturaEndereco = document.getElementById('cardAberturaEndereco');
  const cardColetaEndereco = document.getElementById('cardColetaEndereco');
 const cardItensEndereco = document.getElementById('cardItensEndereco');
   const btnBaixarFiltro = document.getElementById('btnBaixarFiltro');
@@ -1180,7 +1628,7 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   const btnAbrirEndereco = document.getElementById('btnAbrirEndereco');
   const enderecoAbertoInfo = document.getElementById('enderecoAbertoInfo');
   const mensagemEndereco = document.getElementById('mensagemEndereco');
-
+  const enderecoResumoColeta = document.getElementById('enderecoResumoColeta');
   const codigoBusca = document.getElementById('codigoBusca');
   const descricaoProduto = document.getElementById('descricaoProduto');
   const qtdeContada = document.getElementById('qtdeContada');
@@ -1259,70 +1707,128 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   function atualizarTelaPorEndereco() {
   const aberto = !!enderecoAberto;
 
+  cardAberturaEndereco.classList.toggle('hidden', aberto);
   cardColetaEndereco.classList.toggle('hidden', !aberto);
   cardItensEndereco.classList.toggle('hidden', !aberto);
+  cardFiltroApp.classList.add('hidden');
+
+  document.body.classList.toggle('com-endereco-aberto', aberto);
+  document.body.classList.toggle('sem-endereco-aberto', !aberto);
+
+  if (aberto) {
+    const numero = enderecoAberto.enderecoNumero || '----';
+    enderecoResumoColeta.textContent = `END: ${numero}`;
+
+    abaColeta.classList.remove('hidden');
+    abaTransmitir.classList.add('hidden');
+
+    setTimeout(() => {
+      codigoBusca.focus();
+    }, 120);
+  } else {
+    enderecoResumoColeta.textContent = 'END: ----';
+
+    abaColeta.classList.remove('hidden');
+    abaTransmitir.classList.add('hidden');
+
+    setTimeout(() => {
+      enderecoAtualInput.focus();
+    }, 120);
+  }
+}
+function aplicarModoOperacaoMobile() {
+
+modoOperacionalInfo.classList.remove(
+  'modo-com-base',
+  'modo-sem-base'
+);
+
+if (modoOperacaoAtual === 'sem-base') {
+
+  modoOperacionalInfo.textContent = 'SEM BASE';
+  modoOperacionalInfo.classList.add('modo-sem-base');
+
+  badgeModoColeta.textContent = 'Modo sem base';
 
   cardFiltroApp.classList.add('hidden');
 
-  if (!aberto) {
-    mostrarAba('coleta');
-    enderecoAtualInput.focus();
-  }
+  tabsContainer.classList.add('hidden');
+
+  abaTransmitir.classList.add('hidden');
+
+  abaColeta.classList.remove('hidden');
+
+  descricaoProduto.textContent =
+    'No modo sem base, a leitura vai direto para o dashboard.';
+
+  labelQtdeContada.classList.add('hidden');
+
+  qtdeContada.classList.add('hidden');
+
+  qtdeContada.value = '1';
+
+  btnAdicionar.classList.add('hidden');
+
+  btnExcluirUltimo.classList.add('hidden');
+
+  btnFinalizarEndereco.classList.remove('hidden');
+
+  btnFinalizarEndereco.disabled = !enderecoAberto;
+
+  labelModoEntradaSemBase.classList.remove('hidden');
+
+  modoEntradaSemBase.classList.remove('hidden');
+
+  dicaSemBase.classList.remove('hidden');
+
+  tituloItensEndereco.textContent =
+    'Últimas leituras do endereço';
+
+} else {
+
+  modoOperacionalInfo.textContent = 'COM BASE';
+
+  modoOperacionalInfo.classList.add('modo-com-base');
+
+  badgeModoColeta.textContent = 'Modo com base';
+
+  cardFiltroApp.classList.add('hidden');
+
+  tabsContainer.classList.remove('hidden');
+
+  labelQtdeContada.classList.remove('hidden');
+
+  qtdeContada.classList.remove('hidden');
+
+  btnAdicionar.classList.remove('hidden');
+
+  btnExcluirUltimo.classList.remove('hidden');
+
+  btnFinalizarEndereco.classList.remove('hidden');
+
+  labelModoEntradaSemBase.classList.add('hidden');
+
+  modoEntradaSemBase.classList.add('hidden');
+
+  dicaSemBase.classList.add('hidden');
+
+  tituloItensEndereco.textContent =
+    'Itens do Endereço Atual';
 }
-  function aplicarModoOperacaoMobile() {
-    if (modoOperacaoAtual === 'sem-base') {
-      modoOperacionalInfo.textContent =
-        'Modo operacional ativo: SEM BASE';
-      badgeModoColeta.textContent = 'Modo sem base';
-      cardFiltroApp.classList.add('hidden');
-      tabsContainer.classList.add('hidden');
-      abaTransmitir.classList.add('hidden');
-      abaColeta.classList.remove('hidden');
 
-      descricaoProduto.textContent =
-        'No modo sem base, a leitura vai direto para o dashboard.';
-      labelQtdeContada.classList.add('hidden');
-      qtdeContada.classList.add('hidden');
-      qtdeContada.value = '1';
+produtoAtual = null;
 
-      btnAdicionar.classList.add('hidden');
-btnExcluirUltimo.classList.add('hidden');
-btnFinalizarEndereco.classList.remove('hidden');
-btnFinalizarEndereco.disabled = !enderecoAberto;
+codigoBusca.value = '';
 
-      labelModoEntradaSemBase.classList.remove('hidden');
-      modoEntradaSemBase.classList.remove('hidden');
-      dicaSemBase.classList.remove('hidden');
+qtdeContada.value = '';
 
-      tituloItensEndereco.textContent = 'Últimas leituras do endereço';
-    } else {
-      modoOperacionalInfo.textContent =
-        'Modo operacional ativo: COM BASE';
-      badgeModoColeta.textContent = 'Modo com base';
-      cardFiltroApp.classList.add('hidden');
-      tabsContainer.classList.remove('hidden');
+descricaoProduto.textContent =
+  'Nenhum produto localizado.';
 
-      labelQtdeContada.classList.remove('hidden');
-      qtdeContada.classList.remove('hidden');
+renderItensEnderecoAtual();
 
-      btnAdicionar.classList.remove('hidden');
-      btnExcluirUltimo.classList.remove('hidden');
-      btnFinalizarEndereco.classList.remove('hidden');
-
-      labelModoEntradaSemBase.classList.add('hidden');
-      modoEntradaSemBase.classList.add('hidden');
-      dicaSemBase.classList.add('hidden');
-
-      tituloItensEndereco.textContent = 'Itens do Endereço Atual';
-    }
-
-    produtoAtual = null;
-    codigoBusca.value = '';
-    qtdeContada.value = '';
-    descricaoProduto.textContent = 'Nenhum produto localizado.';
-    renderItensEnderecoAtual();
-    atualizarEstadoColeta();
-  }
+atualizarEstadoColeta();
+}
 
   function mostrarAba(nome) {
   menuDropdownMobile.classList.add('hidden');
@@ -1332,13 +1838,11 @@ btnFinalizarEndereco.disabled = !enderecoAberto;
     abaTransmitir.classList.add('hidden');
     tabColetaBtn.classList.add('ativa');
     tabTransmitirBtn.classList.remove('ativa');
-    marcarNavMobile('coleta');
   } else {
     abaColeta.classList.add('hidden');
     abaTransmitir.classList.remove('hidden');
     tabColetaBtn.classList.remove('ativa');
     tabTransmitirBtn.classList.add('ativa');
-    marcarNavMobile('transmitir');
   }
 }
 
@@ -2135,8 +2639,6 @@ carregarModoOperacaoMobile().then(() => {
   renderFilaTransmissao();
   atualizarEstadoColeta();
 
-  document.body.classList.add('mobile-pronto', 'mobile-autenticado');
-  mobileBottomNav?.classList.remove('hidden');
 });
 
  
