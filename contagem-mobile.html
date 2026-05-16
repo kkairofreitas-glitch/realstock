@@ -1388,6 +1388,7 @@ body.sem-endereco-aberto #cardItensEndereco {
   rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
 />
+<script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
   <div id="splashScreen">
@@ -1499,11 +1500,11 @@ body.sem-endereco-aberto #cardItensEndereco {
 </div>
 
 <div id="leitorCameraBox" class="leitor-camera-box hidden">
-  <video id="videoLeitorCamera" autoplay playsinline></video>
+<div id="html5QrCodeReader"></div>
 
-  <button type="button" id="btnFecharCamera" class="btn-borda btn-borda-alerta">
-    Fechar câmera
-  </button>
+<button type="button" id="btnFecharCamera" class="btn-borda btn-borda-alerta">
+  Fechar câmera
+</button>
 </div>
 
       <div id="descricaoProduto" class="produto-encontrado">Nenhum produto localizado.</div>
@@ -1708,9 +1709,8 @@ const qtdeContada = document.getElementById('qtdeContada');
   let filaTransmissao = [];
   let modoOperacaoAtual = 'com-base';
   let leituraSemBaseTimer = null;
-  let cameraStream = null;
+  let leitorCameraHtml5 = null;
 let cameraAtiva = false;
-let barcodeDetector = null;
 
   async function enviarStatusMobile() {
   try {
@@ -2207,13 +2207,10 @@ function limparEstadoColetaMobile() {
 }
 function preencherCodigoLidoPelaCamera(codigo) {
   const valor = String(codigo || '').trim();
-
   if (!valor) return;
 
   codigoBusca.value = valor;
-
   codigoBusca.dispatchEvent(new Event('input', { bubbles: true }));
-
   atualizarDescricaoProduto();
 
   if (modoOperacaoAtual === 'sem-base') {
@@ -2233,59 +2230,43 @@ async function iniciarLeituraCamera() {
     return;
   }
 
-  if (!('BarcodeDetector' in window)) {
-    mensagem.textContent = 'Este navegador não suporta leitura por câmera. Use o Chrome atualizado ou scanner Bluetooth.';
+  if (typeof Html5Qrcode === 'undefined') {
+    mensagem.textContent = 'Leitor de câmera não carregou. Verifique a internet e atualize a página.';
     mensagem.className = 'mensagem erro';
     return;
   }
 
   try {
-    if (!barcodeDetector) {
-      barcodeDetector = new BarcodeDetector({
-        formats: [
-          'ean_13',
-          'ean_8',
-          'code_128',
-          'code_39',
-          'upc_a',
-          'upc_e'
-        ]
-      });
-    }
-
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' }
-      },
-      audio: false
-    });
-
-    videoLeitorCamera.srcObject = cameraStream;
     leitorCameraBox.classList.remove('hidden');
-    cameraAtiva = true;
-
     mensagem.textContent = 'Aponte a câmera para o código de barras.';
     mensagem.className = 'mensagem info';
 
-    loopLeituraCamera();
-  } catch (erro) {
-    mensagem.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
-    mensagem.className = 'mensagem erro';
-    pararLeituraCamera();
-  }
-}
+    if (!leitorCameraHtml5) {
+      leitorCameraHtml5 = new Html5Qrcode('html5QrCodeReader');
+    }
 
-async function loopLeituraCamera() {
-  if (!cameraAtiva || !barcodeDetector || !videoLeitorCamera) return;
+    cameraAtiva = true;
 
-  try {
-    if (videoLeitorCamera.readyState >= 2) {
-      const codigos = await barcodeDetector.detect(videoLeitorCamera);
+    await leitorCameraHtml5.start(
+      { facingMode: 'environment' },
+      {
+        fps: 10,
+        qrbox: { width: 260, height: 160 },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E
+        ]
+      },
+      async (codigoLido) => {
+        if (!cameraAtiva) return;
 
-      if (codigos && codigos.length) {
-        const codigoLido = codigos[0].rawValue;
+        cameraAtiva = false;
+        await pararLeituraCamera();
 
-        pararLeituraCamera();
         preencherCodigoLidoPelaCamera(codigoLido);
 
         mensagem.textContent = `Código lido: ${codigoLido}`;
@@ -2294,25 +2275,32 @@ async function loopLeituraCamera() {
         if (navigator.vibrate) {
           navigator.vibrate(80);
         }
-
-        return;
       }
-    }
-  } catch (erro) {}
-
-  requestAnimationFrame(loopLeituraCamera);
+    );
+  } catch (erro) {
+    console.error('Erro ao abrir câmera:', erro);
+    mensagem.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
+    mensagem.className = 'mensagem erro';
+    await pararLeituraCamera();
+  }
 }
 
-function pararLeituraCamera() {
+async function pararLeituraCamera() {
   cameraAtiva = false;
 
-  if (cameraStream) {
-    cameraStream.getTracks().forEach((track) => track.stop());
-    cameraStream = null;
-  }
+  try {
+    if (leitorCameraHtml5) {
+      const estado = leitorCameraHtml5.getState?.();
 
-  if (videoLeitorCamera) {
-    videoLeitorCamera.srcObject = null;
+      if (estado === Html5QrcodeScannerState.SCANNING) {
+        await leitorCameraHtml5.stop();
+      }
+
+      await leitorCameraHtml5.clear();
+      leitorCameraHtml5 = null;
+    }
+  } catch (erro) {
+    console.log('Câmera já estava parada.', erro);
   }
 
   if (leitorCameraBox) {
@@ -2577,7 +2565,7 @@ function excluirUltimo() {
   }
 
   async function finalizarEndereco() {
-  pararLeituraCamera();
+  await pararLeituraCamera();
   fecharTecladoMobile();
   if (!enderecoAberto) {
     mensagem.textContent = 'Abra um endereço antes de finalizar.';
