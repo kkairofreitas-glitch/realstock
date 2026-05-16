@@ -1336,6 +1336,53 @@ body.sem-endereco-aberto #cardItensEndereco {
   letter-spacing: 0.04em;
   margin: 8px 4px 10px;
 }
+.linha-leitura-camera {
+  display: grid !important;
+  grid-template-columns: 1fr 54px !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+
+.linha-leitura-camera #codigoBusca {
+  margin-bottom: 14px !important;
+}
+
+.btn-camera {
+  width: 54px !important;
+  min-width: 54px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 !important;
+  margin: 0 0 14px 0 !important;
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #1a3a52, #0a1f3d) !important;
+  color: #ffffff !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 1rem !important;
+}
+
+.btn-camera:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+.leitor-camera-box {
+  margin: 8px 0 12px !important;
+  padding: 10px !important;
+  border-radius: 18px !important;
+  background: #0a1f3d !important;
+  border: 1px solid #1a3a52 !important;
+}
+
+#videoLeitorCamera {
+  width: 100% !important;
+  max-height: 260px !important;
+  border-radius: 14px !important;
+  background: #000 !important;
+  object-fit: cover !important;
+  margin-bottom: 10px !important;
+}
   </style>
   <link
   rel="stylesheet"
@@ -1437,12 +1484,27 @@ body.sem-endereco-aberto #cardItensEndereco {
       <div class="badge-modo" id="badgeModoColeta">Modo com base</div>
 
       <label for="codigoBusca">EAN ou Código Interno</label>
-      <input
-        type="text"
-        id="codigoBusca"
-        placeholder="Escaneie ou digite o EAN / código interno"
-        disabled
-      >
+
+<div class="linha-leitura-camera">
+  <input
+    type="text"
+    id="codigoBusca"
+    placeholder="Escaneie ou digite o EAN / código interno"
+    disabled
+  >
+
+  <button type="button" id="btnLerCamera" class="btn-camera" disabled>
+    <i class="fas fa-camera"></i>
+  </button>
+</div>
+
+<div id="leitorCameraBox" class="leitor-camera-box hidden">
+  <video id="videoLeitorCamera" autoplay playsinline></video>
+
+  <button type="button" id="btnFecharCamera" class="btn-borda btn-borda-alerta">
+    Fechar câmera
+  </button>
+</div>
 
       <div id="descricaoProduto" class="produto-encontrado">Nenhum produto localizado.</div>
 
@@ -1615,8 +1677,13 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   const mensagemEndereco = document.getElementById('mensagemEndereco');
   const enderecoResumoColeta = document.getElementById('enderecoResumoColeta');
   const codigoBusca = document.getElementById('codigoBusca');
-  const descricaoProduto = document.getElementById('descricaoProduto');
-  const qtdeContada = document.getElementById('qtdeContada');
+const btnLerCamera = document.getElementById('btnLerCamera');
+const leitorCameraBox = document.getElementById('leitorCameraBox');
+const videoLeitorCamera = document.getElementById('videoLeitorCamera');
+const btnFecharCamera = document.getElementById('btnFecharCamera');
+
+const descricaoProduto = document.getElementById('descricaoProduto');
+const qtdeContada = document.getElementById('qtdeContada');
   const btnAdicionar = document.getElementById('btnAdicionar');
   const btnExcluirUltimo = document.getElementById('btnExcluirUltimo');
   const btnFinalizarEndereco = document.getElementById('btnFinalizarEndereco');
@@ -1641,6 +1708,9 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   let filaTransmissao = [];
   let modoOperacaoAtual = 'com-base';
   let leituraSemBaseTimer = null;
+  let cameraStream = null;
+let cameraAtiva = false;
+let barcodeDetector = null;
 
   async function enviarStatusMobile() {
   try {
@@ -2069,6 +2139,9 @@ function validarEnderecoLocal(valor) {
     const habilitado = !!enderecoAberto;
 
     codigoBusca.disabled = !habilitado;
+    if (btnLerCamera) {
+  btnLerCamera.disabled = !habilitado;
+}
 
     if (modoOperacaoAtual === 'sem-base') {
   qtdeContada.disabled = true;
@@ -2131,6 +2204,120 @@ function restaurarEstadoColetaMobile() {
 
 function limparEstadoColetaMobile() {
   localStorage.removeItem('realstockEstadoColetaMobile');
+}
+function preencherCodigoLidoPelaCamera(codigo) {
+  const valor = String(codigo || '').trim();
+
+  if (!valor) return;
+
+  codigoBusca.value = valor;
+
+  codigoBusca.dispatchEvent(new Event('input', { bubbles: true }));
+
+  atualizarDescricaoProduto();
+
+  if (modoOperacaoAtual === 'sem-base') {
+    codigoBusca.focus();
+    return;
+  }
+
+  setTimeout(() => {
+    qtdeContada.focus();
+  }, 120);
+}
+
+async function iniciarLeituraCamera() {
+  if (!enderecoAberto) {
+    mensagem.textContent = 'Abra um endereço antes de usar a câmera.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+
+  if (!('BarcodeDetector' in window)) {
+    mensagem.textContent = 'Este navegador não suporta leitura por câmera. Use o Chrome atualizado ou scanner Bluetooth.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+
+  try {
+    if (!barcodeDetector) {
+      barcodeDetector = new BarcodeDetector({
+        formats: [
+          'ean_13',
+          'ean_8',
+          'code_128',
+          'code_39',
+          'upc_a',
+          'upc_e'
+        ]
+      });
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' }
+      },
+      audio: false
+    });
+
+    videoLeitorCamera.srcObject = cameraStream;
+    leitorCameraBox.classList.remove('hidden');
+    cameraAtiva = true;
+
+    mensagem.textContent = 'Aponte a câmera para o código de barras.';
+    mensagem.className = 'mensagem info';
+
+    loopLeituraCamera();
+  } catch (erro) {
+    mensagem.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
+    mensagem.className = 'mensagem erro';
+    pararLeituraCamera();
+  }
+}
+
+async function loopLeituraCamera() {
+  if (!cameraAtiva || !barcodeDetector || !videoLeitorCamera) return;
+
+  try {
+    if (videoLeitorCamera.readyState >= 2) {
+      const codigos = await barcodeDetector.detect(videoLeitorCamera);
+
+      if (codigos && codigos.length) {
+        const codigoLido = codigos[0].rawValue;
+
+        pararLeituraCamera();
+        preencherCodigoLidoPelaCamera(codigoLido);
+
+        mensagem.textContent = `Código lido: ${codigoLido}`;
+        mensagem.className = 'mensagem sucesso';
+
+        if (navigator.vibrate) {
+          navigator.vibrate(80);
+        }
+
+        return;
+      }
+    }
+  } catch (erro) {}
+
+  requestAnimationFrame(loopLeituraCamera);
+}
+
+function pararLeituraCamera() {
+  cameraAtiva = false;
+
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((track) => track.stop());
+    cameraStream = null;
+  }
+
+  if (videoLeitorCamera) {
+    videoLeitorCamera.srcObject = null;
+  }
+
+  if (leitorCameraBox) {
+    leitorCameraBox.classList.add('hidden');
+  }
 }
 function fecharTecladoMobile() {
   try {
@@ -2390,7 +2577,8 @@ function excluirUltimo() {
   }
 
   async function finalizarEndereco() {
-    fecharTecladoMobile();
+  pararLeituraCamera();
+  fecharTecladoMobile();
   if (!enderecoAberto) {
     mensagem.textContent = 'Abra um endereço antes de finalizar.';
     mensagem.className = 'mensagem erro';
@@ -2603,6 +2791,13 @@ enderecoAtualInput.focus();
 
   btnBaixarFiltro.addEventListener('click', baixarFiltro);
   btnAbrirEndereco.addEventListener('click', abrirEndereco);
+  if (btnLerCamera) {
+  btnLerCamera.addEventListener('click', iniciarLeituraCamera);
+}
+
+if (btnFecharCamera) {
+  btnFecharCamera.addEventListener('click', pararLeituraCamera);
+}
 
   codigoBusca.addEventListener('input', () => {
     atualizarDescricaoProduto();
