@@ -1603,7 +1603,32 @@ const btnAtualizarMobile = document.getElementById('btnAtualizarMobile');
 btnAtualizarMobile.addEventListener('click', () => {
   window.location.reload();
 });
+function tocarBipLeitura() {
+  try {
+    const audioCtx =
+      new (window.AudioContext || window.webkitAudioContext)();
 
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(980, audioCtx.currentTime);
+
+    gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.start();
+
+    setTimeout(() => {
+      oscillator.stop();
+      audioCtx.close();
+    }, 90);
+  } catch (erro) {
+    console.log('Erro ao tocar bip:', erro);
+  }
+}
 function mostrarToastMobile(msg, tipo = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast-mobile toast-${tipo}`;
@@ -2250,8 +2275,11 @@ async function iniciarLeituraCamera() {
     await leitorCameraHtml5.start(
       { facingMode: 'environment' },
       {
-        fps: 10,
-        qrbox: { width: 260, height: 160 },
+  fps: 18,
+  qrbox: { width: 220, height: 120 },
+  aspectRatio: 1.7778,
+  disableFlip: true,
+},
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
@@ -2532,7 +2560,7 @@ itensEnderecoAtual.unshift({
     if (navigator.vibrate) {
   navigator.vibrate(80);
 }
-
+tocarBipLeitura();
 mostrarToastMobile('Item adicionado com sucesso!', 'sucesso');
 
 mensagem.textContent = 'Item adicionado ao endereço.';
