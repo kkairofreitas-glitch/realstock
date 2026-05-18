@@ -1487,12 +1487,14 @@ body.sem-endereco-aberto #cardItensEndereco {
       <label for="codigoBusca">EAN ou Código Interno</label>
 
 <div class="linha-leitura-camera">
-  <input
-    type="text"
-    id="codigoBusca"
-    placeholder="Escaneie ou digite o EAN / código interno"
-    disabled
-  >
+<input
+type="number"
+inputmode="numeric"
+pattern="[0-9]*"
+id="codigoBusca"
+placeholder="Escaneie ou digite o EAN / código interno"
+disabled
+>
 
   <button type="button" id="btnLerCamera" class="btn-camera" disabled>
     <i class="fas fa-camera"></i>
@@ -2234,6 +2236,8 @@ function preencherCodigoLidoPelaCamera(codigo) {
   const valor = String(codigo || '').trim();
   if (!valor) return;
 
+  tocarBipLeitura();
+
   codigoBusca.value = valor;
   codigoBusca.dispatchEvent(new Event('input', { bubbles: true }));
   atualizarDescricaoProduto();
@@ -2556,10 +2560,7 @@ itensEnderecoAtual.unshift({
     descricaoProduto.textContent = 'Nenhum produto localizado.';
     atualizarEstadoColeta();
 
-    if (navigator.vibrate) {
-  navigator.vibrate(80);
-}
-tocarBipLeitura();
+    
 mostrarToastMobile('Item adicionado com sucesso!', 'sucesso');
 
 mensagem.textContent = 'Item adicionado ao endereço.';
