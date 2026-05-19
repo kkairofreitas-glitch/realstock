@@ -3692,7 +3692,35 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean);
-
+    function obterEnderecosPdf(item) {
+      const lista = Array.isArray(item.enderecosContagem)
+        ? item.enderecosContagem
+        : [];
+    
+      return lista.map((e) => {
+        const numero = e.enderecoNumero || "";
+        const enderecoObj = buscarEnderecoPorNumero(Number(numero));
+        const nome = e.nome || enderecoObj?.nome || "ENDEREÇO";
+    
+        return {
+          nome,
+          numero,
+          quantidade: Number(e.quantidade || 0),
+        };
+      });
+    }
+    
+    function formatarEnderecosPdf(item) {
+      return obterEnderecosPdf(item)
+        .map((e) => `${e.nome} • ${e.numero}`)
+        .join("\n\n");
+    }
+    
+    function formatarColetaEnderecoPdf(item) {
+      return obterEnderecosPdf(item)
+        .map((e) => formatarNumeroPdf(e.quantidade))
+        .join("\n\n");
+    }
   const mapaColunas = {
     codigoBarras: {
       titulo: "Código EAN",
@@ -3762,12 +3790,15 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
     },
     endereco: {
       titulo: "Endereço",
-      valor: (item) => {
-        const texto = String(item.endereco || item.enderecoNumero || "");
-        return texto.replace(/\s*\|\s*/g, "\n\n");
-      },
+      valor: (item) => formatarEnderecosPdf(item),
       width: 95,
       align: "left",
+    },
+    coletaEndereco: {
+      titulo: "Coleta End",
+      valor: (item) => formatarColetaEnderecoPdf(item),
+      width: 60,
+      align: "right",
     },
     ajuste: {
       titulo: "Ajuste",
@@ -3801,7 +3832,8 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
     "descricao",
     "categoria",
     "endereco",
-    "custoUnitario",
+"coletaEndereco",
+"custoUnitario",
     "qtdeCongelada",
     "qtdeContada",
     "divergencia",
@@ -3840,7 +3872,7 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
           text: String(mapaColunas[coluna].valor(item)),
 style: "tableCell",
 alignment: mapaColunas[coluna].align || "left",
-noWrap: coluna !== "descricao" && coluna !== "endereco",
+noWrap: coluna !== "descricao" && coluna !== "endereco" && coluna !== "coletaEndereco",
         }))
       );
     });
