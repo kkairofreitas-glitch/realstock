@@ -1465,11 +1465,19 @@ body.sem-endereco-aberto #cardItensEndereco {
     <div class="card" id="cardAberturaEndereco">
     <h3>Abertura do Endereço</h3>
       <label for="enderecoAtual">Endereço</label>
+      <div class="linha-leitura-camera">
       <input
-        type="text"
+        type="number"
+        inputmode="numeric"
+        pattern="[0-9]*"
         id="enderecoAtual"
         placeholder="Escaneie ou digite o endereço"
       >
+    
+      <button type="button" id="btnLerCameraEndereco" class="btn-camera">
+        <i class="fas fa-camera"></i>
+      </button>
+    </div>
       <button type="button" id="btnAbrirEndereco" class="btn-borda">
         <span class="icone-borda">⌂</span>
         <span>Abrir endereço</span>
@@ -1525,7 +1533,23 @@ disabled
         min="1"
         disabled
       >
+      <label
+  for="multiplicadorSemBase"
+  id="labelMultiplicadorSemBase"
+  class="hidden"
+>
+  Multiplicador
+</label>
 
+<input
+  type="number"
+  id="multiplicadorSemBase"
+  class="hidden"
+  inputmode="numeric"
+  min="1"
+  value="1"
+  placeholder="Ex: 12"
+/>
       <button type="button" id="btnAdicionar" class="btn-borda" disabled>
         <span class="icone-borda">+</span>
         <span>Adicionar</span>
@@ -1716,6 +1740,9 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   const statusFiltro = document.getElementById('statusFiltro');
 
   const enderecoAtualInput = document.getElementById('enderecoAtual');
+  const btnLerCameraEndereco = document.getElementById('btnLerCameraEndereco');
+
+let destinoCamera = 'produto';
   const btnAbrirEndereco = document.getElementById('btnAbrirEndereco');
   const enderecoAbertoInfo = document.getElementById('enderecoAbertoInfo');
   const mensagemEndereco = document.getElementById('mensagemEndereco');
@@ -1736,6 +1763,8 @@ const qtdeContada = document.getElementById('qtdeContada');
   const labelModoEntradaSemBase = document.getElementById('labelModoEntradaSemBase');
   const modoEntradaSemBase = document.getElementById('modoEntradaSemBase');
   const dicaSemBase = document.getElementById('dicaSemBase');
+  const labelMultiplicadorSemBase = document.getElementById('labelMultiplicadorSemBase');
+const multiplicadorSemBase = document.getElementById('multiplicadorSemBase');
   const tituloItensEndereco = document.getElementById('tituloItensEndereco');
 
   const mensagem = document.getElementById('mensagem');
@@ -1892,6 +1921,12 @@ if (modoOperacaoAtual === 'sem-base') {
 
   dicaSemBase.classList.remove('hidden');
 
+  labelMultiplicadorSemBase.classList.remove('hidden');
+multiplicadorSemBase.classList.remove('hidden');
+
+multiplicadorSemBase.value =
+  multiplicadorSemBase.value || '1';
+
   tituloItensEndereco.textContent =
     'Últimas leituras do endereço';
 
@@ -1922,6 +1957,11 @@ if (modoOperacaoAtual === 'sem-base') {
   modoEntradaSemBase.classList.add('hidden');
 
   dicaSemBase.classList.add('hidden');
+
+  labelMultiplicadorSemBase.classList.add('hidden');
+multiplicadorSemBase.classList.add('hidden');
+
+multiplicadorSemBase.value = '1';
 
   tituloItensEndereco.textContent =
     'Itens do Endereço Atual';
@@ -2254,6 +2294,14 @@ function preencherCodigoLidoPelaCamera(codigo) {
 
   tocarBipLeitura();
 
+  if (destinoCamera === 'endereco') {
+    enderecoAtualInput.value = valor;
+    enderecoAtualInput.focus();
+    mensagemEndereco.textContent = `Endereço lido: ${valor}`;
+    mensagemEndereco.className = 'mensagem sucesso';
+    return;
+  }
+
   codigoBusca.value = valor;
   codigoBusca.dispatchEvent(new Event('input', { bubbles: true }));
   atualizarDescricaoProduto();
@@ -2452,79 +2500,50 @@ mensagem.textContent = '';
   }
 }
 
-  async function registrarLeituraSemBaseAutomatica(valorInformado) {
-    const valor = String(valorInformado || '').trim();
+async function registrarLeituraSemBaseAutomatica(valorInformado) {
+  const valor = String(valorInformado || '').trim();
 
-    if (!enderecoAberto) {
-      mensagem.textContent = 'Abra um endereço antes de coletar.';
-      mensagem.className = 'mensagem erro';
-      return;
-    }
-
-    if (!valor) {
-      mensagem.textContent = 'Digite ou escaneie um EAN / código interno.';
-      mensagem.className = 'mensagem erro';
-      return;
-    }
-
-    try {
-      mensagem.textContent = 'Enviando leitura...';
-      mensagem.className = 'mensagem info';
-
-      const pareceEan = /^\d{8,14}$/.test(valor);
-
-      const payload = {
-        enderecoNumero: enderecoAberto.enderecoNumero
-      };
-
-      if (pareceEan) {
-        payload.ean = valor;
-      } else {
-        payload.codigo = valor;
-      }
-
-      const res = await fetch('/sem-base/leitura', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.erro || 'Erro ao registrar leitura.');
-      }
-
-      const item = data?.item || {};
-
-const enderecoAtualResumo = Array.isArray(item.enderecos)
-  ? item.enderecos.find(
-      (e) => String(e.enderecoNumero || "") === String(enderecoAberto.enderecoNumero || "")
-    )
-  : null;
-
-itensEnderecoAtual.unshift({
-  eanOuCodigo: item.ean || item.codigo || valor,
-  quantidade: Number(enderecoAtualResumo?.quantidade || 1),
-  enderecoNumero: enderecoAberto.enderecoNumero
-});
-      if (itensEnderecoAtual.length > 30) {
-        itensEnderecoAtual = itensEnderecoAtual.slice(0, 30);
-      }
-
-      renderItensEnderecoAtual();
-
-      codigoBusca.value = '';
-      descricaoProduto.textContent = 'Leia um próximo EAN ou código interno.';
-      mensagem.textContent = data.mensagem || 'Leitura registrada com sucesso.';
-      mensagem.className = 'mensagem sucesso';
-      codigoBusca.focus();
-    } catch (erro) {
-      mensagem.textContent = erro.message || 'Erro ao registrar leitura.';
-      mensagem.className = 'mensagem erro';
-    }
+  if (!enderecoAberto) {
+    mensagem.textContent = 'Abra um endereço antes de coletar.';
+    mensagem.className = 'mensagem erro';
+    return;
   }
+
+  if (!valor) {
+    mensagem.textContent = 'Digite ou escaneie um EAN / código interno.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+
+  const quantidadeMultiplicada =
+    Math.max(1, Number(multiplicadorSemBase?.value) || 1);
+
+  const pareceEan = /^\d{8,14}$/.test(valor);
+
+  itensEnderecoAtual.unshift({
+    eanOuCodigo: valor,
+    codigoBarras: pareceEan ? valor : '',
+    codigo: pareceEan ? '' : valor,
+    quantidade: quantidadeMultiplicada,
+    enderecoNumero: enderecoAberto.enderecoNumero,
+  });
+
+  if (itensEnderecoAtual.length > 30) {
+    itensEnderecoAtual = itensEnderecoAtual.slice(0, 30);
+  }
+
+  renderItensEnderecoAtual();
+  salvarEstadoColetaMobile();
+
+  codigoBusca.value = '';
+  descricaoProduto.textContent = 'Leia um próximo EAN ou código interno.';
+  mensagem.textContent = 'Leitura adicionada à fila local do endereço.';
+  mensagem.className = 'mensagem sucesso';
+
+  setTimeout(() => {
+    codigoBusca.focus();
+  }, 120);
+}
 
   function adicionarItemLocal() {
     const codigoDigitado = codigoBusca.value.trim();
@@ -2611,62 +2630,11 @@ function excluirUltimo() {
   async function finalizarEndereco() {
   await pararLeituraCamera();
   fecharTecladoMobile();
+
   if (!enderecoAberto) {
     mensagem.textContent = 'Abra um endereço antes de finalizar.';
     mensagem.className = 'mensagem erro';
     return;
-  }
-
-  if (modoOperacaoAtual === 'sem-base') {
-    try {
-      mensagem.textContent = 'Finalizando endereço...';
-      mensagem.className = 'mensagem info';
-
-      const res = await fetch('/sem-base/finalizar-endereco', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          enderecoNumero: enderecoAberto.enderecoNumero
-        })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.erro || 'Erro ao finalizar endereço.');
-      }
-
-      enderecoAberto = null;
-      itensEnderecoAtual = [];
-      produtoAtual = null;
-
-      enderecoAtualInput.value = '';
-      codigoBusca.value = '';
-      qtdeContada.value = '';
-      descricaoProduto.textContent = 'Nenhum produto localizado.';
-      enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
-
-      renderItensEnderecoAtual();
-renderFilaTransmissao();
-salvarEstadoColetaMobile();
-atualizarEstadoColeta();
-atualizarTelaPorEndereco();
-mensagemEndereco.textContent = '';
-mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
-mensagem.className = 'mensagem sucesso';
-
-// 🔥 AVISA O DASHBOARD PRA ATUALIZAR
-try {
-  await fetch('/forcar-atualizacao-dashboard', { method: 'POST' });
-} catch (e) {}
-
-return;
-    } catch (erro) {
-      mensagem.textContent = erro.message || 'Erro ao finalizar endereço.';
-      mensagem.className = 'mensagem erro';
-      return;
-    }
   }
 
   if (!itensEnderecoAtual.length) {
@@ -2679,7 +2647,8 @@ return;
     enderecoNumero: enderecoAberto.enderecoNumero,
     usuario: usuarioLogado.textContent || 'desconhecido',
     data: new Date().toLocaleString('pt-BR'),
-    itens: [...itensEnderecoAtual]
+    itens: [...itensEnderecoAtual],
+    modo: modoOperacaoAtual === 'sem-base' ? 'sem-base' : 'com-base',
   };
 
   filaTransmissao.unshift(lote);
@@ -2687,6 +2656,7 @@ return;
   enderecoAberto = null;
   itensEnderecoAtual = [];
   produtoAtual = null;
+
   enderecoAtualInput.value = '';
   codigoBusca.value = '';
   qtdeContada.value = '';
@@ -2694,21 +2664,18 @@ return;
   enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
 
   renderItensEnderecoAtual();
-renderFilaTransmissao();
-salvarEstadoColetaMobile();
-atualizarEstadoColeta();
-atualizarTelaPorEndereco();
-mensagemEndereco.textContent = '';
-mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
+  renderFilaTransmissao();
+  salvarEstadoColetaMobile();
+  atualizarEstadoColeta();
+  atualizarTelaPorEndereco();
+
+  mensagemEndereco.textContent = '';
+  mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmissão.';
   mensagem.className = 'mensagem sucesso';
 }
 
   async function transmitirTodos() {
-    if (modoOperacaoAtual === 'sem-base') {
-      mensagem.textContent = 'No modo sem base a transmissão é automática.';
-      mensagem.className = 'mensagem info';
-      return;
-    }
+    
 
     if (!filaTransmissao.length) {
       mensagem.textContent = 'Não há endereços para transmitir.';
@@ -2750,11 +2717,13 @@ mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmiss�
         );
 
         if (indexAtual !== -1) {
-          filaTransmissao.splice(indexAtual, 1);
-        }
+  filaTransmissao.splice(indexAtual, 1);
+}
 
-        transmitidos++;
-        renderFilaTransmissao();
+transmitidos++;
+salvarEstadoColetaMobile();
+renderFilaTransmissao();
+
       } catch (erro) {
         erros++;
       }
@@ -2772,11 +2741,7 @@ mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmiss�
   }
 
   window.transmitirEndereco = async function(index) {
-    if (modoOperacaoAtual === 'sem-base') {
-      mensagem.textContent = 'No modo sem base a transmissão é automática.';
-      mensagem.className = 'mensagem info';
-      return;
-    }
+    
 
     const lote = filaTransmissao[index];
 
@@ -2807,8 +2772,8 @@ mensagem.textContent = 'Endereço finalizado e enviado para a fila de transmiss�
       }
 
       filaTransmissao.splice(index, 1);
-      renderFilaTransmissao();
-
+salvarEstadoColetaMobile();
+renderFilaTransmissao();
       mensagem.textContent = data.mensagem || 'Endereço transmitido com sucesso.';
 mensagem.className = 'mensagem sucesso';
 
@@ -2824,7 +2789,15 @@ enderecoAtualInput.focus();
   btnBaixarFiltro.addEventListener('click', baixarFiltro);
   btnAbrirEndereco.addEventListener('click', abrirEndereco);
   if (btnLerCamera) {
-  btnLerCamera.addEventListener('click', iniciarLeituraCamera);
+    btnLerCamera.addEventListener('click', async () => {
+  destinoCamera = 'produto';
+  await iniciarLeituraCamera();
+});
+
+btnLerCameraEndereco.addEventListener('click', async () => {
+  destinoCamera = 'endereco';
+  await iniciarLeituraCamera();
+});
 }
 
 if (btnFecharCamera) {

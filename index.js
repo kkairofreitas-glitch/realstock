@@ -73,6 +73,13 @@ let auditoriaImportacao = {
 };
 let itemAuditoriaAtual = null;
 let tipoUltimaImportacao = "--";
+let ultimaImportacao = {
+  arquivo: "--",
+  tipo: "--",
+  horario: null,
+  status: "--",
+  observacao: "Sem importações nesta sessão.",
+};
 let contagemSemBase = [];
 let modoOperacao = "com-base";
 let finalizacoesSemBase = [];
@@ -1918,7 +1925,23 @@ app.get("/sem-base/exportar-pdf", autenticar, permitirSomenteLiderOuAdmin, (req,
             widths: incluirUltimaLeitura ? ["*", 100, 160] : ["*", 120],
             body,
           },
-          layout: "lightHorizontalLines",
+          layout: {
+            fillColor: function (rowIndex) {
+              return rowIndex === 0 ? "#1e293b" : null;
+            },
+            hLineColor: function () {
+              return "#cbd5e1";
+            },
+            vLineColor: function () {
+              return "#cbd5e1";
+            },
+            hLineWidth: function () {
+              return 0.6;
+            },
+            vLineWidth: function () {
+              return 0.6;
+            },
+          },
         },
       ],
       defaultStyle: {
@@ -2506,15 +2529,21 @@ app.get("/auditoria-importacao", autenticar, (req, res) => {
   });
 });
 app.post("/importar-saldo-atual-txt", autenticar, async (req, res) => {
+  let caminhoTemporario = null;
+
   try {
     if (!req.files || !req.files.arquivo) {
-      return res.status(400).send("Nenhum arquivo enviado.");
+      return res.status(400).json({
+        sucesso: false,
+        erro: "Nenhum arquivo enviado.",
+      });
     }
 
     garantirPastaData();
 
     const arquivo = req.files.arquivo;
-    const caminhoTemporario = path.join(
+
+    caminhoTemporario = path.join(
       dataDir,
       `tmp-import-saldo-${Date.now()}.txt`
     );
@@ -2530,7 +2559,6 @@ app.post("/importar-saldo-atual-txt", autenticar, async (req, res) => {
       descricao: extrairCampoLinha(linha, "descricao"),
       custoUnitario: extrairCampoLinha(linha, "custoUnitario"),
       qtdeCongelada: extrairCampoLinha(linha, "qtdeCongelada"),
-      qtdeContada: 0,
       categoria: extrairCampoLinha(linha, "categoria"),
       tipo: extrairCampoLinha(linha, "tipo"),
     }));
@@ -2539,6 +2567,7 @@ app.post("/importar-saldo-atual-txt", autenticar, async (req, res) => {
     const itensUnicosImportados = removerDuplicadosPorCodigoInterno(itensImportados);
     const totalUnicosBruto = itensUnicosImportados.length;
     const duplicatasRemovidas = totalImportadoBruto - totalUnicosBruto;
+
     const itensZeradosIgnorados = itensUnicosImportados.filter(
       (item) => parseQuantidade(item.qtdeCongelada) <= 0
     ).length;
@@ -2557,37 +2586,72 @@ app.post("/importar-saldo-atual-txt", autenticar, async (req, res) => {
       ])
     );
 
-    const inventarioAtualizado = itensUnicosImportados.map((novoItem) => {
-      const chave = String(novoItem.codigo || novoItem.codigoInterno || "").trim();
-      const itemAtual = mapaInventarioAtual.get(chave);
-
-      if (!itemAtual) {
-        return {
-          ...novoItem,
-          qtdeContada: 0,
-        };
-      }
-
+    inventario = itensUnicosImportados.map((novoItem) => {
+      const codigoBarrasNovo = String(novoItem.codigoBarras || "").trim();
+    
+      const totalContado = contagens
+        .filter((c) => {
+          return (
+            c &&
+            c.ativo !== false &&
+            String(c.codigoBarras || "").trim() === codigoBarrasNovo
+          );
+        })
+        .reduce((acc, c) => acc + (Number(c.quantidade) || 0), 0);
+    
       return {
         ...novoItem,
-        qtdeContada: Number(itemAtual.qtdeContada) || 0,
+        qtdeContada: totalContado,
       };
     });
 
-    inventario = inventarioAtualizado;
-    salvarProdutosNoBanco(inventario);
-    
+    await salvarProdutosNoBanco(inventario);
+
     tipoUltimaImportacao = "Atualização de saldo";
+
+    ultimaImportacao = {
+      arquivo: arquivo.name,
+      tipo: "Atualização de saldo",
+      horario: new Date().toISOString(),
+      status: "Sucesso na importação",
+      observacao: `Saldo atualizado com sucesso. ${inventario.length} itens carregados. Contagens, usuários e endereços foram preservados.`,
+    };
+
     broadcastInventario();
 
-    fs.unlinkSync(caminhoTemporario);
+    if (caminhoTemporario && fs.existsSync(caminhoTemporario)) {
+      fs.unlinkSync(caminhoTemporario);
+    }
 
-    res.redirect("/");
+    return res.json({
+      sucesso: true,
+      mensagem: "Saldo atual importado com sucesso.",
+      ultimaImportacao,
+      total: inventario.length,
+    });
   } catch (erro) {
     console.error("Erro ao importar saldo atual TXT:", erro);
-    res.status(500).send(`Erro ao importar saldo atual TXT: ${erro.message}`);
+
+    ultimaImportacao = {
+      arquivo: req.files?.arquivo?.name || "--",
+      tipo: "Atualização de saldo",
+      horario: new Date().toISOString(),
+      status: "Erro na importação",
+      observacao: erro.message,
+    };
+
+    if (caminhoTemporario && fs.existsSync(caminhoTemporario)) {
+      fs.unlinkSync(caminhoTemporario);
+    }
+
+    return res.status(500).json({
+      sucesso: false,
+      erro: erro.message,
+      ultimaImportacao,
+    });
   }
 });
+
 app.post("/importar-csv", autenticar, (req, res) => {
   if (!req.files || !req.files.arquivo) {
     return res.status(400).send("Nenhum arquivo enviado.");
@@ -2852,24 +2916,92 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, (req, res) => {
         req.session?.usuario?.nome ||
         "sistema";
 
-      const novosRegistros = (transmissaoPendente.itens || [])
-        .map((item, index) => ({
-          id: `CONT-${Date.now()}-${index}-${Math.floor(Math.random() * 1000)}`,
+        const novosRegistros = (transmissaoPendente.itens || [])
+        .map((item, index) => {
+          const codigoBarras = String(
+            item.codigoBarras || item.eanOuCodigo || item.ean || ""
+          ).trim();
+      
+          const codigo = String(item.codigo || "").trim();
+      
+          return {
+            id: `CONT-${Date.now()}-${index}-${Math.floor(Math.random() * 1000)}`,
+            usuario: transmissaoPendente.usuario || usuarioConsolidacao,
+            matricula: "SEM-MATRICULA",
+            codigoBarras,
+            codigo,
+            quantidade: Number(item.quantidade) || 0,
+            enderecoId: Number(endereco.id),
+            enderecoNumero: Number(enderecoNumero),
+            ativo: true,
+            statusConsolidacao: "consolidado",
+            consolidadoEm: agoraIso,
+            consolidadoPor: usuarioConsolidacao,
+            data: transmissaoPendente.data || agoraIso,
+          };
+        })
+        .filter((item) => (item.codigoBarras || item.codigo) && item.quantidade > 0);
+      
+      if (modoOperacao === "sem-base") {
+        novosRegistros.forEach((registro) => {
+          const chaveNova = String(registro.codigoBarras || registro.codigo || "").trim();
+      
+          const existente = contagemSemBase.find((item) => {
+            const chaveAtual = String(item.ean || item.codigo || "").trim();
+            return chaveAtual === chaveNova;
+          });
+      
+          if (existente) {
+            existente.quantidade =
+              (Number(existente.quantidade) || 0) + Number(registro.quantidade || 0);
+      
+            if (!Array.isArray(existente.enderecos)) {
+              existente.enderecos = [];
+            }
+      
+            existente.enderecos.push({
+              enderecoNumero,
+              quantidade: Number(registro.quantidade) || 0,
+            });
+      
+            existente.ultimoUsuario = registro.usuario;
+            existente.ultimaLeituraEm = registro.data;
+          } else {
+            contagemSemBase.push({
+              ean: registro.codigoBarras,
+              codigo: registro.codigo,
+              quantidade: Number(registro.quantidade) || 0,
+              ultimoUsuario: registro.usuario,
+              ultimaLeituraEm: registro.data,
+              enderecos: [
+                {
+                  enderecoNumero,
+                  quantidade: Number(registro.quantidade) || 0,
+                },
+              ],
+            });
+          }
+        });
+      
+        finalizacoesSemBase.push({
+          id: `SBF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          enderecoNumero,
           usuario: transmissaoPendente.usuario || usuarioConsolidacao,
-          matricula: "SEM-MATRICULA",
-          codigoBarras: String(item.codigoBarras || "").trim(),
-          quantidade: Number(item.quantidade) || 0,
-          enderecoId: Number(endereco.id),
-          enderecoNumero: Number(enderecoNumero),
-          ativo: true,
-          statusConsolidacao: "consolidado",
-          consolidadoEm: agoraIso,
-          consolidadoPor: usuarioConsolidacao,
-          data: transmissaoPendente.data || agoraIso,
-        }))
-        .filter((item) => item.codigoBarras && item.quantidade > 0);
-
-      contagens.push(...novosRegistros);
+          data: agoraIso,
+          itens: novosRegistros.map((item) => ({
+            ean: item.codigoBarras,
+            codigo: item.codigo,
+            quantidade: item.quantidade,
+          })),
+          totalItensUnicos: novosRegistros.length,
+          totalVolume: novosRegistros.reduce(
+            (acc, item) => acc + Number(item.quantidade || 0),
+            0
+          ),
+        });
+      } else {
+        contagens.push(...novosRegistros);
+      }
 
       transmissaoPendente.statusConsolidacao = "consolidado";
       transmissaoPendente.consolidadoEm = agoraIso;
@@ -2888,13 +3020,18 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, (req, res) => {
       totalConsolidadas += 1;
     });
 
-    salvarContagens();
     salvarEnderecamentos();
 
-    recalcularInventarioComBaseNasContagens();
-    salvarProdutosNoBanco(inventario);
+    if (modoOperacao === "sem-base") {
+      salvarContagemSemBase();
+      salvarFinalizacoesSemBase();
+    } else {
+      salvarContagens();
+      recalcularInventarioComBaseNasContagens();
+      salvarProdutosNoBanco(inventario);
+    }
+    
     broadcastInventario();
-
     return res.json({
       sucesso: true,
       mensagem: `${totalConsolidadas} transmissão(ões) consolidada(s). ${totalErros} erro(s).`,
@@ -3765,7 +3902,7 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
       align: "right",
     },
     divergencia: {
-      titulo: "Divergência",
+      titulo: "Diverg.",
       valor: (item) => formatarNumeroPdf(item.divergencia),
       width: 70,
       align: "right",
@@ -3846,6 +3983,54 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
   const colunasAtivas = (colunasSelecionadas.length ? colunasSelecionadas : colunasPadrao)
     .filter((coluna) => mapaColunas[coluna]);
 
+    const margemEsquerdaPdf = 12;
+    const margemDireitaPdf = 22;
+
+const larguraPaginaA4Paisagem = 841.89;
+
+// Área útil real da A4 paisagem.
+// Desconto extra de segurança para bordas e paddings internos do pdfmake.
+const larguraDisponivelPdf =
+  larguraPaginaA4Paisagem - margemEsquerdaPdf - margemDireitaPdf - 28;
+
+const largurasBasePdf = {
+  codigoBarras: 88,
+  codigo: 55,
+  descricao: 240,
+  categoria: 70,
+  custoUnitario: 62,
+  qtdeCongelada: 68,
+  qtdeContada: 68,
+  divergencia: 72,
+  situacao: 70,
+  ajuste: 70,
+  endereco: 68,
+  coletaEndereco: 68,
+  valorCongelado: 82,
+  valorContado: 82,
+  valorDivergencia: 92,
+};
+
+const larguraTotalSelecionadaPdf = colunasAtivas.reduce(
+  (total, coluna) => total + (largurasBasePdf[coluna] || 65),
+  0
+);
+
+const fatorAjustePdf = larguraDisponivelPdf / larguraTotalSelecionadaPdf;
+
+let largurasTabelaPdf = colunasAtivas.map((coluna) => {
+  const larguraBase = largurasBasePdf[coluna] || 65;
+  return Math.floor(larguraBase * fatorAjustePdf);
+});
+const somaLargurasPdf = largurasTabelaPdf.reduce((acc, largura) => acc + largura, 0);
+const diferencaPdf = Math.floor(larguraDisponivelPdf - somaLargurasPdf);
+
+const indiceDescricaoPdf = colunasAtivas.indexOf("descricao");
+if (indiceDescricaoPdf >= 0 && diferencaPdf > 0) {
+  largurasTabelaPdf[indiceDescricaoPdf] += diferencaPdf;
+}
+
+    const fonteTabelaPdf = 9;
   const printer = new PdfPrinter(fonts);
 
   const tableBody = [
@@ -3872,7 +4057,8 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
           text: String(mapaColunas[coluna].valor(item)),
 style: "tableCell",
 alignment: mapaColunas[coluna].align || "left",
-noWrap: coluna !== "descricao" && coluna !== "endereco" && coluna !== "coletaEndereco",
+fontSize: fonteTabelaPdf,
+noWrap: false,
         }))
       );
     });
@@ -3897,12 +4083,28 @@ noWrap: coluna !== "descricao" && coluna !== "endereco" && coluna !== "coletaEnd
 
   const cliente = req.query.cliente || "Cliente não informado";
   const loja = req.query.loja || "Loja não informada";
-  const dataInventario = req.query.data || new Date().toLocaleDateString("pt-BR");
+  const agoraPdf = new Date();
 
-  const docDefinition = {
-    pageOrientation: "landscape",
-    pageMargins: [16, 18, 16, 24],
+const dataInventario =
+  req.query.data ||
+  agoraPdf.toLocaleDateString("pt-BR", {
+    timeZone: "America/Manaus",
+  });
 
+const dataHoraGeradoPdf = agoraPdf.toLocaleString("pt-BR", {
+  timeZone: "America/Manaus",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+const docDefinition = {
+  pageSize: "A4",
+pageOrientation: "landscape",
+pageMargins: [margemEsquerdaPdf, 24, margemDireitaPdf, 24],
     footer: function (currentPage, pageCount) {
       return {
         margin: [16, 4, 16, 0],
@@ -3940,7 +4142,7 @@ noWrap: coluna !== "descricao" && coluna !== "endereco" && coluna !== "coletaEnd
           ],
           [
             {
-              text: `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+              text: `Gerado em: ${dataHoraGeradoPdf}`,
               alignment: "right",
               fontSize: 8,
               color: "#475569",
@@ -4015,13 +4217,24 @@ noWrap: coluna !== "descricao" && coluna !== "endereco" && coluna !== "coletaEnd
       {
         table: {
           headerRows: 1,
-          widths: colunasAtivas.map((coluna) => mapaColunas[coluna].width),
+          widths: largurasTabelaPdf,
           body: tableBody,
         },
         layout: {
+          paddingLeft: function () {
+            return 2;
+          },
+          paddingRight: function () {
+            return 2;
+          },
+          paddingTop: function () {
+            return 4;
+          },
+          paddingBottom: function () {
+            return 4;
+          },
           fillColor: function (rowIndex) {
-            if (rowIndex === 0) return "#1e293b";
-            return rowIndex % 2 === 0 ? "#f8fafc" : "#ffffff";
+            return rowIndex === 0 ? "#1e293b" : rowIndex % 2 === 0 ? "#f8fafc" : null;
           },
           hLineColor: function () {
             return "#cbd5e1";
@@ -4035,21 +4248,8 @@ noWrap: coluna !== "descricao" && coluna !== "endereco" && coluna !== "coletaEnd
           vLineWidth: function () {
             return 0.5;
           },
-          paddingLeft: function () {
-            return 5;
-          },
-          paddingRight: function () {
-            return 5;
-          },
-          paddingTop: function () {
-            return 4;
-          },
-          paddingBottom: function () {
-            return 4;
-          },
         },
       },
-
       ...(modoOperacao === "sem-base"
   ? []
   : [
@@ -4148,12 +4348,15 @@ noWrap: coluna !== "descricao" && coluna !== "endereco" && coluna !== "coletaEnd
       },
       tableHeader: {
         bold: true,
-        fontSize: 9,
+        fontSize: fonteTabelaPdf + 1.5,
         color: "#ffffff",
+        fillColor: "#1e293b",
+        margin: [2, 6, 2, 6],
       },
       tableCell: {
-        fontSize: 9,
+        fontSize: fonteTabelaPdf,
         color: "#0f172a",
+        margin: [1, 2, 1, 2],
       },
       summaryTitle: {
         bold: true,
@@ -5522,12 +5725,14 @@ app.get("/exportar-checklist-encerramento-pdf-auto", autenticar, (req, res) => {
         },
         tableHeader: {
           bold: true,
-          fontSize: 9,
+          fontSize: fonteTabelaPdf,
           color: "#ffffff",
+          margin: [2, 4, 2, 4],
         },
         tableCell: {
-          fontSize: 9,
+          fontSize: fonteTabelaPdf,
           color: "#0f172a",
+          margin: [1, 2, 1, 2],
         },
         statusOk: {
           fontSize: 8.5,
@@ -6814,7 +7019,10 @@ app.delete("/usuarios/:id", autenticar, (req, res) => {
   }
 });
 app.get("/tipo-ultima-importacao", autenticar, (req, res) => {
-  res.json({ tipoUltimaImportacao });
+  res.json({
+    tipoUltimaImportacao,
+    ultimaImportacao,
+  });
 });
 app.get("/usuarios-atividade", autenticar, (req, res) => {
   const atividade = usuarios.map((u) => {
