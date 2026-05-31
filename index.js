@@ -1,4 +1,11 @@
-require("dotenv").config();
+if (process.env.NODE_ENV !== "production") {
+  try {
+    require("dotenv").config();
+  } catch (erro) {
+    console.warn("dotenv não carregado:", erro.message);
+  }
+}
+
 const { testarConexao } = require("./db");
 const express = require("express");
 const fileUpload = require("express-fileupload");
