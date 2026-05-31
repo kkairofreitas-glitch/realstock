@@ -1,3 +1,5 @@
+require("dotenv").config();
+const { testarConexao } = require("./db");
 const express = require("express");
 const fileUpload = require("express-fileupload");
 const session = require("express-session");
@@ -1631,7 +1633,9 @@ app.get("/modo-operacao", autenticar, (req, res) => {
 
 app.post("/modo-operacao", autenticar, permitirSomenteLiderOuAdmin, (req, res) => {
   try {
-    const novoModo = String(req.body?.modoOperacao || "").trim();
+    const novoModo = String(
+      req.body?.modoOperacao || req.body?.modo || ""
+    ).trim();
 
     if (novoModo !== "com-base" && novoModo !== "sem-base") {
       return res.status(400).json({
@@ -2039,20 +2043,21 @@ function carregarModoOperacao() {
     garantirPastaData();
 
     if (!fs.existsSync(configModoPath)) {
-      fs.writeFileSync(
-        configModoPath,
-        JSON.stringify({ modoOperacao: "com-base" }, null, 2),
-        "utf8"
-      );
       modoOperacao = "com-base";
+      salvarModoOperacao();
       return;
     }
 
     const bruto = fs.readFileSync(configModoPath, "utf8") || "{}";
     const config = JSON.parse(bruto);
 
-    modoOperacao =
-      config?.modoOperacao === "sem-base" ? "sem-base" : "com-base";
+    const modoSalvo = String(
+      config?.modoOperacao || config?.modo || "com-base"
+    ).trim();
+
+    modoOperacao = modoSalvo === "sem-base" ? "sem-base" : "com-base";
+
+    console.log("Modo operacional carregado:", modoOperacao);
   } catch (erro) {
     console.error("Erro ao carregar modo de operação:", erro);
     modoOperacao = "com-base";
@@ -2065,9 +2070,19 @@ function salvarModoOperacao() {
 
     fs.writeFileSync(
       configModoPath,
-      JSON.stringify({ modoOperacao }, null, 2),
+      JSON.stringify(
+        {
+          modoOperacao,
+          modo: modoOperacao,
+          atualizadoEm: new Date().toISOString(),
+        },
+        null,
+        2
+      ),
       "utf8"
     );
+
+    console.log("Modo operacional salvo:", modoOperacao);
   } catch (erro) {
     console.error("Erro ao salvar modo de operação:", erro);
   }
@@ -7053,6 +7068,7 @@ carregarLayoutsSalvos();
 carregarContagemSemBase();
 carregarModoOperacao();
 carregarProdutosDoBanco(() => {
+  testarConexao();
   server.listen(port, () =>
     console.log(`Servidor rodando em http://localhost:${port}`)
   );
