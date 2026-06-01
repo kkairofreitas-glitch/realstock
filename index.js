@@ -6,7 +6,7 @@ if (process.env.NODE_ENV !== "production") {
   }
 }
 
-const { testarConexao } = require("./db");
+const { testarConexao, criarTabelas } = require("./db");
 const express = require("express");
 const fileUpload = require("express-fileupload");
 const session = require("express-session");
@@ -7075,8 +7075,17 @@ carregarLayoutsSalvos();
 carregarContagemSemBase();
 carregarModoOperacao();
 carregarProdutosDoBanco(() => {
-  testarConexao();
-  server.listen(port, () =>
-    console.log(`Servidor rodando em http://localhost:${port}`)
-  );
+  server.listen(port, () => {
+    console.log(`Servidor rodando em http://localhost:${port}`);
+
+    if (process.env.NODE_ENV === "production") {
+      testarConexao()
+        .then(() => criarTabelas())
+        .catch((erro) => {
+          console.error("Falha PostgreSQL:", erro.message);
+        });
+    } else {
+      console.log("PostgreSQL ignorado no StackBlitz/local.");
+    }
+  });
 });
