@@ -1486,6 +1486,14 @@ body.sem-endereco-aberto #cardItensEndereco {
       <div id="mensagemEndereco" class="mensagem"></div>
     </div>
 
+    <div id="leitorCameraBox" class="leitor-camera-box hidden">
+    <div id="html5QrCodeReader"></div>
+    
+    <button type="button" id="btnFecharCamera" class="btn-borda btn-borda-alerta">
+      Fechar câmera
+    </button>
+    </div>
+
     <div class="card hidden" id="cardColetaEndereco">
     <div id="enderecoResumoColeta" class="endereco-resumo-coleta">END: ----</div>
     <h3>Coleta</h3>
@@ -1509,13 +1517,7 @@ disabled
   </button>
 </div>
 
-<div id="leitorCameraBox" class="leitor-camera-box hidden">
-<div id="html5QrCodeReader"></div>
 
-<button type="button" id="btnFecharCamera" class="btn-borda btn-borda-alerta">
-  Fechar câmera
-</button>
-</div>
 
       <div id="descricaoProduto" class="produto-encontrado">Nenhum produto localizado.</div>
 
@@ -2317,22 +2319,29 @@ function preencherCodigoLidoPelaCamera(codigo) {
 }
 
 async function iniciarLeituraCamera() {
-  if (!enderecoAberto) {
-    mensagem.textContent = 'Abra um endereço antes de usar a câmera.';
-    mensagem.className = 'mensagem erro';
+  const msgAlvo = destinoCamera === 'endereco' ? mensagemEndereco : mensagem;
+
+  if (destinoCamera !== 'endereco' && !enderecoAberto) {
+    msgAlvo.textContent = 'Abra um endereço antes de usar a câmera.';
+    msgAlvo.className = 'mensagem erro';
     return;
   }
 
   if (typeof Html5Qrcode === 'undefined') {
-    mensagem.textContent = 'Leitor de câmera não carregou. Verifique a internet e atualize a página.';
-    mensagem.className = 'mensagem erro';
+    msgAlvo.textContent = 'Leitor de câmera não carregou. Verifique a internet e atualize a página.';
+    msgAlvo.className = 'mensagem erro';
     return;
   }
 
   try {
     leitorCameraBox.classList.remove('hidden');
-    mensagem.textContent = 'Aponte a câmera para o código de barras.';
-    mensagem.className = 'mensagem info';
+
+    msgAlvo.textContent =
+      destinoCamera === 'endereco'
+        ? 'Aponte a câmera para o código do endereço.'
+        : 'Aponte a câmera para o código de barras.';
+
+    msgAlvo.className = 'mensagem info';
 
     if (!leitorCameraHtml5) {
       leitorCameraHtml5 = new Html5Qrcode('html5QrCodeReader');
@@ -2343,19 +2352,20 @@ async function iniciarLeituraCamera() {
     await leitorCameraHtml5.start(
       { facingMode: 'environment' },
       {
-  fps: 18,
-  qrbox: { width: 220, height: 120 },
-  aspectRatio: 1.7778,
-  disableFlip: true,
-  formatsToSupport: [
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E
-  ]
-},
+        fps: 18,
+        qrbox: { width: 220, height: 120 },
+        aspectRatio: 1.7778,
+        disableFlip: true,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      },
       async (codigoLido) => {
         if (!cameraAtiva) return;
 
@@ -2364,8 +2374,12 @@ async function iniciarLeituraCamera() {
 
         preencherCodigoLidoPelaCamera(codigoLido);
 
-        mensagem.textContent = `Código lido: ${codigoLido}`;
-        mensagem.className = 'mensagem sucesso';
+        msgAlvo.textContent =
+          destinoCamera === 'endereco'
+            ? `Endereço lido: ${codigoLido}`
+            : `Código lido: ${codigoLido}`;
+
+        msgAlvo.className = 'mensagem sucesso';
 
         if (navigator.vibrate) {
           navigator.vibrate(80);
@@ -2374,8 +2388,8 @@ async function iniciarLeituraCamera() {
     );
   } catch (erro) {
     console.error('Erro ao abrir câmera:', erro);
-    mensagem.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
-    mensagem.className = 'mensagem erro';
+    msgAlvo.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
+    msgAlvo.className = 'mensagem erro';
     await pararLeituraCamera();
   }
 }
@@ -2789,15 +2803,17 @@ enderecoAtualInput.focus();
   btnBaixarFiltro.addEventListener('click', baixarFiltro);
   btnAbrirEndereco.addEventListener('click', abrirEndereco);
   if (btnLerCamera) {
-    btnLerCamera.addEventListener('click', async () => {
-  destinoCamera = 'produto';
-  await iniciarLeituraCamera();
-});
+  btnLerCamera.addEventListener('click', async () => {
+    destinoCamera = 'produto';
+    await iniciarLeituraCamera();
+  });
+}
 
-btnLerCameraEndereco.addEventListener('click', async () => {
-  destinoCamera = 'endereco';
-  await iniciarLeituraCamera();
-});
+if (btnLerCameraEndereco) {
+  btnLerCameraEndereco.addEventListener('click', async () => {
+    destinoCamera = 'endereco';
+    await iniciarLeituraCamera();
+  });
 }
 
 if (btnFecharCamera) {
