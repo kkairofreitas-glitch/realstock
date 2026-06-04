@@ -6927,7 +6927,7 @@ app.get("/usuarios", autenticar, (req, res) => {
   );
 });
 
-app.post("/usuarios", autenticar, (req, res) => {
+app.post("/usuarios", autenticar, async (req, res) => {
   try {
     const {
       nome,
@@ -6965,8 +6965,7 @@ app.post("/usuarios", autenticar, (req, res) => {
     };
 
     usuarios.push(novoUsuario);
-    salvarUsuarios();
-
+    await salvarUsuarios();
     return res.json({
       sucesso: true,
       usuario: novoUsuario,
@@ -6977,7 +6976,7 @@ app.post("/usuarios", autenticar, (req, res) => {
   }
 });
 
-app.put("/usuarios/:id/meta", autenticar, (req, res) => {
+app.put("/usuarios/:id/meta", autenticar, async (req, res) => {
   try {
     const { id } = req.params;
     const { meta } = req.body || {};
@@ -6989,7 +6988,7 @@ app.put("/usuarios/:id/meta", autenticar, (req, res) => {
     }
 
     usuario.meta = Number(meta) || 0;
-    salvarUsuarios();
+    await salvarUsuarios();
 
     res.json({ sucesso: true, usuario });
   } catch (erro) {
@@ -6998,7 +6997,7 @@ app.put("/usuarios/:id/meta", autenticar, (req, res) => {
   }
 });
 
-app.put("/usuarios/:id", autenticar, (req, res) => {
+app.put("/usuarios/:id", autenticar, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { nome, usuario, senha, funcao, telefone, meta, status } = req.body || {};
@@ -7029,7 +7028,7 @@ app.put("/usuarios/:id", autenticar, (req, res) => {
       status: status ?? usuarios[usuarioIndex].status,
     };
 
-    salvarUsuarios();
+    await salvarUsuarios();
 
     return res.json({ ok: true, usuario: usuarios[usuarioIndex] });
   } catch (erro) {
@@ -7038,7 +7037,7 @@ app.put("/usuarios/:id", autenticar, (req, res) => {
   }
 });
 
-app.patch("/usuarios/:id/status", autenticar, (req, res) => {
+app.patch("/usuarios/:id/status", autenticar, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { status } = req.body;
@@ -7053,7 +7052,7 @@ app.patch("/usuarios/:id/status", autenticar, (req, res) => {
     }
 
     usuario.status = status;
-    salvarUsuarios();
+    await salvarUsuarios();
 
     return res.json({ ok: true, usuario });
   } catch (erro) {
@@ -7062,7 +7061,7 @@ app.patch("/usuarios/:id/status", autenticar, (req, res) => {
   }
 });
 
-app.delete("/usuarios/:id", autenticar, (req, res) => {
+app.delete("/usuarios/:id", autenticar, async (req, res) => {
   try {
     const id = Number(req.params.id);
 
@@ -7078,7 +7077,7 @@ app.delete("/usuarios/:id", autenticar, (req, res) => {
     }
 
     usuarios.splice(index, 1);
-    salvarUsuarios();
+    await salvarUsuarios();
 
     return res.json({ ok: true });
   } catch (erro) {
