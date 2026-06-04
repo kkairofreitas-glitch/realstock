@@ -6,7 +6,12 @@ if (process.env.NODE_ENV !== "production") {
   }
 }
 
-const { testarConexao, criarTabelas } = require("./db");
+const {
+  testarConexao,
+  criarTabelas,
+  carregarUsuariosPostgres,
+  salvarUsuariosPostgres,
+} = require("./db");
 const express = require("express");
 const fileUpload = require("express-fileupload");
 const session = require("express-session");
@@ -1056,9 +1061,29 @@ const ultimoEnderecoContado =
     atualizadoEm: new Date().toISOString(),
   };
 }
-function carregarUsuarios() {
+
+const usarPostgres = process.env.NODE_ENV === "production";
+
+async function carregarUsuarios() {
   try {
     garantirPastaData();
+
+    const usuariosDoBanco = usarPostgres
+  ? await carregarUsuariosPostgres()
+  : [];
+
+if (usarPostgres && Array.isArray(usuariosDoBanco) && usuariosDoBanco.length > 0) {
+      usuarios = usuariosDoBanco;
+
+      fs.writeFileSync(
+        usuariosPath,
+        JSON.stringify(usuarios, null, 2),
+        "utf8"
+      );
+
+      console.log(`✅ Usuários carregados do PostgreSQL: ${usuarios.length}`);
+      return;
+    }
 
     if (!fs.existsSync(usuariosPath)) {
       const usuariosIniciais = [
@@ -1086,46 +1111,67 @@ function carregarUsuarios() {
           meta: 0,
           criadoEm: new Date().toISOString(),
         },
-        {
-          id: 1,
-          nome: "Operador em teste 1",
-          usuario: "teste1",
-          senha: "1234",
-          matricula: "RS-0003",
-          funcao: "Operador",
-          telefone: "",
-          status: "ativo",
-          meta: 0,
-          criadoEm: new Date().toISOString(),
-        },
       ];
 
-      fs.writeFileSync(usuariosPath, JSON.stringify(usuariosIniciais, null, 2), "utf8");
       usuarios = usuariosIniciais;
+
+      fs.writeFileSync(
+        usuariosPath,
+        JSON.stringify(usuarios, null, 2),
+        "utf8"
+      );
+
+      if (usarPostgres) {
+        await salvarUsuariosPostgres(usuarios);
+      }
+
+      console.log("✅ Usuários iniciais criados no JSON e PostgreSQL.");
       return;
     }
 
     const conteudo = fs.readFileSync(usuariosPath, "utf8");
-const lidos = JSON.parse(conteudo || "[]");
+    const lidos = JSON.parse(conteudo || "[]");
 
-usuarios = Array.isArray(lidos)
-  ? lidos.map((u) => ({
-      ...u,
-      status: u.status || "ativo"
-    }))
-  : [];
+    usuarios = Array.isArray(lidos)
+      ? lidos.map((u) => ({
+          ...u,
+          status: u.status || "ativo",
+        }))
+      : [];
+
+    await salvarUsuariosPostgres(usuarios);
+
+    console.log(`✅ Usuários migrados do JSON para PostgreSQL: ${usuarios.length}`);
   } catch (erro) {
-    console.error("Erro ao carregar usuários:", erro);
-    usuarios = [];
+    console.error("Erro ao carregar usuários:", erro.message);
+
+    try {
+      const conteudo = fs.readFileSync(usuariosPath, "utf8");
+      usuarios = JSON.parse(conteudo || "[]");
+      console.log("⚠️ Usuários carregados do JSON como backup.");
+    } catch {
+      usuarios = [];
+    }
   }
 }
 
-function salvarUsuarios() {
+async function salvarUsuarios() {
   try {
     garantirPastaData();
-    fs.writeFileSync(usuariosPath, JSON.stringify(usuarios, null, 2), "utf8");
+
+    fs.writeFileSync(
+      usuariosPath,
+      JSON.stringify(usuarios, null, 2),
+      "utf8"
+    );
+
+    if (usarPostgres) {
+      await salvarUsuariosPostgres(usuarios);
+    }
+
+    console.log("✅ Usuários salvos no JSON e PostgreSQL.");
   } catch (erro) {
-    console.error("Erro ao salvar usuários:", erro);
+    console.error("Erro ao salvar usuários:", erro.message);
   }
 }
 
@@ -7068,7 +7114,9 @@ app.get("/usuarios-atividade", autenticar, (req, res) => {
 });
 
 carregarEnderecamentos();
-carregarUsuarios();
+carregarUsuarios().catch((erro) => {
+  console.error("Erro inicial ao carregar usuários:", erro.message);
+});
 carregarContagens();
 carregarLayoutTxt();
 carregarLayoutsSalvos();

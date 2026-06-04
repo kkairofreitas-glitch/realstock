@@ -132,8 +132,94 @@ async function criarTabelas() {
   }
 }
 
+async function carregarUsuariosPostgres() {
+  const resultado = await pool.query(`
+    SELECT
+      id,
+      nome,
+      usuario,
+      senha,
+      matricula,
+      funcao,
+      telefone,
+      status,
+      meta,
+      criado_em
+    FROM usuarios
+    ORDER BY id ASC
+  `);
+
+  return resultado.rows.map((u) => ({
+    id: u.id,
+    nome: u.nome || "",
+    usuario: u.usuario || "",
+    senha: u.senha || "",
+    matricula: u.matricula || "",
+    funcao: u.funcao || "Operador",
+    telefone: u.telefone || "",
+    status: u.status || "ativo",
+    meta: Number(u.meta) || 0,
+    criadoEm: u.criado_em || null,
+  }));
+}
+
+async function salvarUsuarioPostgres(usuario) {
+  const resultado = await pool.query(
+    `
+    INSERT INTO usuarios (
+      nome,
+      usuario,
+      senha,
+      matricula,
+      funcao,
+      telefone,
+      status,
+      meta
+    )
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    ON CONFLICT (usuario)
+    DO UPDATE SET
+      nome = EXCLUDED.nome,
+      senha = EXCLUDED.senha,
+      matricula = EXCLUDED.matricula,
+      funcao = EXCLUDED.funcao,
+      telefone = EXCLUDED.telefone,
+      status = EXCLUDED.status,
+      meta = EXCLUDED.meta,
+      atualizado_em = NOW()
+    RETURNING *
+    `,
+    [
+      usuario.nome || "",
+      usuario.usuario,
+      usuario.senha,
+      usuario.matricula || "",
+      usuario.funcao || "Operador",
+      usuario.telefone || "",
+      usuario.status || "ativo",
+      Number(usuario.meta) || 0,
+    ]
+  );
+
+  return resultado.rows[0];
+}
+
+async function salvarUsuariosPostgres(listaUsuarios) {
+  const lista = Array.isArray(listaUsuarios) ? listaUsuarios : [];
+
+  for (const usuario of lista) {
+    if (!usuario?.usuario || !usuario?.senha) continue;
+    await salvarUsuarioPostgres(usuario);
+  }
+
+  console.log(`✅ Usuários salvos no PostgreSQL: ${lista.length}`);
+}
+
 module.exports = {
   pool,
   testarConexao,
   criarTabelas,
+  carregarUsuariosPostgres,
+  salvarUsuarioPostgres,
+  salvarUsuariosPostgres,
 };
