@@ -7230,27 +7230,34 @@ app.get("/usuarios-atividade", autenticar, (req, res) => {
   res.json(atividade);
 });
 
-carregarEnderecamentos();
-carregarUsuarios().catch((erro) => {
-  console.error("Erro inicial ao carregar usuários:", erro.message);
-});
-carregarContagens();
-carregarLayoutTxt();
-carregarLayoutsSalvos();
-carregarContagemSemBase();
-carregarModoOperacao();
-carregarProdutosDoBanco(() => {
-  server.listen(port, () => {
-    console.log(`Servidor rodando em http://localhost:${port}`);
+async function iniciarServidor() {
+  try {
+    carregarLayoutTxt();
+    carregarLayoutsSalvos();
+    carregarContagemSemBase();
+    carregarFinalizacoesSemBase();
+    carregarModoOperacao();
 
-    if (process.env.NODE_ENV === "production") {
-      testarConexao()
-        .then(() => criarTabelas())
-        .catch((erro) => {
-          console.error("Falha PostgreSQL:", erro.message);
-        });
+    await carregarProdutosDoBanco();
+    await carregarUsuarios();
+    await carregarEnderecamentos();
+    await carregarContagens();
+
+    if (usarPostgres) {
+      await testarConexao();
+      await criarTabelas();
     } else {
       console.log("PostgreSQL ignorado no StackBlitz/local.");
     }
-  });
-});
+
+    server.listen(port, () => {
+      console.log(`Servidor rodando em http://localhost:${port}`);
+      console.log(`✅ Sistema iniciado com ${inventario.length} produtos, ${enderecamentos.length} endereçamento(s) e ${contagens.length} contagem(ns).`);
+    });
+  } catch (erro) {
+    console.error("❌ Erro ao iniciar servidor:", erro);
+    process.exit(1);
+  }
+}
+
+iniciarServidor()
