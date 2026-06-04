@@ -214,6 +214,233 @@ async function salvarUsuariosPostgres(listaUsuarios) {
 
   console.log(`✅ Usuários salvos no PostgreSQL: ${lista.length}`);
 }
+async function salvarProdutosPostgres(listaProdutos = []) {
+  await pool.query("DELETE FROM produtos");
+
+  for (const item of listaProdutos) {
+    await pool.query(
+      `
+      INSERT INTO produtos (
+        codigo_barras,
+        codigo,
+        codigo_interno,
+        descricao,
+        categoria,
+        custo_unitario,
+        qtde_congelada,
+        qtde_contada
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `,
+      [
+        item.codigoBarras || "",
+        item.codigo || item.codigoInterno || "",
+        item.codigoInterno || item.codigo || "",
+        item.descricao || "",
+        item.categoria || "",
+        Number(item.custoUnitario) || 0,
+        Number(item.qtdeCongelada) || 0,
+        Number(item.qtdeContada) || 0,
+      ]
+    );
+  }
+
+  console.log(`✅ Produtos salvos no PostgreSQL: ${listaProdutos.length}`);
+}
+
+async function carregarProdutosPostgres() {
+  const resultado = await pool.query(`
+    SELECT
+      codigo_barras,
+      codigo,
+      codigo_interno,
+      descricao,
+      categoria,
+      custo_unitario,
+      qtde_congelada,
+      qtde_contada
+    FROM produtos
+    ORDER BY id ASC
+  `);
+
+  return resultado.rows.map((item) => ({
+    codigoBarras: item.codigo_barras || "",
+    codigo: item.codigo || "",
+    codigoInterno: item.codigo_interno || item.codigo || "",
+    descricao: item.descricao || "",
+    categoria: item.categoria || "",
+    custoUnitario: Number(item.custo_unitario) || 0,
+    qtdeCongelada: Number(item.qtde_congelada) || 0,
+    qtdeContada: Number(item.qtde_contada) || 0,
+  }));
+}
+
+async function salvarEnderecamentosPostgres(listaEnderecamentos = []) {
+  await pool.query("DELETE FROM enderecamentos");
+
+  for (const item of listaEnderecamentos) {
+    await pool.query(
+      `
+      INSERT INTO enderecamentos (
+        id,
+        tipo,
+        nome,
+        inicio,
+        fim,
+        sequencia,
+        status,
+        observacoes,
+        dados,
+        transmissoes,
+        finalizacoes,
+        consolidacoes_por_numero
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      ON CONFLICT (id)
+      DO UPDATE SET
+        tipo = EXCLUDED.tipo,
+        nome = EXCLUDED.nome,
+        inicio = EXCLUDED.inicio,
+        fim = EXCLUDED.fim,
+        sequencia = EXCLUDED.sequencia,
+        status = EXCLUDED.status,
+        observacoes = EXCLUDED.observacoes,
+        dados = EXCLUDED.dados,
+        transmissoes = EXCLUDED.transmissoes,
+        finalizacoes = EXCLUDED.finalizacoes,
+        consolidacoes_por_numero = EXCLUDED.consolidacoes_por_numero,
+        atualizado_em = NOW()
+      `,
+      [
+        Number(item.id) || 0,
+        item.tipo || "",
+        item.nome || "",
+        Number(item.inicio) || 0,
+        Number(item.fim) || 0,
+        Number(item.sequencia) || 0,
+        item.status || "pendente",
+        item.observacoes || "",
+        JSON.stringify(item),
+        JSON.stringify(item.transmissoes || []),
+        JSON.stringify(item.finalizacoes || []),
+        JSON.stringify(item.consolidacoesPorNumero || []),
+      ]
+    );
+  }
+
+  console.log(`✅ Endereçamentos salvos no PostgreSQL: ${listaEnderecamentos.length}`);
+}
+
+async function carregarEnderecamentosPostgres() {
+  const resultado = await pool.query(`
+    SELECT dados
+    FROM enderecamentos
+    ORDER BY id ASC
+  `);
+
+  return resultado.rows.map((row) => row.dados || {});
+}
+
+
+async function salvarContagensPostgres(listaContagens = []) {
+  await pool.query("DELETE FROM contagens");
+
+  for (const item of listaContagens) {
+    await pool.query(
+      `
+      INSERT INTO contagens (
+        id,
+        usuario,
+        matricula,
+        codigo_barras,
+        codigo,
+        quantidade,
+        endereco_id,
+        endereco_numero,
+        finalizacao_id,
+        ativo,
+        status_consolidacao,
+        consolidado_em,
+        consolidado_por,
+        data
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      ON CONFLICT (id)
+      DO UPDATE SET
+        usuario = EXCLUDED.usuario,
+        matricula = EXCLUDED.matricula,
+        codigo_barras = EXCLUDED.codigo_barras,
+        codigo = EXCLUDED.codigo,
+        quantidade = EXCLUDED.quantidade,
+        endereco_id = EXCLUDED.endereco_id,
+        endereco_numero = EXCLUDED.endereco_numero,
+        finalizacao_id = EXCLUDED.finalizacao_id,
+        ativo = EXCLUDED.ativo,
+        status_consolidacao = EXCLUDED.status_consolidacao,
+        consolidado_em = EXCLUDED.consolidado_em,
+        consolidado_por = EXCLUDED.consolidado_por,
+        data = EXCLUDED.data
+      `,
+      [
+        item.id || `CONT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        item.usuario || "",
+        item.matricula || "",
+        item.codigoBarras || "",
+        item.codigo || "",
+        Number(item.quantidade) || 0,
+        item.enderecoId ? Number(item.enderecoId) : null,
+        item.enderecoNumero ? Number(item.enderecoNumero) : null,
+        item.finalizacaoId || null,
+        item.ativo !== false,
+        item.statusConsolidacao || "consolidado",
+        item.consolidadoEm || null,
+        item.consolidadoPor || null,
+        item.data || new Date().toISOString(),
+      ]
+    );
+  }
+
+  console.log(`✅ Contagens salvas no PostgreSQL: ${listaContagens.length}`);
+}
+
+async function carregarContagensPostgres() {
+  const resultado = await pool.query(`
+    SELECT
+      id,
+      usuario,
+      matricula,
+      codigo_barras,
+      codigo,
+      quantidade,
+      endereco_id,
+      endereco_numero,
+      finalizacao_id,
+      ativo,
+      status_consolidacao,
+      consolidado_em,
+      consolidado_por,
+      data
+    FROM contagens
+    ORDER BY data ASC
+  `);
+
+  return resultado.rows.map((item) => ({
+    id: item.id,
+    usuario: item.usuario || "",
+    matricula: item.matricula || "",
+    codigoBarras: item.codigo_barras || "",
+    codigo: item.codigo || "",
+    quantidade: Number(item.quantidade) || 0,
+    enderecoId: item.endereco_id,
+    enderecoNumero: item.endereco_numero,
+    finalizacaoId: item.finalizacao_id,
+    ativo: item.ativo !== false,
+    statusConsolidacao: item.status_consolidacao || "consolidado",
+    consolidadoEm: item.consolidado_em || null,
+    consolidadoPor: item.consolidado_por || null,
+    data: item.data || null,
+  }));
+}
 
 module.exports = {
   pool,
@@ -222,4 +449,10 @@ module.exports = {
   carregarUsuariosPostgres,
   salvarUsuarioPostgres,
   salvarUsuariosPostgres,
+  salvarProdutosPostgres,
+  carregarProdutosPostgres,
+  salvarEnderecamentosPostgres,
+  carregarEnderecamentosPostgres,
+  salvarContagensPostgres,
+  carregarContagensPostgres,
 };

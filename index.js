@@ -11,6 +11,12 @@ const {
   criarTabelas,
   carregarUsuariosPostgres,
   salvarUsuariosPostgres,
+  salvarProdutosPostgres,
+  carregarProdutosPostgres,
+  salvarEnderecamentosPostgres,
+  carregarEnderecamentosPostgres,
+  salvarContagensPostgres,
+  carregarContagensPostgres,
 } = require("./db");
 const express = require("express");
 const fileUpload = require("express-fileupload");
@@ -276,7 +282,7 @@ function montarSnapshotEncerramento(usuario) {
   };
 }
 
-function resetarSistemaAposEncerramento() {
+async function resetarSistemaAposEncerramento() {
   inventario = [];
   historicoAlteracoes = [];
   historicoAuditoriaItens = [];
@@ -294,8 +300,8 @@ function resetarSistemaAposEncerramento() {
     itensZeradosIgnorados: 0,
   };
 
-  salvarContagens();
-  salvarEnderecamentos();
+  await salvarContagens();
+await salvarEnderecamentos();
   salvarContagemSemBase();
   salvarFinalizacoesSemBase();
   salvarModoOperacao();
@@ -306,35 +312,73 @@ function garantirPastaData() {
   }
 }
 
-function carregarContagens() {
+async function carregarContagens() {
   try {
     garantirPastaData();
+
+    if (usarPostgres) {
+      const lidasBanco = await carregarContagensPostgres();
+
+      if (Array.isArray(lidasBanco) && lidasBanco.length > 0) {
+        contagens = lidasBanco;
+
+        fs.writeFileSync(
+          contagensPath,
+          JSON.stringify(contagens, null, 2),
+          "utf8"
+        );
+
+        console.log(`✅ Contagens carregadas do PostgreSQL: ${contagens.length}`);
+        return;
+      }
+    }
 
     if (!fs.existsSync(contagensPath)) {
       fs.writeFileSync(contagensPath, JSON.stringify([], null, 2), "utf8");
       contagens = [];
+
+      if (usarPostgres) {
+        await salvarContagensPostgres(contagens);
+      }
+
       return;
     }
 
     const conteudo = fs.readFileSync(contagensPath, "utf8");
     contagens = JSON.parse(conteudo || "[]");
+
+    if (usarPostgres) {
+      await salvarContagensPostgres(contagens);
+      console.log(`✅ Contagens migradas do JSON para PostgreSQL: ${contagens.length}`);
+    }
   } catch (erro) {
-    console.error("Erro ao carregar contagens:", erro);
+    console.error("Erro ao carregar contagens:", erro.message);
     contagens = [];
   }
 }
 
-function salvarContagens() {
+async function salvarContagens() {
   try {
     garantirPastaData();
-    fs.writeFileSync(contagensPath, JSON.stringify(Array.isArray(contagens) ? contagens : [], null, 2), "utf8");
+
+    fs.writeFileSync(
+      contagensPath,
+      JSON.stringify(Array.isArray(contagens) ? contagens : [], null, 2),
+      "utf8"
+    );
+
+    if (usarPostgres) {
+      await salvarContagensPostgres(contagens);
+    }
+
+    console.log("✅ Contagens salvas no JSON e PostgreSQL.");
   } catch (erro) {
-    console.error("Erro ao salvar contagens:", erro);
+    console.error("Erro ao salvar contagens:", erro.message);
   }
 }
-function limparContagensPersistidas() {
+async function limparContagensPersistidas() {
   contagens = [];
-  salvarContagens();
+  await salvarContagens();
 }
 
 function recalcularInventarioComBaseNasContagens() {
@@ -410,13 +454,48 @@ posicoesDuplicadas: Number(item?.posicoesDuplicadas) || 0,
     atualizadoEm: item?.atualizadoEm || new Date().toISOString(),
   };
 }
-function carregarEnderecamentos() {
+async function carregarEnderecamentos() {
   try {
     garantirPastaData();
+
+    if (usarPostgres) {
+      const lidosBanco = await carregarEnderecamentosPostgres();
+
+      if (Array.isArray(lidosBanco) && lidosBanco.length > 0) {
+        enderecamentos = lidosBanco.map((item) => {
+          const normalizado = normalizarEnderecoSalvo(item);
+          const resumoFaixa = recalcularStatusFaixa(normalizado);
+
+          return {
+            ...normalizado,
+            status: resumoFaixa.status,
+            totalPosicoes: resumoFaixa.totalPosicoes,
+            posicoesConcluidas: resumoFaixa.concluidos,
+            posicoesPendentes: resumoFaixa.pendentes,
+            posicoesEmContagem: resumoFaixa.emContagem,
+            posicoesDuplicadas: resumoFaixa.duplicados,
+          };
+        });
+
+        fs.writeFileSync(
+          enderecamentosPath,
+          JSON.stringify(enderecamentos, null, 2),
+          "utf8"
+        );
+
+        console.log(`✅ Endereçamentos carregados do PostgreSQL: ${enderecamentos.length}`);
+        return;
+      }
+    }
 
     if (!fs.existsSync(enderecamentosPath)) {
       fs.writeFileSync(enderecamentosPath, JSON.stringify([], null, 2), "utf8");
       enderecamentos = [];
+
+      if (usarPostgres) {
+        await salvarEnderecamentosPostgres(enderecamentos);
+      }
+
       return;
     }
 
@@ -424,33 +503,49 @@ function carregarEnderecamentos() {
     const lidos = JSON.parse(conteudo || "[]");
 
     enderecamentos = Array.isArray(lidos)
-  ? lidos.map((item) => {
-      const normalizado = normalizarEnderecoSalvo(item);
-      const resumoFaixa = recalcularStatusFaixa(normalizado);
+      ? lidos.map((item) => {
+          const normalizado = normalizarEnderecoSalvo(item);
+          const resumoFaixa = recalcularStatusFaixa(normalizado);
 
-      return {
-        ...normalizado,
-        status: resumoFaixa.status,
-        totalPosicoes: resumoFaixa.totalPosicoes,
-        posicoesConcluidas: resumoFaixa.concluidos,
-        posicoesPendentes: resumoFaixa.pendentes,
-        posicoesEmContagem: resumoFaixa.emContagem,
-        posicoesDuplicadas: resumoFaixa.duplicados,
-      };
-    })
-  : [];
+          return {
+            ...normalizado,
+            status: resumoFaixa.status,
+            totalPosicoes: resumoFaixa.totalPosicoes,
+            posicoesConcluidas: resumoFaixa.concluidos,
+            posicoesPendentes: resumoFaixa.pendentes,
+            posicoesEmContagem: resumoFaixa.emContagem,
+            posicoesDuplicadas: resumoFaixa.duplicados,
+          };
+        })
+      : [];
+
+    if (usarPostgres) {
+      await salvarEnderecamentosPostgres(enderecamentos);
+      console.log(`✅ Endereçamentos migrados do JSON para PostgreSQL: ${enderecamentos.length}`);
+    }
   } catch (erro) {
-    console.error("Erro ao carregar endereçamentos:", erro);
+    console.error("Erro ao carregar endereçamentos:", erro.message);
     enderecamentos = [];
   }
 }
 
-function salvarEnderecamentos() {
+async function salvarEnderecamentos() {
   try {
     garantirPastaData();
-    fs.writeFileSync(enderecamentosPath, JSON.stringify(enderecamentos, null, 2), "utf8");
+
+    fs.writeFileSync(
+      enderecamentosPath,
+      JSON.stringify(enderecamentos, null, 2),
+      "utf8"
+    );
+
+    if (usarPostgres) {
+      await salvarEnderecamentosPostgres(enderecamentos);
+    }
+
+    console.log("✅ Endereçamentos salvos no JSON e PostgreSQL.");
   } catch (erro) {
-    console.error("Erro ao salvar endereçamentos:", erro);
+    console.error("Erro ao salvar endereçamentos:", erro.message);
   }
 }
 
@@ -669,7 +764,7 @@ function obterResumoContagensDoProduto(codigoBarras) {
 function gerarIdFinalizacao(endereco) {
   return `FIN-${Number(endereco.id)}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
-function registrarEventoEndereco(enderecoNumero, tipoEvento, usuario = "sistema") {
+async function registrarEventoEndereco(enderecoNumero, tipoEvento, usuario = "sistema") {
   const endereco = buscarEnderecoPorNumero(enderecoNumero);
   if (!endereco) return null;
 
@@ -750,7 +845,7 @@ function registrarEventoEndereco(enderecoNumero, tipoEvento, usuario = "sistema"
     endereco.finalizadoViaColetor = true;
     endereco.finalizadoEm = agoraIso;
   
-    salvarContagens();
+    await salvarContagens();
   }
   
   const resumoFaixa = recalcularStatusFaixa(endereco);
@@ -762,7 +857,7 @@ endereco.posicoesPendentes = resumoFaixa.pendentes;
 endereco.posicoesEmContagem = resumoFaixa.emContagem;
 endereco.posicoesDuplicadas = resumoFaixa.duplicados;
   endereco.atualizadoEm = agoraIso;
-  salvarEnderecamentos();
+  await salvarEnderecamentos();
 
   return endereco;
 }
@@ -1518,7 +1613,14 @@ async function lerLinhasTxtPorStream(caminhoArquivo) {
   });
 }
 
-function salvarProdutosNoBanco(listaProdutos) {
+async function salvarProdutosNoBanco(listaProdutos) {
+  const lista = Array.isArray(listaProdutos) ? listaProdutos : [];
+
+  if (usarPostgres) {
+    await salvarProdutosPostgres(lista);
+    return;
+  }
+
   return new Promise((resolve, reject) => {
     db.serialize(() => {
       db.run("DELETE FROM produtos", (erroDelete) => {
@@ -1536,7 +1638,7 @@ function salvarProdutosNoBanco(listaProdutos) {
           ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
 
-        for (const item of listaProdutos) {
+        for (const item of lista) {
           stmt.run(
             item.codigoBarras || "",
             item.codigo || item.codigoInterno || "",
@@ -1556,7 +1658,23 @@ function salvarProdutosNoBanco(listaProdutos) {
     });
   });
 }
-function carregarProdutosDoBanco(callback = null) {
+async function carregarProdutosDoBanco(callback = null) {
+  if (usarPostgres) {
+    try {
+      inventario = await carregarProdutosPostgres();
+
+      console.log(`✅ Inventário carregado do PostgreSQL: ${inventario.length} itens`);
+
+      if (callback) callback();
+      return;
+    } catch (erro) {
+      console.error("Erro ao carregar produtos do PostgreSQL:", erro.message);
+      inventario = [];
+      if (callback) callback();
+      return;
+    }
+  }
+
   db.all("SELECT * FROM produtos", [], (err, rows) => {
     if (err) {
       console.error("Erro ao carregar produtos do banco:", err);
@@ -1869,7 +1987,7 @@ app.get("/sem-base/exportar-txt", autenticar, permitirSomenteLiderOuAdmin, (req,
     return res.status(500).send("Falha ao exportar TXT.");
   }
 });
-app.post("/sem-base/finalizar-endereco", autenticar, (req, res) => {
+app.post("/sem-base/finalizar-endereco", autenticar, async (req, res) => {
   try {
     const enderecoNumero = String(req.body?.enderecoNumero || "").trim();
 
@@ -1923,7 +2041,7 @@ app.post("/sem-base/finalizar-endereco", autenticar, (req, res) => {
     finalizacoesSemBase.push(finalizacao);
     salvarFinalizacoesSemBase();
 
-    const enderecoAtualizado = registrarEventoEndereco(
+    const enderecoAtualizado = await registrarEventoEndereco(
       Number(enderecoNumero),
       "finalizacao",
       usuario
@@ -2528,7 +2646,7 @@ modoOperacao = "com-base";
 salvarModoOperacao();
 
 tipoUltimaImportacao = "Importação base";
-salvarEnderecamentos();
+await salvarEnderecamentos();
 broadcastInventario();
     fs.unlinkSync(caminhoTemporario);
 
@@ -2828,7 +2946,7 @@ app.get("/transmissoes-consolidacao", autenticar, (req, res) => {
 });
 
 
-app.post("/transmissoes-consolidacao/:id/consolidar", autenticar, (req, res) => {
+app.post("/transmissoes-consolidacao/:id/consolidar", autenticar, async (req, res) => {
   try {
     const idParam = String(req.params.id || "");
     const match = idParam.match(/^END-(\d+)-(\d+)$/);
@@ -2915,7 +3033,7 @@ app.post("/transmissoes-consolidacao/:id/consolidar", autenticar, (req, res) => 
     salvarEnderecamentos();
 
     recalcularInventarioComBaseNasContagens();
-    salvarProdutosNoBanco(inventario);
+    await salvarProdutosNoBanco(inventario);
     broadcastInventario();
 
     return res.json({
@@ -2929,7 +3047,7 @@ app.post("/transmissoes-consolidacao/:id/consolidar", autenticar, (req, res) => 
   }
 });
 
-app.post("/transmissoes-consolidacao/consolidar", autenticar, (req, res) => {
+app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) => {
   try {
     const painel = gerarPainelTransmissoesConsolidacao();
     const fila = Array.isArray(painel.fila) ? painel.fila : [];
@@ -3096,7 +3214,7 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, (req, res) => {
     } else {
       salvarContagens();
       recalcularInventarioComBaseNasContagens();
-      salvarProdutosNoBanco(inventario);
+      await salvarProdutosNoBanco(inventario);
     }
     
     broadcastInventario();
@@ -5272,7 +5390,7 @@ app.post('/auditoria/corrigir-item', autenticar, (req, res) => {
     return res.status(500).json({ erro: erro.message });
   }
 });
-app.delete('/excluir-finalizacao/:finalizacaoId', autenticar, (req, res) => {
+app.delete('/excluir-finalizacao/:finalizacaoId', autenticar, async (req, res) => {
   try {
     const finalizacaoId = String(req.params.finalizacaoId || '').trim();
 
@@ -5358,7 +5476,7 @@ if (
 
     salvarEnderecamentos();
     recalcularInventarioComBaseNasContagens();
-salvarProdutosNoBanco(inventario);
+    await salvarProdutosNoBanco(inventario);
 broadcastInventario();
 
 const painelAtualizado = gerarPainelTransmissoesConsolidacao();
