@@ -8653,7 +8653,11 @@ async function salvarModoOperacaoFront() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ modoOperacao }),
+      credentials: "same-origin",
+body: JSON.stringify({
+  modoOperacao,
+  modo: modoOperacao,
+}),
     });
 
     const data = await res.json();
@@ -14538,18 +14542,27 @@ if (btnAtualizarPainel) {
     }
   });
 }
-carregarModoOperacaoFront();
+async function inicializarPainelRealStock() {
+  try {
+    if (typeof carregarModoOperacaoFront === "function") {
+      await carregarModoOperacaoFront();
+    }
+
+    await atualizarDashboardCompleto();
+
+    showToast("Dados carregados.");
+  } catch (erro) {
+    console.error("Erro ao inicializar painel:", erro);
+    showToast("Erro ao carregar painel.");
+  }
+}
 
 window.addEventListener("pageshow", async () => {
+  await inicializarPainelRealStock();
+});
+
+setInterval(async () => {
   await atualizarDashboardCompleto();
-});
-
-atualizarDashboardCompleto().then(() => {
-  showToast('Dados carregados.');
-});
-
-setInterval(() => {
-  atualizarDashboardCompleto();
 }, 10000);
     </script>
     <div id="auditActionModal" class="audit-action-overlay" aria-hidden="true">
