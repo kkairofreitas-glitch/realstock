@@ -14434,7 +14434,8 @@ document.addEventListener('click', function (event) {
 
   excluirFinalizacaoDuplicada(finalizacaoId);
 });
-const ws = new WebSocket(`ws://${location.host}`);
+const protocoloWs = location.protocol === "https:" ? "wss:" : "ws:";
+const ws = new WebSocket(`${protocoloWs}//${location.host}`);
 
 ws.onmessage = function(event) {
   try {
