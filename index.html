@@ -14522,17 +14522,14 @@ async function atualizarDashboardCompleto() {
     atualizarPainelExportacao();
   }
 
-  if (typeof preencherFormularioDadosInventario === "function") {
-    preencherFormularioDadosInventario();
-  }
-
+  
   if (typeof atualizarResumoDadosInventario === "function") {
-    atualizarResumoDadosInventario();
-  }
+  await atualizarResumoDadosInventario();
+}
 
-  if (typeof atualizarPainelOperacaoDashboard === "function") {
-    atualizarPainelOperacaoDashboard();
-  }
+if (typeof atualizarPainelOperacaoDashboard === "function") {
+  await atualizarPainelOperacaoDashboard();
+}
 
   if (typeof refreshOperationalPanelsOnly === "function") {
     refreshOperationalPanelsOnly();
