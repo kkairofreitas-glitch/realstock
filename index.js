@@ -19,8 +19,8 @@ const {
   carregarContagensPostgres,
   salvarConfiguracaoPostgres,
   carregarConfiguracaoPostgres,
+  limparInventarioPostgres,
 } = require("./db");
-
 
 const express = require("express");
 const fileUpload = require("express-fileupload");
@@ -306,9 +306,13 @@ async function resetarSistemaAposEncerramento() {
 
   await salvarContagens();
 await salvarEnderecamentos();
-  salvarContagemSemBase();
-  salvarFinalizacoesSemBase();
-  salvarModoOperacao();
+salvarContagemSemBase();
+salvarFinalizacoesSemBase();
+salvarModoOperacao();
+
+if (usarPostgres) {
+  await limparInventarioPostgres();
+}
 }
 function garantirPastaData() {
   if (!fs.existsSync(dataDir)) {
@@ -5566,7 +5570,7 @@ app.post("/encerrar-inventario", autenticar, (req, res) => {
     });
   }
 });
-app.post("/restaurar-ultimo-encerramento", autenticar, (req, res) => {
+app.post("/restaurar-ultimo-encerramento", autenticar, async (req, res) => {
   try {
     garantirPastaEncerramentos();
 
@@ -5591,17 +5595,23 @@ app.post("/restaurar-ultimo-encerramento", autenticar, (req, res) => {
     historicoAlteracoes = Array.isArray(snapshot.historicoAlteracoes) ? snapshot.historicoAlteracoes : [];
     historicoAuditoriaItens = Array.isArray(snapshot.historicoAuditoriaItens) ? snapshot.historicoAuditoriaItens : [];
     contagens = Array.isArray(snapshot.contagens) ? snapshot.contagens : [];
-    enderecamentos = Array.isArray(snapshot.enderecamentos) ? snapshot.enderecamentos.map(normalizarEnderecoSalvo) : [];
+    enderecamentos = Array.isArray(snapshot.enderecamentos)
+      ? snapshot.enderecamentos.map(normalizarEnderecoSalvo)
+      : [];
+
     auditoriaImportacao = snapshot.auditoriaImportacao || {
       totalImportadoBruto: 0,
       totalUnicosBruto: 0,
       duplicatasRemovidas: 0,
       itensZeradosIgnorados: 0,
     };
+
     itemAuditoriaAtual = null;
 
-    salvarContagens();
-    salvarEnderecamentos();
+    await salvarProdutosNoBanco(inventario);
+    await salvarContagens();
+    await salvarEnderecamentos();
+
     broadcastInventario();
 
     return res.json({
@@ -5616,7 +5626,6 @@ app.post("/restaurar-ultimo-encerramento", autenticar, (req, res) => {
     });
   }
 });
-
 app.get("/exportar-checklist-encerramento-pdf-auto", autenticar, (req, res) => {
   try {
     const printer = new PdfPrinter(fonts);
@@ -7335,4 +7344,4 @@ async function iniciarServidor() {
   }
 }
 
-iniciarServidor()
+iniciarServidor();

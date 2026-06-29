@@ -474,6 +474,17 @@ async function carregarConfiguracaoPostgres(chave, valorPadrao = {}) {
   return resultado.rows[0].valor || valorPadrao;
 }
 
+async function limparInventarioPostgres() {
+  await pool.query("DELETE FROM produtos");
+  await pool.query("DELETE FROM contagens");
+  await pool.query("DELETE FROM enderecamentos");
+  await pool.query("DELETE FROM contagem_sem_base");
+  await pool.query("DELETE FROM finalizacoes_sem_base");
+  await pool.query("DELETE FROM configuracoes WHERE chave IN ('dados_inventario')");
+
+  console.log("✅ Inventário limpo no PostgreSQL.");
+}
+
 module.exports = {
   pool,
   testarConexao,
@@ -489,4 +500,5 @@ module.exports = {
   carregarContagensPostgres,
   salvarConfiguracaoPostgres,
   carregarConfiguracaoPostgres,
+  limparInventarioPostgres,
 };
