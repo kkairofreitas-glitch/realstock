@@ -17,7 +17,11 @@ const {
   carregarEnderecamentosPostgres,
   salvarContagensPostgres,
   carregarContagensPostgres,
+  salvarConfiguracaoPostgres,
+  carregarConfiguracaoPostgres,
 } = require("./db");
+
+
 const express = require("express");
 const fileUpload = require("express-fileupload");
 const session = require("express-session");
@@ -7228,6 +7232,77 @@ app.get("/usuarios-atividade", autenticar, (req, res) => {
   });
 
   res.json(atividade);
+});
+
+const dadosInventarioPadrao = {
+  cliente: "",
+  loja: "",
+  codigoLoja: "",
+  dataInventario: "",
+  tipoInventario: "geral",
+  escopoInventario: "loja",
+  modoContagem: "cego",
+  cidade: "",
+  uf: "",
+  responsavelCliente: "",
+  liderOperacao: "",
+  horaInicio: "",
+  horaMeta: "",
+  observacoes: "",
+};
+
+app.get("/dados-inventario", autenticar, async (req, res) => {
+  try {
+    const dados = usarPostgres
+      ? await carregarConfiguracaoPostgres("dados_inventario", dadosInventarioPadrao)
+      : dadosInventarioPadrao;
+
+    return res.json({
+      ...dadosInventarioPadrao,
+      ...dados,
+    });
+  } catch (erro) {
+    console.error("Erro ao carregar dados do inventário:", erro.message);
+    return res.status(500).json({
+      erro: "Erro ao carregar dados do inventário.",
+    });
+  }
+});
+
+app.post("/dados-inventario", autenticar, async (req, res) => {
+  try {
+    const dados = {
+      cliente: String(req.body.cliente || "").trim(),
+      loja: String(req.body.loja || "").trim(),
+      codigoLoja: String(req.body.codigoLoja || "").trim(),
+      dataInventario: String(req.body.dataInventario || ""),
+      tipoInventario: String(req.body.tipoInventario || "geral"),
+      escopoInventario: String(req.body.escopoInventario || "loja"),
+      modoContagem: String(req.body.modoContagem || "cego"),
+      cidade: String(req.body.cidade || "").trim(),
+      uf: String(req.body.uf || "").trim().toUpperCase(),
+      responsavelCliente: String(req.body.responsavelCliente || "").trim(),
+      liderOperacao: String(req.body.liderOperacao || "").trim(),
+      horaInicio: String(req.body.horaInicio || ""),
+      horaMeta: String(req.body.horaMeta || ""),
+      observacoes: String(req.body.observacoes || "").trim(),
+    };
+
+    if (usarPostgres) {
+      await salvarConfiguracaoPostgres("dados_inventario", dados);
+    }
+
+    return res.json({
+      sucesso: true,
+      mensagem: "Dados do inventário salvos.",
+      dados,
+    });
+  } catch (erro) {
+    console.error("Erro ao salvar dados do inventário:", erro.message);
+    return res.status(500).json({
+      erro: "Erro ao salvar dados do inventário.",
+    });
+  }
 });
 
 async function iniciarServidor() {

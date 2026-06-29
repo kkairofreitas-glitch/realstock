@@ -10804,39 +10804,53 @@ async function restaurarUltimoEncerramento() {
         document.body.style.overflow = '';
       }
 
-      function obterDadosInventarioStorage() {
-        try {
-          const bruto = localStorage.getItem('realstock_dados_inventario');
-          return bruto ? JSON.parse(bruto) : {};
-        } catch {
-          return {};
-        }
-      }
+      let dadosInventarioCache = {};
 
-      function preencherFormularioDadosInventario() {
-        const dados = obterDadosInventarioStorage();
+async function obterDadosInventarioStorage() {
+  try {
+    const res = await fetch('/dados-inventario', {
+      credentials: 'same-origin',
+    });
 
-        const campos = {
-          invCliente: dados.cliente || '',
-          invLoja: dados.loja || '',
-          invCodigoLoja: dados.codigoLoja || '',
-          invData: dados.dataInventario || '',
-          tipoInventario: dados.tipoInventario || 'geral',
-          escopoInventario: dados.escopoInventario || 'loja',
-          modoContagem: dados.modoContagem || 'cego',
-          invCidade: dados.cidade || '',
-          invUf: dados.uf || '',
-          invResponsavelCliente: dados.responsavelCliente || '',
-          invLiderOperacao: dados.liderOperacao || '',
-          invHoraInicio: dados.horaInicio || '',
-          invHoraMeta: dados.horaMeta || '',
-          invObservacoes: dados.observacoes || '',
-        };
-        Object.entries(campos).forEach(([id, valor]) => {
-          const el = document.getElementById(id);
-          if (el) el.value = valor;
-        });
-      }
+    const dados = await res.json();
+
+    if (!res.ok) {
+      throw new Error(dados.erro || 'Erro ao carregar dados do inventário.');
+    }
+
+    dadosInventarioCache = dados || {};
+    return dadosInventarioCache;
+  } catch (erro) {
+    console.error('Erro ao buscar dados do inventário:', erro);
+    return dadosInventarioCache || {};
+  }
+}
+
+async function preencherFormularioDadosInventario() {
+  const dados = await obterDadosInventarioStorage();
+
+  const campos = {
+    invCliente: dados.cliente || '',
+    invLoja: dados.loja || '',
+    invCodigoLoja: dados.codigoLoja || '',
+    invData: dados.dataInventario || '',
+    tipoInventario: dados.tipoInventario || 'geral',
+    escopoInventario: dados.escopoInventario || 'loja',
+    modoContagem: dados.modoContagem || 'cego',
+    invCidade: dados.cidade || '',
+    invUf: dados.uf || '',
+    invResponsavelCliente: dados.responsavelCliente || '',
+    invLiderOperacao: dados.liderOperacao || '',
+    invHoraInicio: dados.horaInicio || '',
+    invHoraMeta: dados.horaMeta || '',
+    invObservacoes: dados.observacoes || '',
+  };
+
+  Object.entries(campos).forEach(([id, valor]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = valor;
+  });
+}
 
       function formatarDataInventario(valor) {
         if (!valor) return '--';
@@ -10846,8 +10860,8 @@ async function restaurarUltimoEncerramento() {
         return d.toLocaleDateString('pt-BR');
       }
 
-      function atualizarResumoDadosInventario() {
-        const dados = obterDadosInventarioStorage();
+      async function atualizarResumoDadosInventario() {
+        const dados = await obterDadosInventarioStorage();
 
         const cliente = dados.cliente || '--';
         const loja = [
@@ -10887,40 +10901,47 @@ async function restaurarUltimoEncerramento() {
         });
       }
 
-      function salvarDadosInventario() {
-        const dados = {
-          cliente: document.getElementById('invCliente')?.value?.trim() || '',
-          loja: document.getElementById('invLoja')?.value?.trim() || '',
-          codigoLoja:
-            document.getElementById('invCodigoLoja')?.value?.trim() || '',
-          dataInventario: document.getElementById('invData')?.value || '',
-          tipoInventario:
-            document.getElementById('tipoInventario')?.value || '',
-          escopoInventario:
-            document.getElementById('escopoInventario')?.value || '',
-          modoContagem: document.getElementById('modoContagem')?.value || '',
-          cidade: document.getElementById('invCidade')?.value?.trim() || '',
-          uf:
-            document.getElementById('invUf')?.value?.trim().toUpperCase() || '',
-          responsavelCliente:
-            document.getElementById('invResponsavelCliente')?.value?.trim() ||
-            '',
-          liderOperacao:
-            document.getElementById('invLiderOperacao')?.value?.trim() || '',
-          horaInicio: document.getElementById('invHoraInicio')?.value || '',
-          horaMeta: document.getElementById('invHoraMeta')?.value || '',
-          observacoes:
-            document.getElementById('invObservacoes')?.value?.trim() || '',
-        };
+      async function salvarDadosInventario() {
+  const dados = {
+    cliente: document.getElementById('invCliente')?.value?.trim() || '',
+    loja: document.getElementById('invLoja')?.value?.trim() || '',
+    codigoLoja: document.getElementById('invCodigoLoja')?.value?.trim() || '',
+    dataInventario: document.getElementById('invData')?.value || '',
+    tipoInventario: document.getElementById('tipoInventario')?.value || '',
+    escopoInventario: document.getElementById('escopoInventario')?.value || '',
+    modoContagem: document.getElementById('modoContagem')?.value || '',
+    cidade: document.getElementById('invCidade')?.value?.trim() || '',
+    uf: document.getElementById('invUf')?.value?.trim().toUpperCase() || '',
+    responsavelCliente:
+      document.getElementById('invResponsavelCliente')?.value?.trim() || '',
+    liderOperacao:
+      document.getElementById('invLiderOperacao')?.value?.trim() || '',
+    horaInicio: document.getElementById('invHoraInicio')?.value || '',
+    horaMeta: document.getElementById('invHoraMeta')?.value || '',
+    observacoes: document.getElementById('invObservacoes')?.value?.trim() || '',
+  };
 
-        localStorage.setItem(
-          'realstock_dados_inventario',
-          JSON.stringify(dados)
-        );
-        atualizarResumoDadosInventario();
-        atualizarPainelOperacaoDashboard();
-        mostrarToast('Dados salvos.', 'sucesso');
-      }
+  const res = await fetch('/dados-inventario', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(dados),
+  });
+
+  const resposta = await res.json();
+
+  if (!res.ok) {
+    mostrarToast(resposta.erro || 'Erro ao salvar dados.', 'erro');
+    return;
+  }
+
+  dadosInventarioCache = resposta.dados || dados;
+
+  await atualizarResumoDadosInventario();
+  await atualizarPainelOperacaoDashboard();
+
+  mostrarToast('Dados salvos.', 'sucesso');
+}
 
       function limparDadosInventario() {
         localStorage.removeItem('realstock_dados_inventario');
@@ -10932,9 +10953,8 @@ async function restaurarUltimoEncerramento() {
         mostrarToast('Dados limpos com sucesso.', 'aviso');
       }
 
-      function atualizarPainelOperacaoDashboard() {
-        const dados = obterDadosInventarioStorage();
-
+      async function atualizarPainelOperacaoDashboard() {
+        const dados = await obterDadosInventarioStorage();
         const cliente = dados.cliente || '--';
         const loja = dados.loja || '--';
         const data = formatarDataInventario(dados.dataInventario);

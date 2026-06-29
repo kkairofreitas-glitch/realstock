@@ -442,6 +442,38 @@ async function carregarContagensPostgres() {
   }));
 }
 
+async function salvarConfiguracaoPostgres(chave, valor) {
+  await pool.query(
+    `
+    INSERT INTO configuracoes (chave, valor, atualizado_em)
+    VALUES ($1, $2, NOW())
+    ON CONFLICT (chave)
+    DO UPDATE SET
+      valor = EXCLUDED.valor,
+      atualizado_em = NOW()
+    `,
+    [chave, JSON.stringify(valor || {})]
+  );
+
+  console.log(`✅ Configuração salva no PostgreSQL: ${chave}`);
+}
+
+async function carregarConfiguracaoPostgres(chave, valorPadrao = {}) {
+  const resultado = await pool.query(
+    `
+    SELECT valor
+    FROM configuracoes
+    WHERE chave = $1
+    LIMIT 1
+    `,
+    [chave]
+  );
+
+  if (!resultado.rows.length) return valorPadrao;
+
+  return resultado.rows[0].valor || valorPadrao;
+}
+
 module.exports = {
   pool,
   testarConexao,
@@ -455,4 +487,6 @@ module.exports = {
   carregarEnderecamentosPostgres,
   salvarContagensPostgres,
   carregarContagensPostgres,
+  salvarConfiguracaoPostgres,
+  carregarConfiguracaoPostgres,
 };
