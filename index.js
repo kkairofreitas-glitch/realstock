@@ -20,6 +20,12 @@ const {
   salvarConfiguracaoPostgres,
   carregarConfiguracaoPostgres,
   limparInventarioPostgres,
+  salvarContagemSemBasePostgres,
+  carregarContagemSemBasePostgres,
+  salvarFinalizacoesSemBasePostgres,
+  carregarFinalizacoesSemBasePostgres,
+  carregarContagensWmsPostgres,
+  salvarContagemWmsPostgres,
 } = require("./db");
 
 const express = require("express");
@@ -107,6 +113,15 @@ let ultimaImportacao = {
 let contagemSemBase = [];
 let modoOperacao = "com-base";
 let finalizacoesSemBase = [];
+
+function normalizarModoOperacao(valor) {
+  const modo = String(valor || "com-base").trim();
+
+  if (modo === "sem-base") return "sem-base";
+  if (modo === "wms") return "wms";
+
+  return "com-base";
+}
 
 const dataDir = path.join(__dirname, "data");
 const contagensPath = path.join(dataDir, "contagens.json");
@@ -306,8 +321,8 @@ async function resetarSistemaAposEncerramento() {
 
   await salvarContagens();
 await salvarEnderecamentos();
-salvarContagemSemBase();
-salvarFinalizacoesSemBase();
+await salvarContagemSemBase();
+await salvarFinalizacoesSemBase();
 salvarModoOperacao();
 
 if (usarPostgres) {
@@ -1165,7 +1180,9 @@ const ultimoEnderecoContado =
   };
 }
 
-const usarPostgres = process.env.NODE_ENV === "production";
+const usarPostgres =
+  process.env.NODE_ENV === "production" ||
+  process.env.USE_POSTGRES === "true";
 
 async function carregarUsuarios() {
   try {
@@ -1242,7 +1259,9 @@ if (usarPostgres && Array.isArray(usuariosDoBanco) && usuariosDoBanco.length > 0
         }))
       : [];
 
-    await salvarUsuariosPostgres(usuarios);
+      if (usarPostgres) {
+        await salvarUsuariosPostgres(usuarios);
+      }
 
     console.log(`✅ Usuários migrados do JSON para PostgreSQL: ${usuarios.length}`);
   } catch (erro) {
@@ -1705,8 +1724,8 @@ async function carregarProdutosDoBanco(callback = null) {
     if (callback) callback();
   });
 }
-app.get("/logo-realstock.jpg", (req, res) => {
-  res.sendFile(path.join(__dirname, "logo-realstock.jpg"));
+app.get("/logo-realstock.png", (req, res) => {
+  res.sendFile(path.join(__dirname, "logo-realstock.png"));
 });
 
 app.get("/login", (req, res) =>
@@ -1806,32 +1825,34 @@ app.get("/coleta-mobile", autenticar, permitirSomenteOperador, (req, res) =>
 
 app.get("/modo-operacao", autenticar, (req, res) => {
   return res.json({
-    modoOperacao: modoOperacao === "sem-base" ? "sem-base" : "com-base",
+    modoOperacao: normalizarModoOperacao(modoOperacao),
   });
 });
 
-app.post("/modo-operacao", autenticar, permitirSomenteLiderOuAdmin, (req, res) => {
+app.post("/modo-operacao", autenticar, permitirSomenteLiderOuAdmin, async (req, res) => {
   try {
     const novoModo = String(
       req.body?.modoOperacao || req.body?.modo || ""
     ).trim();
 
-    if (novoModo !== "com-base" && novoModo !== "sem-base") {
+    if (!["com-base", "sem-base", "wms"].includes(novoModo)) {
       return res.status(400).json({
         erro: "Modo de operação inválido.",
       });
     }
 
-    modoOperacao = novoModo;
-    salvarModoOperacao();
+    modoOperacao = normalizarModoOperacao(novoModo);
+    await salvarModoOperacao();
 
     return res.json({
       sucesso: true,
       modoOperacao,
       mensagem:
-        modoOperacao === "sem-base"
-          ? "Modo sem base ativado com sucesso."
-          : "Modo com base ativado com sucesso.",
+  modoOperacao === "sem-base"
+    ? "Modo sem base ativado com sucesso."
+    : modoOperacao === "wms"
+    ? "Modo WMS ativado com sucesso."
+    : "Modo com base ativado com sucesso.",
     });
   } catch (erro) {
     console.error("Erro ao salvar modo de operação:", erro);
@@ -1840,13 +1861,89 @@ app.post("/modo-operacao", autenticar, permitirSomenteLiderOuAdmin, (req, res) =
     });
   }
 });
+
+app.get("/wms/contagens", autenticar, async (req, res) => {
+  try {
+    if (!usarPostgres) {
+      return res.status(400).json({
+        erro: "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+      });
+    }
+
+    const dados = await carregarContagensWmsPostgres();
+
+    return res.json({
+      sucesso: true,
+      itens: dados,
+    });
+  } catch (erro) {
+    console.error("Erro ao carregar contagens WMS:", erro);
+    return res.status(500).json({
+      erro: "Falha ao carregar contagens WMS.",
+    });
+  }
+});
+
+app.post("/wms/contagens", autenticar, async (req, res) => {
+  try {
+    if (!usarPostgres) {
+      return res.status(400).json({
+        erro: "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+      });
+    }
+
+    const usuario =
+      req.session?.usuario?.usuario ||
+      req.session?.usuario?.nome ||
+      "sistema";
+
+    const item = {
+      id: req.body?.id || `WMS-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      enderecoInventario: String(req.body?.enderecoInventario || "").trim(),
+      enderecoWms: String(req.body?.enderecoWms || "").trim(),
+      codigoBarras: String(req.body?.codigoBarras || req.body?.ean || "").trim(),
+      codigo: String(req.body?.codigo || "").trim(),
+      descricao: String(req.body?.descricao || "").trim(),
+      quantidadeCliente: Number(req.body?.quantidadeCliente || 0),
+      quantidadeContada: Number(req.body?.quantidadeContada || req.body?.quantidade || 0),
+      usuario,
+      data: new Date().toISOString(),
+    };
+
+    if (!item.enderecoInventario || !item.enderecoWms) {
+      return res.status(400).json({
+        erro: "Informe endereço do inventário e endereço WMS.",
+      });
+    }
+
+    if (!item.codigoBarras && !item.codigo) {
+      return res.status(400).json({
+        erro: "Informe código de barras ou código interno.",
+      });
+    }
+
+    const salvo = await salvarContagemWmsPostgres(item);
+
+    return res.json({
+      sucesso: true,
+      item: salvo,
+      mensagem: "Contagem WMS registrada com sucesso.",
+    });
+  } catch (erro) {
+    console.error("Erro ao registrar contagem WMS:", erro);
+    return res.status(500).json({
+      erro: "Falha ao registrar contagem WMS.",
+    });
+  }
+});
+
 app.get("/sem-base/dados", autenticar, permitirSomenteLiderOuAdmin, (req, res) => {
   return res.json({
     itens: Array.isArray(contagemSemBase) ? contagemSemBase : [],
   });
 });
 
-app.post("/sem-base/leitura", autenticar, (req, res) => {
+app.post("/sem-base/leitura", autenticar, async (req, res) => {
   try {
     const valorInformado = String(
       req.body?.ean || req.body?.codigo || ""
@@ -1923,7 +2020,7 @@ app.post("/sem-base/leitura", autenticar, (req, res) => {
       itemAtualizado = novoItem;
     }
 
-    salvarContagemSemBase();
+    await salvarContagemSemBase();
 
     return res.json({
       sucesso: true,
@@ -1938,7 +2035,7 @@ app.post("/sem-base/leitura", autenticar, (req, res) => {
   }
 });
 
-app.post("/sem-base/reset", autenticar, permitirSomenteLiderOuAdmin, (req, res) => {
+app.post("/sem-base/reset", autenticar, permitirSomenteLiderOuAdmin, async (req, res) => {
   try {
     if (modoOperacao !== "sem-base") {
       return res.status(400).json({
@@ -1946,7 +2043,7 @@ app.post("/sem-base/reset", autenticar, permitirSomenteLiderOuAdmin, (req, res) 
       });
      }
     contagemSemBase = [];
-    salvarContagemSemBase();
+    await salvarContagemSemBase();
 
     return res.json({
       sucesso: true,
@@ -2047,7 +2144,7 @@ app.post("/sem-base/finalizar-endereco", autenticar, async (req, res) => {
     };
 
     finalizacoesSemBase.push(finalizacao);
-    salvarFinalizacoesSemBase();
+    await salvarFinalizacoesSemBase();
 
     const enderecoAtualizado = await registrarEventoEndereco(
       Number(enderecoNumero),
@@ -2163,9 +2260,19 @@ function garantirArquivoFinalizacoesSemBase() {
   }
 }
 
-function carregarFinalizacoesSemBase() {
+async function carregarFinalizacoesSemBase() {
   try {
     garantirArquivoFinalizacoesSemBase();
+
+    if (usarPostgres) {
+      const dadosBanco = await carregarFinalizacoesSemBasePostgres();
+
+      if (Array.isArray(dadosBanco)) {
+        finalizacoesSemBase = dadosBanco;
+        return;
+      }
+    }
+
     const bruto = fs.readFileSync(finalizacoesSemBasePath, "utf8") || "[]";
     finalizacoesSemBase = JSON.parse(bruto);
 
@@ -2178,52 +2285,108 @@ function carregarFinalizacoesSemBase() {
   }
 }
 
-function salvarFinalizacoesSemBase() {
+async function salvarFinalizacoesSemBase() {
   try {
     garantirArquivoFinalizacoesSemBase();
+
     fs.writeFileSync(
       finalizacoesSemBasePath,
       JSON.stringify(finalizacoesSemBase, null, 2),
       "utf8"
     );
+
+    if (usarPostgres) {
+      await salvarFinalizacoesSemBasePostgres(finalizacoesSemBase);
+    }
   } catch (erro) {
     console.error("Erro ao salvar finalizações sem base:", erro);
   }
 }
-function carregarContagemSemBase() {
+async function carregarContagemSemBase() {
   try {
     garantirArquivoContagemSemBase();
+
+    if (usarPostgres) {
+      const dadosBanco = await carregarContagemSemBasePostgres();
+
+      if (Array.isArray(dadosBanco) && dadosBanco.length > 0) {
+        contagemSemBase = dadosBanco;
+        return;
+      }
+    }
+
     const bruto = fs.readFileSync(contagemSemBasePath, "utf8") || "[]";
     contagemSemBase = JSON.parse(bruto);
 
     if (!Array.isArray(contagemSemBase)) {
       contagemSemBase = [];
     }
+
+    if (usarPostgres) {
+      await salvarContagemSemBasePostgres(contagemSemBase);
+    }
   } catch (erro) {
-    console.error("Erro ao carregar contagem sem base:", erro);
+    console.error("Erro ao carregar contagem sem base:", erro.message);
     contagemSemBase = [];
   }
 }
 
-function salvarContagemSemBase() {
+async function salvarContagemSemBase() {
   try {
     garantirArquivoContagemSemBase();
+
     fs.writeFileSync(
       contagemSemBasePath,
       JSON.stringify(contagemSemBase, null, 2),
       "utf8"
     );
+
+    if (usarPostgres) {
+      await salvarContagemSemBasePostgres(contagemSemBase);
+    }
   } catch (erro) {
-    console.error("Erro ao salvar contagem sem base:", erro);
+    console.error("Erro ao salvar contagem sem base:", erro.message);
   }
 }
-function carregarModoOperacao() {
+async function carregarModoOperacao() {
   try {
     garantirPastaData();
 
+    // ===== PRIORIDADE: PostgreSQL =====
+    if (usarPostgres) {
+      try {
+        const config = await carregarConfiguracaoPostgres(
+          "modo_operacao",
+          null
+        );
+
+        if (config) {
+          const modoSalvo = String(
+            config.modoOperacao || config.modo || "com-base"
+          ).trim();
+
+          
+          modoOperacao = normalizarModoOperacao(modoSalvo);
+
+          console.log(
+            "Modo operacional carregado do PostgreSQL:",
+            modoOperacao
+          );
+
+          return;
+        }
+      } catch (erroPg) {
+        console.error(
+          "Erro ao carregar modo do PostgreSQL:",
+          erroPg.message
+        );
+      }
+    }
+
+    // ===== FALLBACK: JSON =====
     if (!fs.existsSync(configModoPath)) {
       modoOperacao = "com-base";
-      salvarModoOperacao();
+      await salvarModoOperacao();
       return;
     }
 
@@ -2234,16 +2397,16 @@ function carregarModoOperacao() {
       config?.modoOperacao || config?.modo || "com-base"
     ).trim();
 
-    modoOperacao = modoSalvo === "sem-base" ? "sem-base" : "com-base";
+    
+    modoOperacao = normalizarModoOperacao(modoSalvo);
 
-    console.log("Modo operacional carregado:", modoOperacao);
+    console.log("Modo operacional carregado do JSON:", modoOperacao);
   } catch (erro) {
     console.error("Erro ao carregar modo de operação:", erro);
     modoOperacao = "com-base";
   }
 }
-
-function salvarModoOperacao() {
+async function salvarModoOperacao() {
   try {
     garantirPastaData();
 
@@ -2260,6 +2423,14 @@ function salvarModoOperacao() {
       ),
       "utf8"
     );
+
+    if (usarPostgres) {
+      await salvarConfiguracaoPostgres("modo_operacao", {
+        modoOperacao,
+        modo: modoOperacao,
+        atualizadoEm: new Date().toISOString(),
+      });
+    }
 
     console.log("Modo operacional salvo:", modoOperacao);
   } catch (erro) {
@@ -3217,8 +3388,8 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
     salvarEnderecamentos();
 
     if (modoOperacao === "sem-base") {
-      salvarContagemSemBase();
-      salvarFinalizacoesSemBase();
+      await salvarContagemSemBase();
+      await salvarFinalizacoesSemBase();
     } else {
       salvarContagens();
       recalcularInventarioComBaseNasContagens();
@@ -3538,7 +3709,7 @@ const totalValorDivergencia =
       properties: { defaultRowHeight: 20 },
     });
 
-    const caminhoLogoJpg = path.join(__dirname, "public", "logo-realstock.jpg");
+    const caminhoLogoJpg = path.join(__dirname, "public", "logo-realstock.png");
     const caminhoLogoPng = path.join(__dirname, "public", "logo-realstock.png");
 
     if (fs.existsSync(caminhoLogoJpg)) {
@@ -7316,23 +7487,24 @@ app.post("/dados-inventario", autenticar, async (req, res) => {
 
 async function iniciarServidor() {
   try {
-    carregarLayoutTxt();
-    carregarLayoutsSalvos();
-    carregarContagemSemBase();
-    carregarFinalizacoesSemBase();
-    carregarModoOperacao();
-
-    await carregarProdutosDoBanco();
-    await carregarUsuarios();
-    await carregarEnderecamentos();
-    await carregarContagens();
-
     if (usarPostgres) {
       await testarConexao();
       await criarTabelas();
     } else {
       console.log("PostgreSQL ignorado no StackBlitz/local.");
     }
+    
+    carregarLayoutTxt();
+    carregarLayoutsSalvos();
+    
+    await carregarContagemSemBase();
+    await carregarFinalizacoesSemBase();
+    await carregarModoOperacao();
+    
+    await carregarProdutosDoBanco();
+    await carregarUsuarios();
+    await carregarEnderecamentos();
+    await carregarContagens();
 
     server.listen(port, () => {
       console.log(`Servidor rodando em http://localhost:${port}`);

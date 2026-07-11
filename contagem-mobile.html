@@ -7,7 +7,7 @@
 
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0a1f3d" />
-  <link rel="apple-touch-icon" href="/icone-192.png" />
+  <link rel="apple-touch-icon" href="/icones/icone-192.png" />
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="RealStock Coleta">
@@ -1111,7 +1111,7 @@ body.com-endereco-aberto #abaColeta > .card:first-of-type {
   width: 52px !important;
   height: 52px !important;
   border-radius: 16px !important;
-  object-fit: cover !important;
+  object-fit: contain !important;
   box-shadow: 0 10px 25px rgba(0,0,0,0.28) !important;
 }
 
@@ -1383,6 +1383,139 @@ body.sem-endereco-aberto #cardItensEndereco {
   object-fit: cover !important;
   margin-bottom: 10px !important;
 }
+
+.modo-wms {
+  background: #dbeafe !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #93c5fd !important;
+}
+
+#blocoEnderecoWms {
+  margin-top: 2px;
+}
+/* ===== TOPO MOBILE COMPACTO FINAL ===== */
+
+.mobile-header {
+  min-height: 72px !important;
+  height: auto !important;
+  padding: 10px 12px !important;
+
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) auto !important;
+  grid-template-rows: 1fr !important;
+
+  align-items: center !important;
+  gap: 10px !important;
+
+  border-radius: 0 0 20px 20px !important;
+}
+
+.mobile-header .menu-btn {
+  width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  border-radius: 13px !important;
+}
+
+.mobile-header .mobile-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  min-width: 0 !important;
+}
+
+.mobile-header .mobile-brand img {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  flex: 0 0 auto !important;
+}
+
+.mobile-brand-text {
+  min-width: 0;
+}
+
+.mobile-header .mobile-brand strong {
+  display: block !important;
+  font-size: 1rem !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.02em !important;
+}
+
+#modoOperacionalInfo {
+  position: static !important;
+
+  display: block !important;
+  width: auto !important;
+
+  margin: 3px 0 0 !important;
+  padding: 0 !important;
+
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+
+  font-size: 0.68rem !important;
+  line-height: 1.1 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+
+  grid-column: auto !important;
+  grid-row: auto !important;
+}
+
+#modoOperacionalInfo::before,
+#modoOperacionalInfo::after {
+  content: none !important;
+  display: none !important;
+}
+
+#modoOperacionalInfo.modo-com-base {
+  color: #86efac !important;
+}
+
+#modoOperacionalInfo.modo-sem-base {
+  color: #fdba74 !important;
+}
+
+#modoOperacionalInfo.modo-wms {
+  color: #93c5fd !important;
+}
+
+.mobile-header .mobile-user {
+  position: relative !important;
+  padding: 0 0 0 14px !important;
+  max-width: 100px !important;
+  text-align: right !important;
+}
+
+.mobile-header .mobile-user b {
+  max-width: 82px !important;
+  font-size: 0.76rem !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.mobile-header .online-dot {
+  left: 0 !important;
+  right: auto !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.container {
+  margin-top: 0 !important;
+}
+
+.menu-dropdown {
+  top: 66px !important;
+}
   </style>
   <link
   rel="stylesheet"
@@ -1392,28 +1525,44 @@ body.sem-endereco-aberto #cardItensEndereco {
 </head>
 <body>
   <div id="splashScreen">
-    <img src="/icone-512.png" alt="RealStock" onerror="this.style.display='none'" />
+  <img
+  src="/icones/logo-realstock.png"
+  alt="RealStock"
+  onerror="this.style.display='none'"
+/>
     <h1>RealStock</h1>
     <p>Sistema de Coleta</p>
     <span class="splash-loader"></span>
   </div>
+  
   <header class="mobile-header">
-  <button type="button" id="btnMenuMobile" class="menu-btn">
+  <button
+    type="button"
+    id="btnMenuMobile"
+    class="menu-btn"
+    aria-label="Abrir menu"
+  >
     <i class="fas fa-bars"></i>
   </button>
 
   <div class="mobile-brand">
-    <img src="/logo-realstock.jpg" alt="RealStock" onerror="this.style.display='none'">
-    <div>
+  <img
+  src="/icones/logo-realstock.png"
+  alt="RealStock Inventário Inteligente"
+  onerror="this.style.display='none'"
+>
+
+    <div class="mobile-brand-text">
       <strong>RealStock</strong>
-      <span>MOBILE</span>
+      <span id="modoOperacionalInfo" class="modo-com-base">
+        Carregando modo...
+      </span>
     </div>
   </div>
 
   <div class="mobile-user">
-    <small>Usuário</small>
-    <b id="usuarioLogado">...</b>
     <span class="online-dot"></span>
+    <b id="usuarioLogado">...</b>
   </div>
 
   <div id="menuDropdownMobile" class="menu-dropdown hidden">
@@ -1423,9 +1572,10 @@ body.sem-endereco-aberto #cardItensEndereco {
     </button>
 
     <button type="button" onclick="mostrarAba('coleta')">
-    <i class="fas fa-barcode"></i>
-    Coleta
-  </button>
+      <i class="fas fa-barcode"></i>
+      Coleta
+    </button>
+
     <button type="button" onclick="mostrarAba('transmitir')">
       <i class="fas fa-cloud-upload-alt"></i>
       Transmitir
@@ -1441,10 +1591,8 @@ body.sem-endereco-aberto #cardItensEndereco {
       Sair
     </button>
   </div>
-  <div class="modo-operacional-box modo-com-base" id="modoOperacionalInfo">
-  Carregando modo operacional...
-</div>
 </header>
+  
 <div class="container">
 <div class="tabs hidden" id="tabsContainer"></div>
 
@@ -1485,7 +1633,26 @@ body.sem-endereco-aberto #cardItensEndereco {
       <div id="enderecoAbertoInfo" class="endereco-atual-box">Nenhum endereço aberto.</div>
       <div id="mensagemEndereco" class="mensagem"></div>
     </div>
-
+    <div id="blocoEnderecoWms" class="hidden">
+    <label for="enderecoWmsInput">Endereço WMS</label>
+  
+    <div class="linha-leitura-camera">
+      <input
+        type="text"
+        id="enderecoWmsInput"
+        placeholder="Escaneie ou digite o endereço WMS"
+        autocomplete="off"
+      />
+  
+      <button
+        type="button"
+        id="btnLerCameraEnderecoWms"
+        class="btn-camera"
+      >
+        <i class="fas fa-camera"></i>
+      </button>
+    </div>
+  </div>
     <div id="leitorCameraBox" class="leitor-camera-box hidden">
     <div id="html5QrCodeReader"></div>
     
@@ -1742,8 +1909,13 @@ const cardItensEndereco = document.getElementById('cardItensEndereco');
   const statusFiltro = document.getElementById('statusFiltro');
 
   const enderecoAtualInput = document.getElementById('enderecoAtual');
-  const btnLerCameraEndereco = document.getElementById('btnLerCameraEndereco');
+const btnLerCameraEndereco = document.getElementById('btnLerCameraEndereco');
 
+const blocoEnderecoWms = document.getElementById('blocoEnderecoWms');
+const enderecoWmsInput = document.getElementById('enderecoWmsInput');
+const btnLerCameraEnderecoWms =
+  document.getElementById('btnLerCameraEnderecoWms');
+  
 let destinoCamera = 'produto';
   const btnAbrirEndereco = document.getElementById('btnAbrirEndereco');
   const enderecoAbertoInfo = document.getElementById('enderecoAbertoInfo');
@@ -1779,7 +1951,8 @@ const multiplicadorSemBase = document.getElementById('multiplicadorSemBase');
   let enderecosFiltroApp = [];
   let produtoAtual = null;
   let enderecoAberto = null;
-  let itensEnderecoAtual = [];
+let enderecoWmsAtual = '';
+let itensEnderecoAtual = [];
   let filaTransmissao = [];
   let modoOperacaoAtual = 'com-base';
   let leituraSemBaseTimer = null;
@@ -1837,9 +2010,11 @@ setInterval(enviarStatusMobile, 15000);
 
       const data = await res.json();
 
-      modoOperacaoAtual =
-        data?.modoOperacao === 'sem-base' ? 'sem-base' : 'com-base';
-
+      modoOperacaoAtual = ['com-base', 'sem-base', 'wms'].includes(
+  data?.modoOperacao
+)
+  ? data.modoOperacao
+  : 'com-base';
       aplicarModoOperacaoMobile();
     } catch (erro) {
       modoOperacaoAtual = 'com-base';
@@ -1859,7 +2034,10 @@ setInterval(enviarStatusMobile, 15000);
 
   if (aberto) {
     const numero = enderecoAberto.enderecoNumero || '----';
-    enderecoResumoColeta.textContent = `END: ${numero}`;
+    enderecoResumoColeta.textContent =
+  modoOperacaoAtual === 'wms'
+    ? `END: ${numero} | WMS: ${enderecoAberto.enderecoWms || '--'}`
+    : `END: ${numero}`;
 
     abaColeta.classList.remove('hidden');
     abaTransmitir.classList.add('hidden');
@@ -1879,108 +2057,109 @@ setInterval(enviarStatusMobile, 15000);
   }
 }
 function aplicarModoOperacaoMobile() {
+  modoOperacionalInfo.classList.remove(
+    'modo-com-base',
+    'modo-sem-base',
+    'modo-wms'
+  );
 
-modoOperacionalInfo.classList.remove(
-  'modo-com-base',
-  'modo-sem-base'
-);
+  const modoSemBase = modoOperacaoAtual === 'sem-base';
+  const modoWms = modoOperacaoAtual === 'wms';
 
-if (modoOperacaoAtual === 'sem-base') {
+  blocoEnderecoWms.classList.toggle('hidden', !modoWms);
 
-  modoOperacionalInfo.textContent = 'SEM BASE';
-  modoOperacionalInfo.classList.add('modo-sem-base');
+  if (!modoWms) {
+    enderecoWmsAtual = '';
+    enderecoWmsInput.value = '';
+  }
 
-  badgeModoColeta.textContent = 'Modo sem base';
+  if (modoSemBase) {
+    modoOperacionalInfo.textContent = 'SEM BASE';
+    modoOperacionalInfo.classList.add('modo-sem-base');
 
-  cardFiltroApp.classList.add('hidden');
+    badgeModoColeta.textContent = 'Modo sem base';
 
-  tabsContainer.classList.add('hidden');
+    cardFiltroApp.classList.add('hidden');
+    tabsContainer.classList.add('hidden');
+    abaTransmitir.classList.add('hidden');
+    abaColeta.classList.remove('hidden');
 
-  abaTransmitir.classList.add('hidden');
+    descricaoProduto.textContent =
+      'No modo sem base, a leitura vai direto para o dashboard.';
 
-  abaColeta.classList.remove('hidden');
+    labelQtdeContada.classList.add('hidden');
+    qtdeContada.classList.add('hidden');
+    qtdeContada.value = '1';
 
-  descricaoProduto.textContent =
-    'No modo sem base, a leitura vai direto para o dashboard.';
+    btnAdicionar.classList.remove('hidden');
+    btnAdicionar.disabled = !enderecoAberto;
+    btnAdicionar.querySelector(
+      'span:last-child'
+    ).textContent = 'Confirmar código';
 
-  labelQtdeContada.classList.add('hidden');
+    btnExcluirUltimo.classList.add('hidden');
 
-  qtdeContada.classList.add('hidden');
+    btnFinalizarEndereco.classList.remove('hidden');
+    btnFinalizarEndereco.disabled = !enderecoAberto;
 
-  qtdeContada.value = '1';
+    labelModoEntradaSemBase.classList.remove('hidden');
+    modoEntradaSemBase.classList.remove('hidden');
+    dicaSemBase.classList.remove('hidden');
 
-  btnAdicionar.classList.add('hidden');
+    labelMultiplicadorSemBase.classList.remove('hidden');
+    multiplicadorSemBase.classList.remove('hidden');
+    multiplicadorSemBase.value =
+      multiplicadorSemBase.value || '1';
 
-  btnExcluirUltimo.classList.add('hidden');
+    tituloItensEndereco.textContent =
+      'Últimas leituras do endereço';
+  } else {
+    modoOperacionalInfo.textContent =
+      modoWms ? 'INVENTÁRIO WMS' : 'COM BASE';
 
-  btnFinalizarEndereco.classList.remove('hidden');
+    modoOperacionalInfo.classList.add(
+      modoWms ? 'modo-wms' : 'modo-com-base'
+    );
 
-  btnFinalizarEndereco.disabled = !enderecoAberto;
+    badgeModoColeta.textContent =
+      modoWms ? 'Modo WMS' : 'Modo com base';
 
-  labelModoEntradaSemBase.classList.remove('hidden');
+    cardFiltroApp.classList.add('hidden');
+    tabsContainer.classList.remove('hidden');
 
-  modoEntradaSemBase.classList.remove('hidden');
+    labelQtdeContada.classList.remove('hidden');
+    qtdeContada.classList.remove('hidden');
 
-  dicaSemBase.classList.remove('hidden');
+    btnAdicionar.classList.remove('hidden');
+    btnAdicionar.querySelector(
+      'span:last-child'
+    ).textContent = modoWms
+      ? 'Registrar no WMS'
+      : 'Adicionar';
 
-  labelMultiplicadorSemBase.classList.remove('hidden');
-multiplicadorSemBase.classList.remove('hidden');
+    btnExcluirUltimo.classList.remove('hidden');
+    btnFinalizarEndereco.classList.remove('hidden');
 
-multiplicadorSemBase.value =
-  multiplicadorSemBase.value || '1';
+    labelModoEntradaSemBase.classList.add('hidden');
+    modoEntradaSemBase.classList.add('hidden');
+    dicaSemBase.classList.add('hidden');
 
-  tituloItensEndereco.textContent =
-    'Últimas leituras do endereço';
+    labelMultiplicadorSemBase.classList.add('hidden');
+    multiplicadorSemBase.classList.add('hidden');
+    multiplicadorSemBase.value = '1';
 
-} else {
+    tituloItensEndereco.textContent = modoWms
+      ? 'Itens WMS do Endereço Atual'
+      : 'Itens do Endereço Atual';
+  }
 
-  modoOperacionalInfo.textContent = 'COM BASE';
+  produtoAtual = null;
+  codigoBusca.value = '';
+  qtdeContada.value = '';
+  descricaoProduto.textContent = 'Nenhum produto localizado.';
 
-  modoOperacionalInfo.classList.add('modo-com-base');
-
-  badgeModoColeta.textContent = 'Modo com base';
-
-  cardFiltroApp.classList.add('hidden');
-
-  tabsContainer.classList.remove('hidden');
-
-  labelQtdeContada.classList.remove('hidden');
-
-  qtdeContada.classList.remove('hidden');
-
-  btnAdicionar.classList.remove('hidden');
-
-  btnExcluirUltimo.classList.remove('hidden');
-
-  btnFinalizarEndereco.classList.remove('hidden');
-
-  labelModoEntradaSemBase.classList.add('hidden');
-
-  modoEntradaSemBase.classList.add('hidden');
-
-  dicaSemBase.classList.add('hidden');
-
-  labelMultiplicadorSemBase.classList.add('hidden');
-multiplicadorSemBase.classList.add('hidden');
-
-multiplicadorSemBase.value = '1';
-
-  tituloItensEndereco.textContent =
-    'Itens do Endereço Atual';
-}
-
-produtoAtual = null;
-
-codigoBusca.value = '';
-
-qtdeContada.value = '';
-
-descricaoProduto.textContent =
-  'Nenhum produto localizado.';
-
-renderItensEnderecoAtual();
-
-atualizarEstadoColeta();
+  renderItensEnderecoAtual();
+  atualizarEstadoColeta();
 }
 
 function mostrarAba(nome) {
@@ -2228,12 +2407,13 @@ function validarEnderecoLocal(valor) {
   btnLerCamera.disabled = !habilitado;
 }
 
-    if (modoOperacaoAtual === 'sem-base') {
+if (modoOperacaoAtual === 'sem-base') {
   qtdeContada.disabled = true;
-  btnAdicionar.disabled = true;
-  btnExcluirUltimo.disabled = true;
 
-  // 🔥 AQUI A CORREÇÃO
+  // O botão fica disponível depois que um endereço é aberto.
+  btnAdicionar.disabled = !enderecoAberto;
+
+  btnExcluirUltimo.disabled = true;
   btnFinalizarEndereco.disabled = !enderecoAberto;
 
   return;
@@ -2248,6 +2428,7 @@ function validarEnderecoLocal(valor) {
   function salvarEstadoColetaMobile() {
   const estado = {
     enderecoAberto,
+    enderecoWmsAtual,
     itensEnderecoAtual,
     filaTransmissao,
     produtoAtual,
@@ -2266,6 +2447,15 @@ function restaurarEstadoColetaMobile() {
     const estado = JSON.parse(bruto);
 
     enderecoAberto = estado.enderecoAberto || null;
+    enderecoWmsAtual =
+  estado.enderecoWmsAtual ||
+  estado.enderecoAberto?.enderecoWms ||
+  '';
+
+if (enderecoWmsInput) {
+  enderecoWmsInput.value = enderecoWmsAtual;
+}
+    
     itensEnderecoAtual = Array.isArray(estado.itensEnderecoAtual)
       ? estado.itensEnderecoAtual
       : [];
@@ -2304,6 +2494,17 @@ function preencherCodigoLidoPelaCamera(codigo) {
     return;
   }
 
+
+  if (destinoCamera === 'endereco-wms') {
+  enderecoWmsInput.value = valor;
+  enderecoWmsInput.focus();
+
+  mensagemEndereco.textContent =
+    `Endereço WMS lido: ${valor}`;
+  mensagemEndereco.className = 'mensagem sucesso';
+  return;
+}
+
   codigoBusca.value = valor;
   codigoBusca.dispatchEvent(new Event('input', { bubbles: true }));
   atualizarDescricaoProduto();
@@ -2319,9 +2520,15 @@ function preencherCodigoLidoPelaCamera(codigo) {
 }
 
 async function iniciarLeituraCamera() {
-  const msgAlvo = destinoCamera === 'endereco' ? mensagemEndereco : mensagem;
+  const lendoEndereco =
+  destinoCamera === 'endereco' ||
+  destinoCamera === 'endereco-wms';
 
-  if (destinoCamera !== 'endereco' && !enderecoAberto) {
+const msgAlvo = lendoEndereco
+  ? mensagemEndereco
+  : mensagem;
+
+  if (destinoCamera === 'produto' && !enderecoAberto) {
     msgAlvo.textContent = 'Abra um endereço antes de usar a câmera.';
     msgAlvo.className = 'mensagem erro';
     return;
@@ -2337,9 +2544,11 @@ async function iniciarLeituraCamera() {
     leitorCameraBox.classList.remove('hidden');
 
     msgAlvo.textContent =
-      destinoCamera === 'endereco'
-        ? 'Aponte a câmera para o código do endereço.'
-        : 'Aponte a câmera para o código de barras.';
+  destinoCamera === 'endereco'
+    ? 'Aponte a câmera para o endereço do inventário.'
+    : destinoCamera === 'endereco-wms'
+    ? 'Aponte a câmera para o endereço WMS.'
+    : 'Aponte a câmera para o código de barras.';
 
     msgAlvo.className = 'mensagem info';
 
@@ -2437,13 +2646,17 @@ function fecharTecladoMobile() {
 }
   async function abrirEndereco() {
   const valor = enderecoAtualInput.value.trim();
-
+  const valorEnderecoWms = String(
+  enderecoWmsInput?.value || ''
+).trim();
   if (!valor) {
     mensagem.textContent = 'Digite ou escaneie um endereço.';
     mensagem.className = 'mensagem erro';
     return;
   }
-
+  const valorEnderecoWms = String(
+  enderecoWmsInput?.value || ''
+).trim();
   try {
     mensagemEndereco.textContent = 'Validando endereço...';
 mensagemEndereco.className = 'mensagem info';
@@ -2473,9 +2686,15 @@ if (!enderecoValido) {
   throw new Error('Endereço não cadastrado no filtro baixado.');
 }
 
-    enderecoAberto = {
-      enderecoNumero: valor
-    };
+enderecoWmsAtual =
+  modoOperacaoAtual === 'wms'
+    ? valorEnderecoWms
+    : '';
+
+enderecoAberto = {
+  enderecoNumero: valor,
+  enderecoWms: enderecoWmsAtual,
+};
 
     itensEnderecoAtual = [];
     produtoAtual = null;
@@ -2486,7 +2705,10 @@ if (!enderecoValido) {
         ? 'Leia um EAN ou código interno.'
         : 'Nenhum produto localizado.';
 
-        enderecoAbertoInfo.textContent = `Endereço aberto: ${valor}`;
+        enderecoAbertoInfo.textContent =
+  modoOperacaoAtual === 'wms'
+    ? `Inventário: ${valor} | WMS: ${enderecoWmsAtual}`
+    : `Endereço aberto: ${valor}`;
 mensagemEndereco.textContent = 'Endereço validado e aberto com sucesso.';
 mensagemEndereco.className = 'mensagem sucesso';
 mensagem.textContent = '';
@@ -2499,6 +2721,7 @@ mensagem.className = 'mensagem';
     codigoBusca.focus();
   } catch (erro) {
     enderecoAberto = null;
+    enderecoWmsAtual = '';
     itensEnderecoAtual = [];
     produtoAtual = null;
 
@@ -2559,7 +2782,7 @@ async function registrarLeituraSemBaseAutomatica(valorInformado) {
   }, 120);
 }
 
-  function adicionarItemLocal() {
+async function adicionarItemLocal() {
     const codigoDigitado = codigoBusca.value.trim();
     const quantidade = Number(qtdeContada.value) || 0;
 
@@ -2592,14 +2815,82 @@ async function registrarLeituraSemBaseAutomatica(valorInformado) {
       mensagem.className = 'mensagem erro';
       return;
     }
+    if (modoOperacaoAtual === 'wms') {
+  if (!enderecoAberto?.enderecoWms) {
+    mensagem.textContent =
+      'O endereço WMS não foi informado.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
 
-    itensEnderecoAtual.unshift({
-      codigoDigitado,
-      codigoBarras: produtoAtual.codigoBarras || '',
-      codigo: produtoAtual.codigo || '',
-      descricao: produtoAtual.descricao || '',
-      quantidade
+  try {
+    mensagem.textContent =
+      'Registrando contagem WMS...';
+    mensagem.className = 'mensagem info';
+
+    const resposta = await fetch('/wms/contagens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        enderecoInventario:
+          enderecoAberto.enderecoNumero,
+
+        enderecoWms:
+          enderecoAberto.enderecoWms,
+
+        codigoBarras:
+          produtoAtual.codigoBarras || '',
+
+        codigo:
+          produtoAtual.codigo ||
+          produtoAtual.codigoInterno ||
+          '',
+
+        descricao:
+          produtoAtual.descricao || '',
+
+        quantidadeCliente:
+          Number(produtoAtual.qtdeCongelada) || 0,
+
+        quantidadeContada:
+          quantidade,
+      }),
     });
+
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(
+        dados?.erro ||
+        'Falha ao registrar contagem WMS.'
+      );
+    }
+  } catch (erro) {
+    mensagem.textContent =
+      erro.message ||
+      'Erro ao registrar contagem WMS.';
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+}
+itensEnderecoAtual.unshift({
+  codigoDigitado,
+  codigoBarras: produtoAtual.codigoBarras || '',
+  codigo:
+    produtoAtual.codigo ||
+    produtoAtual.codigoInterno ||
+    '',
+  descricao: produtoAtual.descricao || '',
+  quantidade,
+  quantidadeCliente:
+    Number(produtoAtual.qtdeCongelada) || 0,
+  enderecoNumero: enderecoAberto.enderecoNumero,
+  enderecoWms: enderecoAberto.enderecoWms || '',
+});
+
 
     renderItensEnderecoAtual();
     salvarEstadoColetaMobile();
@@ -2816,6 +3107,14 @@ if (btnLerCameraEndereco) {
   });
 }
 
+
+if (btnLerCameraEnderecoWms) {
+  btnLerCameraEnderecoWms.addEventListener('click', async () => {
+    destinoCamera = 'endereco-wms';
+    await iniciarLeituraCamera();
+  });
+}
+
 if (btnFecharCamera) {
   btnFecharCamera.addEventListener('click', pararLeituraCamera);
 }
@@ -2863,14 +3162,14 @@ if (btnFecharCamera) {
     }
   });
 
-  qtdeContada.addEventListener('keydown', (e) => {
+  qtdeContada.addEventListener('keydown', async (e) => {
     if (modoOperacaoAtual === 'sem-base') {
       return;
     }
 
     if (e.key === 'Enter') {
       e.preventDefault();
-      adicionarItemLocal();
+     await adicionarItemLocal();
     }
   });
 
@@ -2898,7 +3197,7 @@ if (btnFecharCamera) {
       return;
     }
 
-    adicionarItemLocal();
+    await adicionarItemLocal();
   });
 
   btnExcluirUltimo.addEventListener('click', excluirUltimo);

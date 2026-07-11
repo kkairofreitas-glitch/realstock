@@ -1502,7 +1502,7 @@
         max-width: 210px;
         border-radius: 16px;
         box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
-        object-fit: cover;
+        object-fit: contain;
         display: block;
       }
 
@@ -5726,13 +5726,180 @@ button[class*="btn-inativar"] {
     grid-template-columns: 1fr !important;
   }
 }
+.wms-only {
+  display: none !important;
+}
+
+body[data-modo-operacao="wms"] .wms-only {
+  display: block !important;
+}
+
+body[data-modo-operacao="wms"] .modo-base-only {
+  display: none !important;
+}
+
+/* Card explicativo do WMS não será exibido no dashboard */
+#painelResumoWms {
+  display: none !important;
+}
+/* Mantém os dados no DOM, mas não os exibe no dashboard */
+#dadosInventarioDashboard {
+  display: none !important;
+}
+/* ===== GRADE MODERNA DOS PAINÉIS ===== */
+
+.dashboard-paineis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+  margin: 14px 0 18px;
+}
+
+/*
+  alerts-row e main-layout continuam no HTML para não quebrar
+  a estrutura atual, mas seus filhos passam a integrar a grade externa.
+*/
+.dashboard-paineis-grid > .alerts-row,
+.dashboard-paineis-grid > .main-layout {
+  display: contents;
+}
+
+.dashboard-painel-resumo {
+  width: 100%;
+  min-width: 0;
+  height: 430px !important;
+  min-height: 430px !important;
+  max-height: 430px !important;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 12px 28px rgba(15, 23, 42, 0.08);
+
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+.dashboard-painel-resumo::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dashboard-painel-resumo::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-painel-resumo::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dashboard-painel-resumo::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+  background-clip: padding-box;
+}
+.dashboard-painel-resumo .dashboard-header,
+.dashboard-painel-resumo .progress-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex: 0 0 auto;
+}
+
+.dashboard-painel-resumo:hover {
+  transform: translateY(-2px);
+  border-color: rgba(15, 118, 110, 0.22);
+
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 18px 36px rgba(15, 23, 42, 0.12);
+}
+
+.dashboard-painel-resumo .dashboard-header,
+.dashboard-painel-resumo .progress-top {
+  min-height: 56px;
+  margin: 0;
+  padding: 14px 16px;
+
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.dashboard-painel-resumo .caixa-lista {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dashboard-painel-resumo .box-pad {
+  flex: 0 0 auto;
+}
+
+/* O progresso precisa caber no mesmo tamanho dos demais */
+.dashboard-painel-resumo.progress-card {
+  padding: 0 !important;
+  gap: 10px;
+}
+
+.dashboard-painel-resumo.progress-card > :not(.progress-top) {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.dashboard-painel-resumo .pie {
+  width: 140px;
+  height: 140px;
+}
+
+.dashboard-painel-resumo .pie::after {
+  inset: 17px;
+}
+
+.dashboard-painel-resumo .pie-value strong {
+  font-size: 1.7rem;
+}
+
+.dashboard-painel-resumo .forecast-card {
+  margin: 0 14px 14px;
+  padding: 11px;
+  border-radius: 14px;
+}
+@media (max-width: 1500px) {
+  .dashboard-paineis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .dashboard-paineis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-painel-resumo {
+    height: 420px !important;
+    min-height: 420px !important;
+    max-height: 420px !important;
+  }
+}
     </style>
   </head>
 
   <body>
     <aside id="sidebar" aria-label="Menu lateral">
       <div class="sidebar-logo">
-      <img src="/logo-realstock.jpg?v=2" alt="Logo RealStock Inventário" />
+      <img
+      src="/icones/logo-realstock.png"
+      alt="RealStock Inventário Inteligente"
+    />
       </div>
      
       <nav class="sidebar-menu">
@@ -5801,7 +5968,10 @@ button[class*="btn-inativar"] {
         <i class="fa-solid fa-lock"></i>
         <span>ENCERRAMENTO</span>
       </button>
-  
+      <button class="sidebar-item" type="button" onclick="abrirConfiguracoesSistema()">
+      <i class="fa-solid fa-gear"></i>
+      <span>CONFIGURAÇÕES</span>
+    </button>
       </nav>
     </aside>
     <div id="top-bar" role="toolbar" aria-label="Ações principais">
@@ -6028,56 +6198,21 @@ button[class*="btn-inativar"] {
     </div>
 
     <div id="tabs-shell">
-      <div class="container">
-      <div class="layout-config-card" id="modoOperacionalCard">
-      <div class="layout-config-head">
-        <h3>MODO OPERACIONAL</h3>
-      </div>
-    
-      <div class="modo-operacional-grid">
-        <label class="modo-opcao">
-          <input
-            type="radio"
-            name="modoOperacao"
-            value="com-base"
-            id="modoOperacaoComBase"
-          />
-          <span>Com base</span>
-        </label>
-    
-        <label class="modo-opcao">
-          <input
-            type="radio"
-            name="modoOperacao"
-            value="sem-base"
-            id="modoOperacaoSemBase"
-          />
-          <span>Sem base</span>
-        </label>
-    
-        <button
-          type="button"
-          class="save-btn"
-          id="btnSalvarModoOperacao"
-        >
-          Aplicar
-        </button>
-    
-        <button
-          type="button"
-          class="btn-refresh"
-          id="btnAtualizarPainel"
-        >
-          Atualizar painel
-        </button>
-      </div>
-    
+    <div class="container">
+  
+      <button
+        type="button"
+        class="btn-refresh"
+        id="btnAtualizarPainel"
+      >
+        Atualizar painel
+      </button>
+  
       <div class="schedule-note" id="statusModoOperacao">
         Modo atual: carregando.
       </div>
-    </div>
-    
-    <div class="page-head">
+  
+      <div class="page-head">
       <div>
         <h2 class="page-title">Dashboard do Inventário</h2>
         <p class="page-sub">
@@ -6085,8 +6220,43 @@ button[class*="btn-inativar"] {
         </p>
       </div>
     </div>
-    
+    <div class="layout-config-card wms-only" id="painelResumoWms">
+    <div class="layout-config-head">
+      <div>
+
+        <h3>Inventário WMS</h3>
+        <p class="page-sub">
+          Fluxo preparado para comparar endereço físico, endereço WMS, quantidade do cliente e quantidade contada.
+        </p>
+      </div>
+    </div>
+  
     <div class="operation-info-bar">
+      <div class="operation-item">
+        <span>Fluxo mobile</span>
+        <b>Endereço inventário → Endereço WMS → Produto → Quantidade</b>
+      </div>
+    
+           
+            <div class="operation-item">
+              <span>Comparação</span>
+              <b>Quantidade cliente x Quantidade contada</b>
+            </div>
+        
+            <div class="operation-item">
+              <span>Status</span>
+              <b>Preparando estrutura WMS</b>
+            </div>
+          </div>
+        </div>
+
+
+
+        <div
+        class="operation-info-bar"
+        id="dadosInventarioDashboard"
+        aria-hidden="true"
+      >
           <div class="operation-item">
             <span>CLIENTE</span>
             <b id="dashCliente">--</b>
@@ -6182,9 +6352,9 @@ button[class*="btn-inativar"] {
             </div>
           </div>
         </div>
-        
+        <div class="dashboard-paineis-grid">
         <div class="alerts-row">
-          <div class="dashboard-coluna">
+        <div class="dashboard-coluna dashboard-painel-resumo">
             <div class="dashboard-header">
               <span>Ranking de usuários</span>
               <small id="count-ranking">—</small>
@@ -6207,7 +6377,7 @@ button[class*="btn-inativar"] {
             <div id="ranking-usuarios" class="caixa-lista"></div>
           </div>
 
-          <div class="progress-card">
+          <div class="progress-card dashboard-painel-resumo">
             <div class="progress-top">
             <h3>Progresso do Endereçamento</h3>
               <div class="pct" id="pct-concluido">0%</div>
@@ -6350,11 +6520,12 @@ button[class*="btn-inativar"] {
         </div>
 
         <div class="main-layout">
-          <div class="dashboard-coluna">
+        <div class="dashboard-coluna dashboard-painel-resumo">
             <div class="dashboard-header">
               <span>Arquivo base</span>
               <small id="count-base">0</small>
             </div>
+            
             <div class="box-pad">
               <div class="input-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -6373,7 +6544,7 @@ button[class*="btn-inativar"] {
             <div id="arquivo-base-box" class="caixa-lista"></div>
           </div>
 
-          <div class="dashboard-coluna">
+          <div class="dashboard-coluna dashboard-painel-resumo">
             <div class="dashboard-header">
               <span>Itens contados</span>
               <small id="count-contados">0</small>
@@ -6396,7 +6567,52 @@ button[class*="btn-inativar"] {
             <div id="itens-contados-box" class="caixa-lista"></div>
           </div>
 
-          <div class="main-content tabela-full">
+          <div class="main-content tabela-full wms-only" id="areaTabelaWmsDashboard">
+          <div class="filter-actions-bar">
+            <input
+              type="text"
+              class="filter-input"
+              id="buscaWmsDashboard"
+              placeholder="Buscar por endereço, WMS, código ou descrição..."
+            />
+        
+            <select class="filter-select" id="filtroStatusWms">
+              <option value="">Todos os status</option>
+              <option value="ok">OK</option>
+              <option value="divergente">Divergente</option>
+              <option value="faltando">Faltando</option>
+              <option value="sobrando">Sobrando</option>
+            </select>
+          </div>
+        
+          <div class="tabela-container">
+            <table id="tabelaWmsDashboard">
+              <thead>
+                <tr>
+                  <th>Endereço inventário</th>
+                  <th>Endereço WMS</th>
+                  <th>Código de barras</th>
+                  <th>Código interno</th>
+                  <th>Descrição</th>
+                  <th>Qtd. cliente</th>
+                  <th>Qtd. contada</th>
+                  <th>Divergência</th>
+                  <th>Status</th>
+                  <th>Operador</th>
+                  <th>Data</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyWmsDashboard">
+                <tr>
+                  <td colspan="11">Nenhuma contagem WMS registrada até o momento.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div> 
+
+          <div class="main-content tabela-full modo-base-only">
             <div class="filter-actions-bar">
               <input
                 type="text"
@@ -8598,7 +8814,84 @@ button[class*="btn-inativar"] {
     </div>
   </div>
 </div>
+</div>
+</div>
+<div
+  id="modalConfiguracoesSistema"
+  class="modal-overlay"
+  aria-hidden="true"
+  style="display: none"
+>
+<div
+  class="modal-box"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="tituloConfiguracoesSistema"
+  style="width: min(760px, 94vw); max-height: 88vh"
+>
+  <div class="modal-head">
+    <div class="modal-head-left">
+    <h3 id="tituloConfiguracoesSistema">Configurações</h3>
+      <p>Modos e preferências do inventário.</p>
+    </div>
 
+    <button class="modal-close" type="button" onclick="fecharConfiguracoesSistema()">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <div class="modal-content">
+    <div class="layout-config-card" id="modoOperacionalCard">
+      <div class="layout-config-head">
+        <div>
+          <h3>Modo operacional</h3>
+          <p class="page-sub">
+            Escolha como o inventário será executado no painel e no mobile.
+          </p>
+        </div>
+      </div>
+
+      <div class="modo-operacional-grid">
+        <label class="modo-opcao">
+          <input
+            type="radio"
+            id="modoOperacaoWms"
+            name="modoOperacao"
+            value="wms"
+          />
+          <span>Inventário WMS</span>
+        </label>
+
+        <label class="modo-opcao">
+          <input
+            type="radio"
+            id="modoOperacaoComBase"
+            name="modoOperacao"
+            value="com-base"
+          />
+          <span>Com base</span>
+        </label>
+
+        <label class="modo-opcao">
+          <input
+            type="radio"
+            id="modoOperacaoSemBase"
+            name="modoOperacao"
+            value="sem-base"
+          />
+          <span>Sem base</span>
+        </label>
+
+        <button type="button" class="save-btn" onclick="salvarModoOperacaoConfiguracoes()">
+          Aplicar modo
+        </button>
+      </div>
+
+      <div id="statusModoOperacao">--</div>
+    </div>
+  </div>
+</div>
+</div>
     <script>
       function showToast(msg) {
         const el = document.getElementById('toast');
@@ -8608,18 +8901,139 @@ button[class*="btn-inativar"] {
         clearTimeout(window.__toastT);
         window.__toastT = setTimeout(() => el.classList.remove('show'), 2600);
       }
+      async function abrirConfiguracoesSistema() {
+  const modal = document.getElementById("modalConfiguracoesSistema");
+
+  if (!modal) {
+    console.error("Modal de configurações não encontrado.");
+    return;
+  }
+
+  modal.style.display = "flex";
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+
+  document.body.style.overflow = "hidden";
+
+  await carregarModoOperacaoFront();
+}
+
+function fecharConfiguracoesSistema() {
+  const modal = document.getElementById("modalConfiguracoesSistema");
+
+  if (!modal) return;
+
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+  modal.style.display = "none";
+
+  document.body.style.overflow = "";
+}
+document
+  .getElementById("modalConfiguracoesSistema")
+  ?.addEventListener("click", (event) => {
+    if (event.target.id === "modalConfiguracoesSistema") {
+      fecharConfiguracoesSistema();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+
+  const modal = document.getElementById("modalConfiguracoesSistema");
+
+  if (modal?.classList.contains("show")) {
+    fecharConfiguracoesSistema();
+  }
+});
+async function salvarModoOperacaoConfiguracoes() {
+  await salvarModoOperacaoFront();
+  fecharConfiguracoesSistema();
+}
+      function aplicarModoNoDashboard() {
+  const modo = modoOperacaoAtual || "com-base";
+
+  document.body.dataset.modoOperacao = modo;
+
+  const tituloPagina = document.querySelector(".page-title");
+  const subtituloPagina = document.querySelector(".page-sub");
+
+  if (tituloPagina) {
+    tituloPagina.textContent =
+      modo === "sem-base"
+        ? "Inventário sem base"
+        : modo === "wms"
+        ? "Inventário WMS"
+        : "Dashboard de Inventário";
+  }
+
+  if (subtituloPagina) {
+    subtituloPagina.textContent =
+      modo === "sem-base"
+        ? "Acompanhe as leituras realizadas sem arquivo base."
+        : modo === "wms"
+        ? "Compare contagens físicas com endereços e saldos do WMS."
+        : "Acompanhe o progresso do inventário com base importada.";
+  }
+
+  if (modo === "wms") {
+  carregarContagensWmsDashboard();
+}
+}
+
+function renderizarTabelaWmsDashboard(lista = []) {
+  const tbody = document.getElementById("tbodyWmsDashboard");
+  if (!tbody) return;
+
+  const dados = Array.isArray(lista) ? lista : [];
+
+  if (!dados.length) {
+    tbody.innerHTML = `
+      <tr>
+      <td colspan="11">Nenhuma contagem WMS registrada até o momento.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = dados
+    .map((item) => {
+      const qtdCliente = Number(item.quantidadeCliente || 0);
+      const qtdContada = Number(item.quantidadeContada || 0);
+      const divergencia = qtdContada - qtdCliente;
+
+      return `
+  <tr>
+    <td>${item.enderecoInventario || "--"}</td>
+    <td>${item.enderecoWms || "--"}</td>
+    <td>${item.codigoBarras || "--"}</td>
+    <td>${item.codigo || "--"}</td>
+    <td class="col-desc">${item.descricao || "--"}</td>
+    <td>${qtdCliente}</td>
+    <td>${qtdContada}</td>
+    <td>${divergencia}</td>
+    <td>${divergencia === 0 ? "OK" : "Divergente"}</td>
+    <td>${item.usuario || "--"}</td>
+    <td>${item.data || "--"}</td>
+  </tr>
+`;
+    })
+    .join("");
+}
 
       async function carregarModoOperacaoFront() {
   try {
     const res = await fetch("/modo-operacao");
     const data = await res.json();
 
-    modoOperacaoAtual =
-      data?.modoOperacao === "sem-base" ? "sem-base" : "com-base";
+    modoOperacaoAtual = ["com-base", "sem-base", "wms"].includes(data?.modoOperacao)
+  ? data.modoOperacao
+  : "com-base";
 
     const radioComBase = document.getElementById("modoOperacaoComBase");
+   
     const radioSemBase = document.getElementById("modoOperacaoSemBase");
-    const statusEl = document.getElementById("statusModoOperacao");
+const radioWms = document.getElementById("modoOperacaoWms");
+const statusEl = document.getElementById("statusModoOperacao");
 
     if (radioComBase) {
       radioComBase.checked = modoOperacaoAtual === "com-base";
@@ -8628,18 +9042,48 @@ button[class*="btn-inativar"] {
     if (radioSemBase) {
       radioSemBase.checked = modoOperacaoAtual === "sem-base";
     }
+    if (radioWms) {
+  radioWms.checked = modoOperacaoAtual === "wms";
+}
 
     if (statusEl) {
       statusEl.textContent =
-        modoOperacaoAtual === "sem-base"
-          ? "Modo sem base"
-          : "Modo com base";
+  modoOperacaoAtual === "sem-base"
+    ? "Modo sem base"
+    : modoOperacaoAtual === "wms"
+    ? "Inventário WMS"
+    : "Modo com base";
     }
+
+
+    aplicarModoNoDashboard();
+
+
   } catch (erro) {
     console.error("Erro ao carregar modo operacional:", erro);
     showToast("Erro ao carregar modo operacional.");
   }
 }
+async function carregarContagensWmsDashboard() {
+  try {
+    const res = await fetch("/wms/contagens", {
+      credentials: "same-origin",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.erro || "Falha ao carregar WMS.");
+    }
+
+    renderizarTabelaWmsDashboard(data.itens || []);
+  } catch (erro) {
+    console.error("Erro ao carregar WMS:", erro);
+    renderizarTabelaWmsDashboard([]);
+    showToast(erro.message || "Erro ao carregar dados WMS.");
+  }
+}
+
 async function salvarModoOperacaoFront() {
   try {
     const selecionado = document.querySelector(
@@ -8671,10 +9115,15 @@ body: JSON.stringify({
     const statusEl = document.getElementById("statusModoOperacao");
 if (statusEl) {
   statusEl.textContent =
-    modoOperacaoAtual === "sem-base"
-      ? "Modo sem base"
-      : "Modo com base";
+  modoOperacaoAtual === "sem-base"
+    ? "Modo sem base"
+    : modoOperacaoAtual === "wms"
+    ? "Inventário WMS"
+    : "Modo com base";
 }
+
+aplicarModoNoDashboard();
+
 
     showToast(
       data?.mensagem || "Modo operacional atualizado com sucesso."
@@ -14472,6 +14921,7 @@ ws.onmessage = function(event) {
 };
 
 /* ===== INICIALIZAÇÃO FINAL ===== */
+carregarModoOperacaoFront();
 carregarAuditoriaEnderecosDuplicados();
 loadInventoryConfigInputs();
 startLiveClocks();
