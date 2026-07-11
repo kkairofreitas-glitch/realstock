@@ -1,11 +1,15 @@
-const CACHE_NAME = "realstock-mobile-v7";
+const CACHE_NAME = "realstock-mobile-v8";
 
 const URLS_TO_CACHE = [
-  "/coleta-mobile",
+  "/",
+  "/index.html",
+  "/contagem-mobile.html",
   "/manifest.json",
   "/service-worker.js",
-  "/icones/icone-192.png",
-  "/icones/icone-512.png"
+
+  "/logo-realstock.png",
+  "/icone-192.png",
+  "/icone-512.png"
 ];
 
 self.addEventListener("install", (event) => {
