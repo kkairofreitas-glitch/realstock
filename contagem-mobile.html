@@ -2644,19 +2644,21 @@ function fecharTecladoMobile() {
     console.log('Não foi possível fechar o teclado:', erro);
   }
 }
-  async function abrirEndereco() {
+async function abrirEndereco() {
   const valor = enderecoAtualInput.value.trim();
+
   const valorEnderecoWms = String(
-  enderecoWmsInput?.value || ''
-).trim();
+    enderecoWmsInput?.value || ''
+  ).trim();
+
   if (!valor) {
-    mensagem.textContent = 'Digite ou escaneie um endereço.';
-    mensagem.className = 'mensagem erro';
+    mensagemEndereco.textContent =
+      'Digite ou escaneie um endereço.';
+
+    mensagemEndereco.className = 'mensagem erro';
     return;
   }
-  const valorEnderecoWms = String(
-  enderecoWmsInput?.value || ''
-).trim();
+
   try {
     mensagemEndereco.textContent = 'Validando endereço...';
 mensagemEndereco.className = 'mensagem info';
