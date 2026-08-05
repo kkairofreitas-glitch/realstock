@@ -26,6 +26,16 @@ const {
   carregarFinalizacoesSemBasePostgres,
   carregarContagensWmsPostgres,
   salvarContagemWmsPostgres,
+  excluirContagemWmsPostgres,
+  salvarFinalizacaoWmsPostgres,
+  carregarFinalizacoesWmsPostgres,
+  salvarBaseEsperadaWmsPostgres,
+  salvarBaseEsperadaWmsLotePostgres,
+  buscarBaseEsperadaWmsPostgres,
+  carregarBaseEsperadaWmsPostgres,
+  buscarBaseEsperadaWmsPorIdPostgres,
+  atualizarBaseEsperadaWmsPostgres,
+  excluirBaseEsperadaWmsPostgres,
 } = require("./db");
 
 const express = require("express");
@@ -113,7 +123,8 @@ let ultimaImportacao = {
 let contagemSemBase = [];
 let modoOperacao = "com-base";
 let finalizacoesSemBase = [];
-
+let layoutsSalvos = [];
+let layoutsUniversais = [];
 function normalizarModoOperacao(valor) {
   const modo = String(valor || "com-base").trim();
 
@@ -127,6 +138,14 @@ const dataDir = path.join(__dirname, "data");
 const contagensPath = path.join(dataDir, "contagens.json");
 const layoutTxtPath = path.join(dataDir, "layout-txt.json");
 const layoutsTxtPath = path.join(dataDir, "layouts-txt.json");
+const layoutsUniversaisPath = path.join(
+  dataDir,
+  "layouts-universais.json"
+);
+const layoutsExportacaoPath = path.join(
+  dataDir,
+  "layouts-exportacao.json"
+);
 const usuariosPath = path.join(dataDir, "usuarios.json");
 const enderecamentosPath = path.join(dataDir, "enderecamentos.json");
 const encerramentosDir = path.join(dataDir, "encerramentos");
@@ -140,6 +159,1169 @@ const finalizacoesSemBasePath = path.join(
   dataDir,
   "finalizacoes-sem-base.json"
 );
+
+const FORMATOS_PREVIEW_UNIVERSAL = new Set([
+  ".txt",
+  ".csv",
+  ".json",
+  ".xlsx",
+]);
+
+function limparNomeColunaUniversal(valor, indice) {
+  const texto = String(valor ?? "").trim();
+
+  return texto || `coluna_${indice + 1}`;
+}
+
+function criarNomesUnicosUniversal(colunas = []) {
+  const ocorrencias = new Map();
+
+  return colunas.map((coluna, indice) => {
+    const nomeBase =
+      limparNomeColunaUniversal(coluna, indice);
+
+    const chave = nomeBase.toLowerCase();
+
+    const quantidade =
+      (ocorrencias.get(chave) || 0) + 1;
+
+    ocorrencias.set(chave, quantidade);
+
+    return quantidade === 1
+      ? nomeBase
+      : `${nomeBase}_${quantidade}`;
+  });
+}
+
+function detectarDelimitadorUniversal(linha = "") {
+  const candidatos = [";", ",", "\t", "|"];
+
+  let melhor = null;
+  let maiorQuantidade = 1;
+
+  candidatos.forEach((delimitador) => {
+    const quantidade =
+      String(linha).split(delimitador).length;
+
+    if (quantidade > maiorQuantidade) {
+      maiorQuantidade = quantidade;
+      melhor = delimitador;
+    }
+  });
+
+  return melhor;
+}
+
+function separarLinhaDelimitadaUniversal(
+  linha,
+  delimitador
+) {
+  const texto = String(linha ?? "");
+
+  if (!delimitador) {
+    return [texto];
+  }
+
+  const valores = [];
+
+  let valorAtual = "";
+  let dentroDeAspas = false;
+
+  for (
+    let indice = 0;
+    indice < texto.length;
+    indice += 1
+  ) {
+    const caractere = texto[indice];
+    const proximo = texto[indice + 1];
+
+    if (caractere === '"') {
+      if (dentroDeAspas && proximo === '"') {
+        valorAtual += '"';
+        indice += 1;
+      } else {
+        dentroDeAspas = !dentroDeAspas;
+      }
+
+      continue;
+    }
+
+    if (
+      caractere === delimitador &&
+      !dentroDeAspas
+    ) {
+      valores.push(valorAtual.trim());
+      valorAtual = "";
+      continue;
+    }
+
+    valorAtual += caractere;
+  }
+
+  valores.push(valorAtual.trim());
+
+  return valores;
+}
+
+function converterMatrizUniversal(
+  matriz = [],
+  possuiCabecalho = true
+) {
+  const linhas = matriz.filter(
+    (linha) =>
+      Array.isArray(linha) &&
+      linha.some(
+        (valor) =>
+          String(valor ?? "").trim() !== ""
+      )
+  );
+
+  if (!linhas.length) {
+    return {
+      colunas: [],
+      itens: [],
+    };
+  }
+
+  const totalColunas = linhas.reduce(
+    (maior, linha) =>
+      Math.max(maior, linha.length),
+    0
+  );
+
+  const colunasOriginais = possuiCabecalho
+    ? Array.from(
+        { length: totalColunas },
+        (_, indice) => linhas[0]?.[indice]
+      )
+    : Array.from(
+        { length: totalColunas },
+        (_, indice) => `coluna_${indice + 1}`
+      );
+
+  const colunas =
+    criarNomesUnicosUniversal(
+      colunasOriginais
+    );
+
+  const indiceInicio =
+    possuiCabecalho ? 1 : 0;
+
+  const itens = linhas
+    .slice(indiceInicio)
+    .map((linha, indiceLinha) => {
+      const item = {
+        __linha:
+          indiceLinha +
+          indiceInicio +
+          1,
+      };
+
+      colunas.forEach(
+        (coluna, indiceColuna) => {
+          item[coluna] =
+            linha[indiceColuna] ?? "";
+        }
+      );
+
+      return item;
+    });
+
+  return {
+    colunas,
+    itens,
+  };
+}
+
+function interpretarTextoDelimitadoUniversal(
+  conteudo,
+  opcoes = {}
+) {
+  const linhas = String(conteudo || "")
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter(
+      (linha) =>
+        String(linha).trim() !== ""
+    );
+
+  if (!linhas.length) {
+    return {
+      colunas: [],
+      itens: [],
+      delimitador: null,
+    };
+  }
+
+  const delimitadorInformado =
+    String(opcoes.delimitador || "");
+
+  const delimitador =
+    delimitadorInformado === "\\t"
+      ? "\t"
+      : delimitadorInformado ||
+        detectarDelimitadorUniversal(
+          linhas[0]
+        );
+
+  if (!delimitador) {
+    return {
+      colunas: [],
+      itens: [],
+      delimitador: null,
+      semDelimitador: true,
+    };
+  }
+
+  const matriz = linhas.map((linha) =>
+    separarLinhaDelimitadaUniversal(
+      linha,
+      delimitador
+    )
+  );
+
+  return {
+    ...converterMatrizUniversal(
+      matriz,
+      opcoes.possuiCabecalho !== false
+    ),
+
+    delimitador,
+    semDelimitador: false,
+  };
+}
+
+function interpretarTxtPosicaoFixaUniversal(
+  conteudo
+) {
+  const linhas = String(conteudo || "")
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter(
+      (linha) =>
+        String(linha).trim() !== ""
+    );
+
+  const colunas = [
+    "codigoBarras",
+    "codigo",
+    "descricao",
+    "custoUnitario",
+    "qtdeCongelada",
+    "categoria",
+    "tipo",
+  ];
+
+  const itens = linhas.map(
+    (linha, indice) => ({
+      __linha: indice + 1,
+
+      codigoBarras:
+        extrairCampoLinha(
+          linha,
+          "codigoBarras"
+        ),
+
+      codigo:
+        extrairCampoLinha(
+          linha,
+          "codigo"
+        ),
+
+      descricao:
+        extrairCampoLinha(
+          linha,
+          "descricao"
+        ),
+
+      custoUnitario:
+        extrairCampoLinha(
+          linha,
+          "custoUnitario"
+        ),
+
+      qtdeCongelada:
+        extrairCampoLinha(
+          linha,
+          "qtdeCongelada"
+        ),
+
+      categoria:
+        extrairCampoLinha(
+          linha,
+          "categoria"
+        ),
+
+      tipo:
+        extrairCampoLinha(
+          linha,
+          "tipo"
+        ),
+    })
+  );
+
+  return {
+    colunas,
+    itens,
+    delimitador: null,
+    tipoLeitura: "posicao-fixa",
+  };
+}
+
+function interpretarJsonUniversal(conteudo) {
+  const dados = JSON.parse(
+    String(conteudo || "null")
+  );
+
+  let lista = [];
+
+  if (Array.isArray(dados)) {
+    lista = dados;
+  } else if (
+    dados &&
+    typeof dados === "object"
+  ) {
+    const primeiraLista =
+      Object.values(dados).find(
+        Array.isArray
+      );
+
+    lista = primeiraLista || [dados];
+  }
+
+  const itensOriginais = lista.filter(
+    (item) =>
+      item &&
+      typeof item === "object" &&
+      !Array.isArray(item)
+  );
+
+  const conjuntoColunas = new Set();
+
+  itensOriginais.forEach((item) => {
+    Object.keys(item).forEach(
+      (chave) =>
+        conjuntoColunas.add(chave)
+    );
+  });
+
+  const colunas =
+    criarNomesUnicosUniversal(
+      Array.from(conjuntoColunas)
+    );
+
+  const itens = itensOriginais.map(
+    (item, indice) => {
+      const novoItem = {
+        __linha: indice + 1,
+      };
+
+      colunas.forEach((coluna) => {
+        novoItem[coluna] =
+          item[coluna] ?? "";
+      });
+
+      return novoItem;
+    }
+  );
+
+  return {
+    colunas,
+    itens,
+    delimitador: null,
+    tipoLeitura: "json",
+  };
+}
+
+function obterValorCelulaExcelUniversal(
+  celula
+) {
+  const valor = celula?.value;
+
+  if (valor === null || valor === undefined) {
+    return "";
+  }
+
+  if (valor instanceof Date) {
+    return valor.toISOString();
+  }
+
+  if (typeof valor !== "object") {
+    return valor;
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      valor,
+      "result"
+    )
+  ) {
+    return valor.result ?? "";
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      valor,
+      "text"
+    )
+  ) {
+    return valor.text ?? "";
+  }
+
+  if (Array.isArray(valor.richText)) {
+    return valor.richText
+      .map((parte) => parte.text || "")
+      .join("");
+  }
+
+  if (valor.hyperlink) {
+    return valor.text || valor.hyperlink;
+  }
+
+  return String(valor);
+}
+
+async function interpretarExcelUniversal(
+  buffer,
+  possuiCabecalho = true
+) {
+  const workbook =
+    new ExcelJS.Workbook();
+
+  await workbook.xlsx.load(buffer);
+
+  const planilha =
+    workbook.worksheets[0];
+
+  if (!planilha) {
+    return {
+      colunas: [],
+      itens: [],
+      planilha: null,
+      tipoLeitura: "excel",
+    };
+  }
+
+  const matriz = [];
+
+  planilha.eachRow(
+    {
+      includeEmpty: false,
+    },
+    (linha) => {
+      const valores = [];
+
+      const totalCelulas = Math.max(
+        linha.cellCount,
+        linha.actualCellCount
+      );
+
+      for (
+        let indice = 1;
+        indice <= totalCelulas;
+        indice += 1
+      ) {
+        valores.push(
+          obterValorCelulaExcelUniversal(
+            linha.getCell(indice)
+          )
+        );
+      }
+
+      matriz.push(valores);
+    }
+  );
+
+  return {
+    ...converterMatrizUniversal(
+      matriz,
+      possuiCabecalho
+    ),
+
+    planilha: planilha.name,
+    tipoLeitura: "excel",
+  };
+}
+async function interpretarArquivoUniversal(
+  arquivo,
+  opcoes = {}
+) {
+  if (!arquivo?.data) {
+    throw new Error(
+      "Arquivo inválido ou não recebido."
+    );
+  }
+
+  const nomeArquivo = String(
+    arquivo.name || "arquivo"
+  );
+
+  const extensao = path
+    .extname(nomeArquivo)
+    .toLowerCase();
+
+  if (
+    !FORMATOS_PREVIEW_UNIVERSAL.has(
+      extensao
+    )
+  ) {
+    throw new Error(
+      "Formato não suportado. Use TXT, CSV, JSON ou XLSX."
+    );
+  }
+
+  const possuiCabecalho =
+    String(
+      opcoes.possuiCabecalho ?? "true"
+    ) !== "false";
+
+  const delimitador = String(
+    opcoes.delimitador || ""
+  );
+
+  const tipoLeitura = String(
+    opcoes.tipoLeitura || "automatico"
+  );
+
+  let resultado = {
+    colunas: [],
+    itens: [],
+    delimitador: null,
+    planilha: null,
+    tipoLeitura,
+  };
+
+  if (extensao === ".csv") {
+    resultado =
+      interpretarTextoDelimitadoUniversal(
+        arquivo.data.toString("utf8"),
+        {
+          possuiCabecalho,
+          delimitador,
+        }
+      );
+
+    resultado.tipoLeitura =
+      "delimitado";
+  }
+
+  if (extensao === ".txt") {
+    const conteudo =
+      arquivo.data.toString("utf8");
+
+    if (
+      tipoLeitura === "posicao-fixa"
+    ) {
+      resultado =
+        interpretarTxtPosicaoFixaUniversal(
+          conteudo
+        );
+    } else if (
+      tipoLeitura === "delimitado"
+    ) {
+      resultado =
+        interpretarTextoDelimitadoUniversal(
+          conteudo,
+          {
+            possuiCabecalho,
+            delimitador,
+          }
+        );
+
+      resultado.tipoLeitura =
+        "delimitado";
+    } else {
+      const delimitado =
+        interpretarTextoDelimitadoUniversal(
+          conteudo,
+          {
+            possuiCabecalho,
+            delimitador,
+          }
+        );
+
+      resultado =
+        delimitado.semDelimitador
+          ? interpretarTxtPosicaoFixaUniversal(
+              conteudo
+            )
+          : {
+              ...delimitado,
+              tipoLeitura:
+                "delimitado",
+            };
+    }
+  }
+
+  if (extensao === ".json") {
+    resultado =
+      interpretarJsonUniversal(
+        arquivo.data.toString("utf8")
+      );
+  }
+
+  if (extensao === ".xlsx") {
+    resultado =
+      await interpretarExcelUniversal(
+        arquivo.data,
+        possuiCabecalho
+      );
+  }
+
+  return {
+    nomeArquivo,
+    extensao,
+    formato:
+      extensao.replace(".", ""),
+    possuiCabecalho,
+    ...resultado,
+    colunas: Array.isArray(
+      resultado?.colunas
+    )
+      ? resultado.colunas
+      : [],
+    itens: Array.isArray(
+      resultado?.itens
+    )
+      ? resultado.itens
+      : [],
+  };
+}
+function normalizarTextoUniversal(valor) {
+  return String(valor ?? "").trim();
+}
+
+function converterNumeroUniversal(valor) {
+  if (
+    typeof valor === "number" &&
+    Number.isFinite(valor)
+  ) {
+    return valor;
+  }
+
+  let texto = String(valor ?? "")
+    .trim();
+
+  if (!texto) {
+    return 0;
+  }
+
+  texto = texto
+    .replace(/\s/g, "")
+    .replace(/R\$/gi, "");
+
+  const possuiVirgula =
+    texto.includes(",");
+
+  const possuiPonto =
+    texto.includes(".");
+
+  if (
+    possuiVirgula &&
+    possuiPonto
+  ) {
+    const ultimaVirgula =
+      texto.lastIndexOf(",");
+
+    const ultimoPonto =
+      texto.lastIndexOf(".");
+
+    if (ultimaVirgula > ultimoPonto) {
+      texto = texto
+        .replace(/\./g, "")
+        .replace(",", ".");
+    } else {
+      texto = texto.replace(/,/g, "");
+    }
+  } else if (possuiVirgula) {
+    texto = texto.replace(",", ".");
+  }
+
+  const numero = Number(texto);
+
+  return Number.isFinite(numero)
+    ? numero
+    : NaN;
+}
+
+function aplicarMapeamentoUniversal(
+  itemOrigem,
+  mapeamento = {}
+) {
+  const resultado = {};
+
+  Object.entries(mapeamento).forEach(
+    ([campoDestino, colunaOrigem]) => {
+      if (!colunaOrigem) {
+        resultado[campoDestino] = "";
+        return;
+      }
+
+      resultado[campoDestino] =
+        itemOrigem?.[colunaOrigem] ?? "";
+    }
+  );
+
+  return resultado;
+}
+/* ==========================================================
+   TRANSFORMAÇÕES UNIVERSAIS
+========================================================== */
+
+const TIPOS_TRANSFORMACAO_UNIVERSAL =
+  new Set([
+    "trim",
+    "maiusculas",
+    "minusculas",
+    "remover-acentos",
+    "substituir",
+    "remover-texto",
+    "preencher-esquerda",
+    "preencher-direita",
+    "valor-fixo",
+    "valor-padrao",
+"numero",
+"moeda",
+"concatenar",
+  ]);
+
+function normalizarTransformacoesUniversais(
+  transformacoes
+) {
+  if (
+    !transformacoes ||
+    typeof transformacoes !== "object" ||
+    Array.isArray(transformacoes)
+  ) {
+    return {};
+  }
+
+  const resultado = {};
+
+  Object.entries(transformacoes).forEach(
+    ([campo, regras]) => {
+      if (!Array.isArray(regras)) {
+        return;
+      }
+
+      resultado[campo] = regras
+        .filter(
+          (regra) =>
+            regra &&
+            typeof regra === "object" &&
+            TIPOS_TRANSFORMACAO_UNIVERSAL.has(
+              String(regra.tipo || "")
+            )
+        )
+        .map((regra) => ({
+          tipo: String(
+            regra.tipo || ""
+          ),
+
+          valor: String(
+            regra.valor ?? ""
+          ),
+
+          procurar: String(
+            regra.procurar ?? ""
+          ),
+
+          substituirPor: String(
+            regra.substituirPor ?? ""
+          ),
+
+          tamanho:
+            Math.max(
+              0,
+              Number.parseInt(
+                regra.tamanho,
+                10
+              ) || 0
+            ),
+
+          caractere: String(
+            regra.caractere ?? "0"
+          ).slice(0, 1),
+
+          separador: String(
+            regra.separador ?? " "
+          ),
+
+          colunas:
+            Array.isArray(
+              regra.colunas
+            )
+              ? regra.colunas
+                  .map((coluna) =>
+                    String(
+                      coluna || ""
+                    ).trim()
+                  )
+                  .filter(Boolean)
+              : [],
+        }));
+    }
+  );
+
+  return resultado;
+}
+
+function removerAcentosUniversal(valor) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    );
+}
+
+function substituirTodasOcorrenciasUniversal(
+  texto,
+  procurar,
+  substituirPor
+) {
+  if (!procurar) {
+    return texto;
+  }
+
+  return String(texto).split(
+    procurar
+  ).join(substituirPor);
+}
+
+function aplicarRegraTransformacaoUniversal(
+  valorAtual,
+  regra,
+  itemOrigem = {}
+) {
+  const tipo = String(
+    regra?.tipo || ""
+  );
+
+  switch (tipo) {
+    case "trim":
+      return String(
+        valorAtual ?? ""
+      ).trim();
+
+    case "maiusculas":
+      return String(
+        valorAtual ?? ""
+      ).toUpperCase();
+
+    case "minusculas":
+      return String(
+        valorAtual ?? ""
+      ).toLowerCase();
+
+    case "remover-acentos":
+      return removerAcentosUniversal(
+        valorAtual
+      );
+
+    case "substituir":
+      return substituirTodasOcorrenciasUniversal(
+        String(valorAtual ?? ""),
+        String(
+          regra.procurar ?? ""
+        ),
+        String(
+          regra.substituirPor ?? ""
+        )
+      );
+
+    case "remover-texto":
+      return substituirTodasOcorrenciasUniversal(
+        String(valorAtual ?? ""),
+        String(
+          regra.valor ?? ""
+        ),
+        ""
+      );
+
+    case "preencher-esquerda": {
+      const tamanho =
+        Math.max(
+          0,
+          Number.parseInt(
+            regra.tamanho,
+            10
+          ) || 0
+        );
+
+      const caractere =
+        String(
+          regra.caractere ?? "0"
+        ).slice(0, 1) || "0";
+
+      return String(
+        valorAtual ?? ""
+      ).padStart(
+        tamanho,
+        caractere
+      );
+    }
+
+    case "preencher-direita": {
+      const tamanho =
+        Math.max(
+          0,
+          Number.parseInt(
+            regra.tamanho,
+            10
+          ) || 0
+        );
+
+      const caractere =
+        String(
+          regra.caractere ?? " "
+        ).slice(0, 1) || " ";
+
+      return String(
+        valorAtual ?? ""
+      ).padEnd(
+        tamanho,
+        caractere
+      );
+    }
+
+    case "valor-fixo":
+      return regra.valor ?? "";
+
+    case "valor-padrao": {
+      const vazio =
+        valorAtual === null ||
+        valorAtual === undefined ||
+        String(valorAtual).trim() === "";
+
+      return vazio
+        ? regra.valor ?? ""
+        : valorAtual;
+    }
+
+    case "numero": {
+      /*
+        converterNumeroUniversal mantém
+        números negativos.
+
+        Exemplos:
+        -15,50 -> -15.5
+        -8     -> -8
+      */
+      return converterNumeroUniversal(
+        valorAtual
+      );
+    }
+    case "moeda": {
+      /*
+        Converte diferentes representações
+        monetárias para um número decimal.
+    
+        O banco deve armazenar número,
+        não texto formatado com R$.
+      */
+      return converterNumeroUniversal(
+        valorAtual
+      );
+    }
+    case "concatenar": {
+      const colunas =
+        Array.isArray(
+          regra.colunas
+        )
+          ? regra.colunas
+          : [];
+
+      const separador =
+        String(
+          regra.separador ?? " "
+        );
+
+      return colunas
+        .map(
+          (coluna) =>
+            itemOrigem?.[coluna] ??
+            ""
+        )
+        .map((parte) =>
+          String(parte).trim()
+        )
+        .filter(
+          (parte) => parte !== ""
+        )
+        .join(separador);
+    }
+
+    default:
+      return valorAtual;
+  }
+}
+
+function aplicarTransformacoesUniversais(
+  itemMapeado,
+  transformacoes = {},
+  itemOrigem = {}
+) {
+  const resultado = {
+    ...(itemMapeado || {}),
+  };
+
+  const regrasNormalizadas =
+    normalizarTransformacoesUniversais(
+      transformacoes
+    );
+
+  Object.entries(
+    regrasNormalizadas
+  ).forEach(([campo, regras]) => {
+    let valorAtual =
+      resultado[campo] ?? "";
+
+    regras.forEach((regra) => {
+      valorAtual =
+        aplicarRegraTransformacaoUniversal(
+          valorAtual,
+          regra,
+          itemOrigem
+        );
+    });
+
+    resultado[campo] =
+      valorAtual;
+  });
+
+  return resultado;
+}
+function validarItemUniversal(
+  item,
+  destino
+) {
+  const erros = [];
+
+  if (destino === "base-principal") {
+    const codigo =
+      normalizarTextoUniversal(
+        item.codigo
+      );
+
+    const descricao =
+      normalizarTextoUniversal(
+        item.descricao
+      );
+
+    const quantidade =
+      converterNumeroUniversal(
+        item.qtdeCongelada
+      );
+
+    if (!codigo) {
+      erros.push(
+        "Código interno não informado"
+      );
+    }
+
+    if (!descricao) {
+      erros.push(
+        "Descrição não informada"
+      );
+    }
+
+    if (!Number.isFinite(quantidade)) {
+      erros.push(
+        "Quantidade congelada inválida"
+      );
+    }
+  }
+
+  if (destino === "saldo-atual") {
+    const codigo =
+      normalizarTextoUniversal(
+        item.codigo
+      );
+
+    const codigoBarras =
+      normalizarTextoUniversal(
+        item.codigoBarras
+      );
+
+    const quantidade =
+      converterNumeroUniversal(
+        item.qtdeCongelada
+      );
+
+    if (!codigo && !codigoBarras) {
+      erros.push(
+        "Código interno ou código de barras obrigatório"
+      );
+    }
+
+    if (!Number.isFinite(quantidade)) {
+      erros.push(
+        "Saldo atual inválido"
+      );
+    }
+  }
+
+  if (destino === "complementar") {
+    const codigo =
+      normalizarTextoUniversal(
+        item.codigo
+      );
+
+    const codigoBarras =
+      normalizarTextoUniversal(
+        item.codigoBarras
+      );
+
+    if (!codigo && !codigoBarras) {
+      erros.push(
+        "Código interno ou código de barras obrigatório"
+      );
+    }
+  }
+
+  if (destino === "base-wms") {
+    const enderecoWms =
+      normalizarTextoUniversal(
+        item.enderecoWms
+      );
+
+    const codigo =
+      normalizarTextoUniversal(
+        item.codigo
+      );
+
+    const codigoBarras =
+      normalizarTextoUniversal(
+        item.codigoBarras
+      );
+
+    const quantidade =
+      converterNumeroUniversal(
+        item.quantidadeEsperada
+      );
+
+    if (!enderecoWms) {
+      erros.push(
+        "Endereço WMS não informado"
+      );
+    }
+
+    if (!codigo && !codigoBarras) {
+      erros.push(
+        "Código interno ou código de barras obrigatório"
+      );
+    }
+
+    if (!Number.isFinite(quantidade)) {
+      erros.push(
+        "Quantidade esperada inválida"
+      );
+    }
+  }
+
+  return erros;
+}
 const layoutTxtPadrao = {
   codigoBarras: { inicio: 0, fim: 13, tipo: "texto" },
   codigo: { inicio: 14, fim: 23, tipo: "texto" },
@@ -178,33 +1360,74 @@ function broadcastInventario() {
 }
 
 function autenticar(req, res, next) {
-  if (req.session && req.session.logado) {
+  if (req.session?.logado) {
     return next();
   }
 
   const aceitaJson =
     req.xhr ||
+    req.headers.accept?.includes(
+      "application/json"
+    ) ||
+    req.headers["x-requested-with"] ===
+      "XMLHttpRequest" ||
+    req.originalUrl?.startsWith(
+      "/configurador-universal/"
+    ) ||
+    req.headers["content-type"]?.includes(
+      "application/json"
+    );
+
+  if (aceitaJson) {
+    return res.status(401).json({
+      sucesso: false,
+      erro:
+        "Sessão expirada. Faça login novamente.",
+    });
+  }
+
+  return res.redirect(
+    `/login?redirect=${encodeURIComponent(
+      req.originalUrl || "/"
+    )}`
+  );
+}
+function permitirSomenteLiderOuAdmin(req, res, next) {
+  const aceitaJson =
+    req.xhr ||
     req.headers.accept?.includes("application/json") ||
     req.headers["content-type"]?.includes("application/json");
 
-  if (aceitaJson) {
-    return res.status(401).json({ erro: "Sessão expirada" });
-  }
-
-  return res.redirect(`/login?redirect=${encodeURIComponent(req.originalUrl || "/")}`);
-}
-function permitirSomenteLiderOuAdmin(req, res, next) {
   if (!req.session?.logado || !req.session?.usuario) {
-    return res.redirect('/login');
+    if (aceitaJson) {
+      return res.status(401).json({
+        erro: "Sessão expirada. Faça login novamente.",
+      });
+    }
+
+    return res.redirect("/login");
   }
 
-  const funcao = String(req.session.usuario.funcao || '').toLowerCase();
+  const funcao = String(req.session.usuario.funcao || "")
+    .trim()
+    .toLowerCase();
 
-  if (funcao === 'líder' || funcao === 'lider' || funcao === 'administrador') {
+  const permitido =
+    funcao === "líder" ||
+    funcao === "lider" ||
+    funcao === "administrador";
+
+  if (permitido) {
     return next();
   }
 
-  return res.redirect('/coleta-mobile');
+  if (aceitaJson) {
+    return res.status(403).json({
+      erro: "Usuário sem permissão para acessar esta informação.",
+    });
+  }
+
+  return res.redirect("/coleta-mobile");
 }
 
 function permitirSomenteOperador(req, res, next) {
@@ -220,6 +1443,1470 @@ function permitirSomenteOperador(req, res, next) {
 
   return res.redirect('/');
 }
+/*
+  ============================================================
+  CONFIGURADOR UNIVERSAL — ROTAS PRIORITÁRIAS
+  Estas rotas ficam antes das rotas de páginas e fallbacks.
+  ============================================================
+*/
+
+app.get(
+  "/configurador-universal/status",
+  autenticar,
+  (req, res) => {
+    return res.json({
+      sucesso: true,
+      modulo: "configurador-universal",
+      previewDisponivel: true,
+      versao: "1.0.0",
+    });
+  }
+);
+
+app.post(
+  "/configurador-universal/preview",
+  autenticar,
+  async (req, res) => {
+    try {
+      const arquivo = req.files?.arquivo;
+
+      if (!arquivo) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "Selecione um arquivo para gerar o preview.",
+        });
+      }
+
+      const nomeArquivo = String(
+        arquivo.name || "arquivo"
+      );
+
+      const extensao = path
+        .extname(nomeArquivo)
+        .toLowerCase();
+
+      if (
+        !FORMATOS_PREVIEW_UNIVERSAL.has(extensao)
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "Formato não suportado. Use TXT, CSV, JSON ou XLSX.",
+        });
+      }
+
+      const possuiCabecalho =
+        String(
+          req.body?.possuiCabecalho ?? "true"
+        ) !== "false";
+
+      const delimitador = String(
+        req.body?.delimitador || ""
+      );
+
+      const tipoLeituraSolicitado = String(
+        req.body?.tipoLeitura || "automatico"
+      );
+
+      const limitePreview = Math.min(
+        100,
+        Math.max(
+          1,
+          Number(req.body?.limitePreview) || 30
+        )
+      );
+
+      let resultado = {
+        colunas: [],
+        itens: [],
+        delimitador: null,
+        planilha: null,
+        tipoLeitura: tipoLeituraSolicitado,
+      };
+
+      if (extensao === ".csv") {
+        resultado =
+          interpretarTextoDelimitadoUniversal(
+            arquivo.data.toString("utf8"),
+            {
+              possuiCabecalho,
+              delimitador,
+            }
+          );
+
+        resultado.tipoLeitura = "delimitado";
+      }
+
+      if (extensao === ".txt") {
+        const conteudo =
+          arquivo.data.toString("utf8");
+
+        if (
+          tipoLeituraSolicitado ===
+          "posicao-fixa"
+        ) {
+          resultado =
+            interpretarTxtPosicaoFixaUniversal(
+              conteudo
+            );
+        } else if (
+          tipoLeituraSolicitado ===
+          "delimitado"
+        ) {
+          resultado =
+            interpretarTextoDelimitadoUniversal(
+              conteudo,
+              {
+                possuiCabecalho,
+                delimitador,
+              }
+            );
+
+          resultado.tipoLeitura = "delimitado";
+        } else {
+          const delimitado =
+            interpretarTextoDelimitadoUniversal(
+              conteudo,
+              {
+                possuiCabecalho,
+                delimitador,
+              }
+            );
+
+          if (delimitado.semDelimitador) {
+            resultado =
+              interpretarTxtPosicaoFixaUniversal(
+                conteudo
+              );
+          } else {
+            resultado = {
+              ...delimitado,
+              tipoLeitura: "delimitado",
+            };
+          }
+        }
+      }
+
+      if (extensao === ".json") {
+        resultado = interpretarJsonUniversal(
+          arquivo.data.toString("utf8")
+        );
+      }
+
+      if (extensao === ".xlsx") {
+        resultado =
+          await interpretarExcelUniversal(
+            arquivo.data,
+            possuiCabecalho
+          );
+      }
+
+      const itens = Array.isArray(
+        resultado?.itens
+      )
+        ? resultado.itens
+        : [];
+
+      const colunas = Array.isArray(
+        resultado?.colunas
+      )
+        ? resultado.colunas
+        : [];
+
+      return res.status(200).json({
+        sucesso: true,
+
+        arquivo: {
+          nome: nomeArquivo,
+          extensao,
+          tamanho:
+            Number(arquivo.size) ||
+            Number(arquivo.data?.length) ||
+            0,
+        },
+
+        formato: extensao.slice(1),
+
+        tipoLeitura:
+          resultado.tipoLeitura ||
+          tipoLeituraSolicitado,
+
+        possuiCabecalho,
+
+        delimitador:
+          resultado.delimitador ?? null,
+
+        planilha:
+          resultado.planilha || null,
+
+        totalLinhas: itens.length,
+        totalColunas: colunas.length,
+
+        colunas,
+
+        preview: itens.slice(
+          0,
+          limitePreview
+        ),
+      });
+    } catch (erro) {
+      console.error(
+        "Erro no preview universal:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          erro?.message ||
+          "Não foi possível interpretar o arquivo.",
+      });
+    }
+  }
+);
+app.post(
+  "/configurador-universal/validar",
+  autenticar,
+  async (req, res) => {
+    try {
+      const arquivo =
+        req.files?.arquivo;
+
+      if (!arquivo) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "Selecione um arquivo para validar.",
+        });
+      }
+
+      const destino = String(
+        req.body?.destino || ""
+      ).trim();
+
+      const destinosPermitidos =
+        new Set([
+          "base-principal",
+          "saldo-atual",
+          "complementar",
+          "base-wms",
+        ]);
+
+      if (
+        !destinosPermitidos.has(
+          destino
+        )
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "Selecione um destino válido.",
+        });
+      }
+
+      let mapeamento = {};
+
+      try {
+        mapeamento = JSON.parse(
+          String(
+            req.body?.mapeamento ||
+            "{}"
+          )
+        );
+      } catch (erro) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "O mapeamento informado é inválido.",
+        });
+      }
+
+      if (
+        !mapeamento ||
+        typeof mapeamento !==
+          "object" ||
+        Array.isArray(mapeamento)
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "O mapeamento informado é inválido.",
+        });
+      }
+      let transformacoes = {};
+
+      try {
+        transformacoes =
+          normalizarTransformacoesUniversais(
+            JSON.parse(
+              String(
+                req.body?.transformacoes ||
+                "{}"
+              )
+            )
+          );
+      } catch (erro) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "As transformações informadas são inválidas.",
+        });
+      }
+      const leitura =
+        await interpretarArquivoUniversal(
+          arquivo,
+          {
+            possuiCabecalho:
+              req.body?.possuiCabecalho,
+
+            delimitador:
+              req.body?.delimitador,
+
+            tipoLeitura:
+              req.body?.tipoLeitura,
+          }
+        );
+
+      const validos = [];
+      const invalidos = [];
+
+      leitura.itens.forEach(
+        (itemOrigem, indice) => {
+          const itemMapeado =
+  aplicarMapeamentoUniversal(
+    itemOrigem,
+    mapeamento
+  );
+
+const itemTransformado =
+  aplicarTransformacoesUniversais(
+    itemMapeado,
+    transformacoes,
+    itemOrigem
+  );
+
+const erros =
+  validarItemUniversal(
+    itemTransformado,
+    destino
+  );
+
+          const registro = {
+            linha:
+              Number(
+                itemOrigem?.__linha
+              ) ||
+              indice + 1,
+
+            origem: itemOrigem,
+            mapeado: itemMapeado,
+transformado: itemTransformado,
+erros,
+          };
+
+          if (erros.length) {
+            invalidos.push(registro);
+          } else {
+            validos.push(registro);
+          }
+        }
+      );
+
+      return res.json({
+        sucesso: true,
+
+        arquivo: {
+          nome:
+            leitura.nomeArquivo,
+          formato:
+            leitura.formato,
+        },
+
+        destino,
+
+        resumo: {
+          total:
+            leitura.itens.length,
+
+          validos:
+            validos.length,
+
+          invalidos:
+            invalidos.length,
+
+          percentualValido:
+            leitura.itens.length > 0
+              ? Number(
+                  (
+                    validos.length /
+                    leitura.itens.length *
+                    100
+                  ).toFixed(2)
+                )
+              : 0,
+        },
+
+        amostraValidos:
+          validos.slice(0, 20),
+
+        amostraInvalidos:
+          invalidos.slice(0, 50),
+      });
+    } catch (erro) {
+      console.error(
+        "Erro na validação universal:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          erro?.message ||
+          "Não foi possível validar o arquivo.",
+      });
+    }
+  }
+);
+/* ==========================================================
+   PROCESSAMENTO UNIVERSAL
+   TODOS OS DESTINOS
+========================================================== */
+
+app.post(
+  "/configurador-universal/processar",
+  autenticar,
+  permitirSomenteLiderOuAdmin,
+  async (req, res) => {
+    try {
+      const arquivo =
+        req.files?.arquivo;
+
+      if (!arquivo) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "Selecione um arquivo para processar.",
+        });
+      }
+
+      const destino = String(
+        req.body?.destino || ""
+      ).trim();
+
+      const destinosPermitidos = [
+        "base-principal",
+        "saldo-atual",
+        "complementar",
+        "base-wms",
+      ];
+
+      if (
+        !destinosPermitidos.includes(
+          destino
+        )
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "O destino informado é inválido.",
+        });
+      }
+
+      let mapeamento = {};
+
+      try {
+        mapeamento = JSON.parse(
+          String(
+            req.body?.mapeamento ||
+            "{}"
+          )
+        );
+      } catch (erro) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "O mapeamento informado é inválido.",
+        });
+      }
+
+      if (
+        !mapeamento ||
+        typeof mapeamento !==
+          "object" ||
+        Array.isArray(mapeamento)
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "O mapeamento informado é inválido.",
+        });
+      }
+
+      let transformacoes = {};
+
+      try {
+        transformacoes =
+          normalizarTransformacoesUniversais(
+            JSON.parse(
+              String(
+                req.body
+                  ?.transformacoes ||
+                "{}"
+              )
+            )
+          );
+      } catch (erro) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "As transformações informadas são inválidas.",
+        });
+      }
+
+      const leitura =
+        await interpretarArquivoUniversal(
+          arquivo,
+          {
+            possuiCabecalho:
+              req.body
+                ?.possuiCabecalho,
+
+            delimitador:
+              req.body
+                ?.delimitador,
+
+            tipoLeitura:
+              req.body
+                ?.tipoLeitura,
+          }
+        );
+
+      if (
+        !Array.isArray(
+          leitura.itens
+        ) ||
+        !leitura.itens.length
+      ) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "O arquivo não possui registros para processar.",
+        });
+      }
+
+      const registrosValidos = [];
+      const registrosInvalidos = [];
+
+      leitura.itens.forEach(
+        (itemOrigem, indice) => {
+          const itemMapeado =
+            aplicarMapeamentoUniversal(
+              itemOrigem,
+              mapeamento
+            );
+
+          const itemTransformado =
+            aplicarTransformacoesUniversais(
+              itemMapeado,
+              transformacoes,
+              itemOrigem
+            );
+
+          const erros =
+            validarItemUniversal(
+              itemTransformado,
+              destino
+            );
+
+          const linha =
+            Number(
+              itemOrigem?.__linha
+            ) ||
+            indice + 1;
+
+          if (erros.length) {
+            registrosInvalidos.push({
+              linha,
+              erros,
+            });
+
+            return;
+          }
+
+          registrosValidos.push(
+            itemTransformado
+          );
+        }
+      );
+
+      /*
+        Nenhum destino é gravado parcialmente.
+        Havendo linha inválida, a importação
+        inteira é bloqueada.
+      */
+      if (
+        registrosInvalidos.length
+      ) {
+        return res.status(422).json({
+          sucesso: false,
+
+          erro:
+            "A importação foi bloqueada porque existem registros inválidos.",
+
+          resumo: {
+            total:
+              leitura.itens.length,
+
+            validos:
+              registrosValidos.length,
+
+            invalidos:
+              registrosInvalidos.length,
+          },
+
+          amostraInvalidos:
+            registrosInvalidos.slice(
+              0,
+              50
+            ),
+        });
+      }
+
+      /*
+        Normaliza os campos do inventário.
+        converterNumeroUniversal preserva
+        corretamente os números negativos.
+      */
+      const normalizarItemInventario =
+        (item) => {
+          const codigo =
+            normalizarTextoUniversal(
+              item?.codigo
+            );
+
+          const codigoBarras =
+            normalizarTextoUniversal(
+              item?.codigoBarras
+            );
+
+          const quantidade =
+            converterNumeroUniversal(
+              item?.qtdeCongelada
+            );
+
+          const custo =
+            converterNumeroUniversal(
+              item?.custoUnitario
+            );
+
+          return {
+            codigoBarras,
+
+            codigo,
+
+            codigoInterno:
+              codigo,
+
+            descricao:
+              normalizarTextoUniversal(
+                item?.descricao
+              ),
+
+            categoria:
+              normalizarTextoUniversal(
+                item?.categoria
+              ),
+
+            tipo:
+              normalizarTextoUniversal(
+                item?.tipo
+              ),
+
+            custoUnitario:
+              Number.isFinite(custo)
+                ? custo
+                : 0,
+
+            qtdeCongelada:
+              Number.isFinite(
+                quantidade
+              )
+                ? quantidade
+                : 0,
+
+            qtdeContada: 0,
+          };
+        };
+
+      /* ====================================================
+         BASE PRINCIPAL
+         Mantém o comportamento da rota /importar-txt:
+         inicia um novo ciclo de inventário.
+      ==================================================== */
+
+      if (
+        destino ===
+        "base-principal"
+      ) {
+        const itensImportados =
+          registrosValidos.map(
+            normalizarItemInventario
+          );
+
+        const totalImportadoBruto =
+          itensImportados.length;
+
+        const itensUnicosImportados =
+          removerDuplicadosPorCodigoInterno(
+            itensImportados
+          );
+
+        const totalUnicosBruto =
+          itensUnicosImportados.length;
+
+        const duplicatasRemovidas =
+          totalImportadoBruto -
+          totalUnicosBruto;
+
+        const itensZeradosIgnorados =
+          itensUnicosImportados.filter(
+            (item) =>
+              parseQuantidade(
+                item.qtdeCongelada
+              ) <= 0
+          ).length;
+
+        auditoriaImportacao = {
+          totalImportadoBruto,
+          totalUnicosBruto,
+          duplicatasRemovidas,
+          itensZeradosIgnorados,
+        };
+
+        /*
+          Regra existente da Base principal:
+          reinicia o ciclo trabalhado.
+        */
+        limparContagensPersistidas();
+
+        historicoAlteracoes = [];
+        historicoAuditoriaItens = [];
+        enderecamentos = [];
+        itemAuditoriaAtual = null;
+
+        inventario =
+          itensUnicosImportados;
+
+        await salvarProdutosNoBanco(
+          inventario
+        );
+
+        modoOperacao =
+          "com-base";
+
+        await salvarModoOperacao();
+
+        tipoUltimaImportacao =
+          "Importação base";
+
+        ultimaImportacao = {
+          arquivo:
+            leitura.nomeArquivo,
+
+          tipo:
+            "Importação base",
+
+          horario:
+            new Date().toISOString(),
+
+          status:
+            "Sucesso na importação",
+
+          observacao:
+            `Base principal importada com sucesso. ${inventario.length} itens carregados.`,
+        };
+
+        await salvarEnderecamentos();
+
+        broadcastInventario();
+
+        return res.json({
+          sucesso: true,
+
+          mensagem:
+            "Arquivo base importado com sucesso.",
+
+          destino,
+
+          arquivo: {
+            nome:
+              leitura.nomeArquivo,
+
+            formato:
+              leitura.formato,
+          },
+
+          resultado: {
+            registrosRecebidos:
+              totalImportadoBruto,
+
+            registrosSalvos:
+              inventario.length,
+
+            registrosIgnorados:
+              duplicatasRemovidas,
+
+            substituirBase: true,
+          },
+
+          modoOperacao,
+          ultimaImportacao,
+        });
+      }
+
+      if (
+        destino ===
+        "saldo-atual"
+      ) {
+        const totalImportadoBruto =
+          registrosValidos.length;
+      
+        /*
+          Normaliza códigos somente para localizar
+          o produto antigo.
+      
+          Exemplos equivalentes para a busca:
+          000038186
+          38186
+      
+          O valor gravado continuará sendo exatamente
+          o resultado da transformação configurada.
+        */
+        const normalizarChaveCodigoSaldo =
+          (valor) => {
+            const texto =
+              normalizarTextoUniversal(
+                valor
+              );
+      
+            if (!texto) {
+              return "";
+            }
+      
+            if (/^\d+$/.test(texto)) {
+              return (
+                texto.replace(
+                  /^0+(?=\d)/,
+                  ""
+                ) || "0"
+              );
+            }
+      
+            return texto.toUpperCase();
+          };
+      
+        const normalizarChaveBarrasSaldo =
+          (valor) =>
+            normalizarTextoUniversal(
+              valor
+            );
+      
+        /*
+          Índices da base atual utilizados apenas
+          para recuperar descrição, custo, categoria,
+          tipo, código de barras e outros dados
+          quando eles não vierem no arquivo de saldo.
+        */
+        const inventarioPorCodigo =
+          new Map();
+      
+        const inventarioPorCodigoBarras =
+          new Map();
+      
+        inventario.forEach(
+          (produtoAtual) => {
+            const chaveCodigo =
+              normalizarChaveCodigoSaldo(
+                produtoAtual?.codigo ||
+                produtoAtual?.codigoInterno
+              );
+      
+            const chaveBarras =
+              normalizarChaveBarrasSaldo(
+                produtoAtual?.codigoBarras
+              );
+      
+            if (chaveCodigo) {
+              inventarioPorCodigo.set(
+                chaveCodigo,
+                produtoAtual
+              );
+            }
+      
+            if (chaveBarras) {
+              inventarioPorCodigoBarras.set(
+                chaveBarras,
+                produtoAtual
+              );
+            }
+          }
+        );
+      
+        const itensAtualizados =
+          registrosValidos.map(
+            (itemImportado) => {
+              const codigoImportado =
+                normalizarTextoUniversal(
+                  itemImportado?.codigo
+                );
+      
+              const codigoBarrasImportado =
+                normalizarTextoUniversal(
+                  itemImportado?.codigoBarras
+                );
+      
+              const chaveCodigoImportado =
+                normalizarChaveCodigoSaldo(
+                  codigoImportado
+                );
+      
+              const chaveBarrasImportado =
+                normalizarChaveBarrasSaldo(
+                  codigoBarrasImportado
+                );
+      
+              /*
+                Prioriza o código de barras porque
+                ele não é afetado pela retirada dos
+                zeros à esquerda do código interno.
+              */
+              const produtoAtual =
+                (
+                  chaveBarrasImportado
+                    ? inventarioPorCodigoBarras.get(
+                        chaveBarrasImportado
+                      )
+                    : null
+                ) ||
+                (
+                  chaveCodigoImportado
+                    ? inventarioPorCodigo.get(
+                        chaveCodigoImportado
+                      )
+                    : null
+                ) ||
+                null;
+      
+              const campoFoiInformado =
+                (campo) =>
+                  Object.prototype
+                    .hasOwnProperty.call(
+                      itemImportado,
+                      campo
+                    ) &&
+                  itemImportado[campo] !==
+                    null &&
+                  itemImportado[campo] !==
+                    undefined &&
+                  String(
+                    itemImportado[campo]
+                  ).trim() !== "";
+      
+              const descricaoImportada =
+                normalizarTextoUniversal(
+                  itemImportado?.descricao
+                );
+      
+              const categoriaImportada =
+                normalizarTextoUniversal(
+                  itemImportado?.categoria
+                );
+      
+              const tipoImportado =
+                normalizarTextoUniversal(
+                  itemImportado?.tipo
+                );
+      
+              const custoImportado =
+                converterNumeroUniversal(
+                  itemImportado?.custoUnitario
+                );
+      
+              const quantidadeImportada =
+                converterNumeroUniversal(
+                  itemImportado?.qtdeCongelada
+                );
+      
+              /*
+                O código transformado é o que será
+                efetivamente gravado.
+      
+                Portanto:
+                000038186 transformado em número
+                será salvo como 38186.
+              */
+              const codigoFinal =
+                codigoImportado ||
+                normalizarTextoUniversal(
+                  produtoAtual?.codigo ||
+                  produtoAtual?.codigoInterno
+                );
+      
+              const codigoBarrasFinal =
+                codigoBarrasImportado ||
+                normalizarTextoUniversal(
+                  produtoAtual?.codigoBarras
+                );
+      
+              /*
+                Mantém as contagens já realizadas.
+      
+                Nenhum registro de contagem é apagado.
+              */
+              const totalContado =
+                contagens
+                  .filter(
+                    (contagem) => {
+                      if (
+                        !contagem ||
+                        contagem.ativo === false
+                      ) {
+                        return false;
+                      }
+      
+                      const barrasContagem =
+                        normalizarTextoUniversal(
+                          contagem.codigoBarras
+                        );
+      
+                      return (
+                        barrasContagem !== "" &&
+                        barrasContagem ===
+                          codigoBarrasFinal
+                      );
+                    }
+                  )
+                  .reduce(
+                    (
+                      total,
+                      contagem
+                    ) =>
+                      total +
+                      (
+                        Number(
+                          contagem.quantidade
+                        ) || 0
+                      ),
+                    0
+                  );
+      
+              return {
+                codigoBarras:
+                  codigoBarrasFinal,
+      
+                codigo:
+                  codigoFinal,
+      
+                codigoInterno:
+                  codigoFinal,
+      
+                descricao:
+                  campoFoiInformado(
+                    "descricao"
+                  )
+                    ? descricaoImportada
+                    : normalizarTextoUniversal(
+                        produtoAtual?.descricao
+                      ),
+      
+                custoUnitario:
+                  campoFoiInformado(
+                    "custoUnitario"
+                  ) &&
+                  Number.isFinite(
+                    custoImportado
+                  )
+                    ? custoImportado
+                    : (
+                        Number(
+                          produtoAtual
+                            ?.custoUnitario
+                        ) || 0
+                      ),
+      
+                qtdeCongelada:
+                  Number.isFinite(
+                    quantidadeImportada
+                  )
+                    ? quantidadeImportada
+                    : 0,
+      
+                categoria:
+                  campoFoiInformado(
+                    "categoria"
+                  )
+                    ? categoriaImportada
+                    : normalizarTextoUniversal(
+                        produtoAtual?.categoria
+                      ),
+      
+                tipo:
+                  campoFoiInformado(
+                    "tipo"
+                  )
+                    ? tipoImportado
+                    : normalizarTextoUniversal(
+                        produtoAtual?.tipo
+                      ),
+      
+                qtdeContada:
+                  totalContado,
+              };
+            }
+          );
+      
+        /*
+          O Saldo Atual substitui a lista de produtos
+          pelo conteúdo do novo arquivo, igual à rota
+          TXT original.
+      
+          Ele não mantém os produtos ausentes no
+          arquivo novo.
+        */
+        const itensUnicosImportados =
+          removerDuplicadosPorCodigoInterno(
+            itensAtualizados
+          );
+      
+        const totalUnicosBruto =
+          itensUnicosImportados.length;
+      
+        const duplicatasRemovidas =
+          totalImportadoBruto -
+          totalUnicosBruto;
+      
+        const itensZeradosIgnorados =
+          itensUnicosImportados.filter(
+            (item) =>
+              parseQuantidade(
+                item.qtdeCongelada
+              ) <= 0
+          ).length;
+      
+        auditoriaImportacao = {
+          totalImportadoBruto,
+          totalUnicosBruto,
+          duplicatasRemovidas,
+          itensZeradosIgnorados,
+        };
+      
+        /*
+          Aqui está a correção principal.
+      
+          O inventário passa a conter somente os
+          produtos existentes no arquivo de Saldo
+          Atual recém-importado.
+        */
+        inventario =
+          itensUnicosImportados;
+      
+        /*
+          salvarProdutosNoBanco substitui apenas a
+          tabela/lista de produtos.
+      
+          Não são apagados:
+          - contagens;
+          - endereçamentos;
+          - auditorias;
+          - históricos;
+          - usuários;
+          - WMS;
+          - finalizações.
+        */
+        await salvarProdutosNoBanco(
+          inventario
+        );
+      
+        tipoUltimaImportacao =
+          "Atualização de saldo";
+      
+        ultimaImportacao = {
+          arquivo:
+            leitura.nomeArquivo,
+      
+          tipo:
+            "Atualização de saldo",
+      
+          horario:
+            new Date().toISOString(),
+      
+          status:
+            "Sucesso na importação",
+      
+          observacao:
+            `Saldo atualizado com sucesso. ${inventario.length} itens carregados. Contagens, usuários, endereços, auditorias e históricos foram preservados.`,
+        };
+      
+        broadcastInventario();
+      
+        return res.json({
+          sucesso: true,
+      
+          mensagem:
+            "Saldo atual importado com sucesso.",
+      
+          destino,
+      
+          arquivo: {
+            nome:
+              leitura.nomeArquivo,
+      
+            formato:
+              leitura.formato,
+          },
+      
+          resultado: {
+            registrosRecebidos:
+              totalImportadoBruto,
+      
+            registrosSalvos:
+              inventario.length,
+      
+            registrosIgnorados:
+              duplicatasRemovidas,
+      
+            substituirBase: true,
+          },
+      
+          ultimaImportacao,
+        });
+      }
+      /* ====================================================
+         ARQUIVO COMPLEMENTAR
+         Acrescenta os registros sem limpar o inventário
+         nem os dados já trabalhados.
+      ==================================================== */
+
+      if (
+        destino ===
+        "complementar"
+      ) {
+        const itensComplementares =
+          registrosValidos.map(
+            (item) => {
+              const normalizado =
+                normalizarItemInventario(
+                  item
+                );
+
+              const quantidadeContada =
+                converterNumeroUniversal(
+                  item?.qtdeContada
+                );
+
+              return {
+                ...normalizado,
+
+                qtdeContada:
+                  Number.isFinite(
+                    quantidadeContada
+                  )
+                    ? quantidadeContada
+                    : 0,
+              };
+            }
+          );
+
+        inventario = [
+          ...inventario,
+          ...itensComplementares,
+        ];
+
+        await salvarProdutosNoBanco(
+          inventario
+        );
+
+        tipoUltimaImportacao =
+          "Arquivo complementar";
+
+        ultimaImportacao = {
+          arquivo:
+            leitura.nomeArquivo,
+
+          tipo:
+            "Arquivo complementar",
+
+          horario:
+            new Date().toISOString(),
+
+          status:
+            "Sucesso na importação",
+
+          observacao:
+            `${itensComplementares.length} registros complementares adicionados. Os dados já trabalhados foram preservados.`,
+        };
+
+        broadcastInventario();
+
+        return res.json({
+          sucesso: true,
+
+          mensagem:
+            "Arquivo complementar importado com sucesso.",
+
+          destino,
+
+          arquivo: {
+            nome:
+              leitura.nomeArquivo,
+
+            formato:
+              leitura.formato,
+          },
+
+          resultado: {
+            registrosRecebidos:
+              registrosValidos.length,
+
+            registrosSalvos:
+              itensComplementares.length,
+
+            registrosIgnorados: 0,
+
+            substituirBase: false,
+          },
+
+          ultimaImportacao,
+        });
+      }
+
+      /* ====================================================
+         BASE ESPERADA WMS
+         Mantém o processamento universal já existente.
+      ==================================================== */
+
+      if (
+        destino ===
+        "base-wms"
+      ) {
+        if (!usarPostgres) {
+          return res.status(503).json({
+            sucesso: false,
+
+            erro:
+              "O PostgreSQL precisa estar ativo para importar a Base Esperada WMS.",
+          });
+        }
+
+        const itensWms =
+          registrosValidos.map(
+            (item) => ({
+              enderecoWms:
+                normalizarTextoUniversal(
+                  item?.enderecoWms
+                ),
+
+              codigoBarras:
+                normalizarTextoUniversal(
+                  item?.codigoBarras
+                ),
+
+              codigo:
+                normalizarTextoUniversal(
+                  item?.codigo
+                ),
+
+              descricao:
+                normalizarTextoUniversal(
+                  item?.descricao
+                ),
+
+              quantidadeEsperada:
+                converterNumeroUniversal(
+                  item
+                    ?.quantidadeEsperada
+                ),
+            })
+          );
+
+        const substituirBase =
+          String(
+            req.body
+              ?.substituirBase ||
+            "false"
+          ) === "true";
+
+        const resultado =
+          await salvarBaseEsperadaWmsLotePostgres(
+            itensWms,
+            substituirBase
+          );
+
+        return res.json({
+          sucesso: true,
+
+          mensagem:
+            substituirBase
+              ? "Base Esperada WMS substituída com sucesso."
+              : "Base Esperada WMS atualizada com sucesso.",
+
+          destino,
+
+          arquivo: {
+            nome:
+              leitura.nomeArquivo,
+
+            formato:
+              leitura.formato,
+          },
+
+          resultado: {
+            registrosRecebidos:
+              Number(
+                resultado
+                  ?.registrosRecebidos
+              ) ||
+              itensWms.length,
+
+            registrosSalvos:
+              Number(
+                resultado
+                  ?.registrosSalvos
+              ) || 0,
+
+            registrosIgnorados:
+              Number(
+                resultado
+                  ?.registrosIgnorados
+              ) || 0,
+
+            substituirBase,
+          },
+        });
+      }
+
+      return res.status(400).json({
+        sucesso: false,
+        erro:
+          "Não foi possível determinar o processamento do destino.",
+      });
+    } catch (erro) {
+      console.error(
+        "Erro no processamento universal:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+
+        erro:
+          erro?.message ||
+          "Não foi possível processar o arquivo.",
+      });
+    }
+  }
+);
 function registrarAlteracao(usuario, codigoBarras, campo, valorAntigo, valorNovo) {
   historicoAlteracoes.push({
     usuario,
@@ -1180,10 +3867,33 @@ const ultimoEnderecoContado =
   };
 }
 
-const usarPostgres =
-  process.env.NODE_ENV === "production" ||
-  process.env.USE_POSTGRES === "true";
+const possuiDatabaseUrl =
+  Boolean(
+    String(process.env.DATABASE_URL || "").trim()
+  );
 
+const valorUsePostgres = String(
+  process.env.USE_POSTGRES || ""
+)
+  .trim()
+  .toLowerCase();
+
+const usarPostgres =
+  possuiDatabaseUrl &&
+  (
+    process.env.NODE_ENV === "production" ||
+    ["true", "1", "sim", "yes"].includes(
+      valorUsePostgres
+    )
+  );
+
+console.log("Configuração PostgreSQL:", {
+  nodeEnv: process.env.NODE_ENV || "development",
+  possuiDatabaseUrl,
+  usePostgresEnv:
+    process.env.USE_POSTGRES || "não informado",
+  usarPostgres,
+});
 async function carregarUsuarios() {
   try {
     garantirPastaData();
@@ -1355,7 +4065,459 @@ function salvarLayoutsSalvos() {
     console.error("Erro ao salvar layouts salvos:", erro);
   }
 }
+function carregarLayoutsUniversais() {
+  try {
+    garantirPastaData();
 
+    if (!fs.existsSync(layoutsUniversaisPath)) {
+      fs.writeFileSync(
+        layoutsUniversaisPath,
+        JSON.stringify([], null, 2),
+        "utf8"
+      );
+
+      layoutsUniversais = [];
+      return;
+    }
+
+    const conteudo = fs.readFileSync(
+      layoutsUniversaisPath,
+      "utf8"
+    );
+
+    const dados = JSON.parse(conteudo || "[]");
+
+    layoutsUniversais = Array.isArray(dados)
+      ? dados
+      : [];
+  } catch (erro) {
+    console.error(
+      "Erro ao carregar layouts universais:",
+      erro
+    );
+
+    layoutsUniversais = [];
+  }
+}
+
+function salvarLayoutsUniversais() {
+  try {
+    garantirPastaData();
+
+    fs.writeFileSync(
+      layoutsUniversaisPath,
+      JSON.stringify(
+        layoutsUniversais,
+        null,
+        2
+      ),
+      "utf8"
+    );
+  } catch (erro) {
+    console.error(
+      "Erro ao salvar layouts universais:",
+      erro
+    );
+  }
+}
+
+function gerarIdLayoutUniversal() {
+  return [
+    "LU",
+    Date.now(),
+    Math.random()
+      .toString(36)
+      .slice(2, 8),
+  ].join("-");
+}
+
+let layoutsExportacao = [];
+
+function carregarLayoutsExportacao() {
+  try {
+    garantirPastaData();
+
+    if (!fs.existsSync(layoutsExportacaoPath)) {
+      fs.writeFileSync(
+        layoutsExportacaoPath,
+        JSON.stringify([], null, 2),
+        "utf8"
+      );
+      layoutsExportacao = [];
+      return;
+    }
+
+    const conteudo = fs.readFileSync(layoutsExportacaoPath, "utf8");
+    const dados = JSON.parse(conteudo || "[]");
+    layoutsExportacao = Array.isArray(dados) ? dados : [];
+  } catch (erro) {
+    console.error("Erro ao carregar layouts de exportação:", erro);
+    layoutsExportacao = [];
+  }
+}
+
+function salvarLayoutsExportacao() {
+  try {
+    garantirPastaData();
+    fs.writeFileSync(
+      layoutsExportacaoPath,
+      JSON.stringify(layoutsExportacao, null, 2),
+      "utf8"
+    );
+  } catch (erro) {
+    console.error("Erro ao salvar layouts de exportação:", erro);
+  }
+}
+
+function gerarIdLayoutExportacao() {
+  return ["LE", Date.now(), Math.random().toString(36).slice(2, 8)].join("-");
+}
+
+const COLUNAS_EXPORTACAO_DISPONIVEIS = [
+  { chave: "codigoBarras", rotulo: "Código EAN" },
+  { chave: "codigo", rotulo: "Código interno" },
+  { chave: "codigoInterno", rotulo: "Código interno alternativo" },
+  { chave: "descricao", rotulo: "Descrição" },
+  { chave: "categoria", rotulo: "Categoria" },
+  { chave: "custoUnitario", rotulo: "Custo unitário" },
+  { chave: "qtdeCongelada", rotulo: "Qtde congelada" },
+  { chave: "qtdeContada", rotulo: "Qtde contada" },
+  { chave: "divergencia", rotulo: "Divergência" },
+  { chave: "situacao", rotulo: "Situação" },
+  { chave: "ajuste", rotulo: "Ajuste" },
+  { chave: "endereco", rotulo: "Endereço" },
+  { chave: "enderecoNumero", rotulo: "Número do endereço" },
+  { chave: "coletaEndereco", rotulo: "Coleta endereço" },
+  { chave: "valorCongelado", rotulo: "Valor congelado" },
+  { chave: "valorContado", rotulo: "Valor contado" },
+  { chave: "valorDivergencia", rotulo: "Valor divergência" },
+];
+
+const FORMATOS_EXPORTACAO_PERMITIDOS = new Set(["txt", "txt-retorno", "csv", "json", "xlsx"]);
+
+function normalizarLayoutExportacao(dados = {}, layoutAtual = null) {
+  const formato = String(dados.formato || "").trim().toLowerCase();
+  const cliente = String(dados.cliente || layoutAtual?.cliente || "").trim();
+  const nome = String(dados.nome || layoutAtual?.nome || "").trim();
+
+  const colunasRecebidas = Array.isArray(dados.colunas) ? dados.colunas : [];
+  const chavesValidas = new Set(
+    COLUNAS_EXPORTACAO_DISPONIVEIS.map((c) => c.chave)
+  );
+
+  const colunas = colunasRecebidas
+    .filter((col) => col && chavesValidas.has(col.chave))
+    .map((col, indice) => ({
+      chave: col.chave,
+      rotulo: String(col.rotulo || col.chave || "").trim() || col.chave,
+      incluida: col.incluida !== false,
+      ordem: Number.isFinite(Number(col.ordem)) ? Number(col.ordem) : indice,
+    }));
+
+  return {
+    id: layoutAtual?.id || gerarIdLayoutExportacao(),
+    nome,
+    cliente,
+    observacao: String(dados.observacao || layoutAtual?.observacao || "").trim(),
+    formato: FORMATOS_EXPORTACAO_PERMITIDOS.has(formato) ? formato : "csv",
+    delimitador: String(dados.delimitador || layoutAtual?.delimitador || ";") || ";",
+    possuiCabecalho: dados.possuiCabecalho !== false,
+    txtRetorno: {
+      prefixo: String((dados.txtRetorno && dados.txtRetorno.prefixo) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.prefixo) || "0001010"),
+      sufixo: String((dados.txtRetorno && dados.txtRetorno.sufixo) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.sufixo) || "000000"),
+      tamanhoEan: Number((dados.txtRetorno && dados.txtRetorno.tamanhoEan) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.tamanhoEan) || 13),
+      tamanhoQtd: Number((dados.txtRetorno && dados.txtRetorno.tamanhoQtd) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.tamanhoQtd) || 8),
+      tipoQuantidade: String((dados.txtRetorno && dados.txtRetorno.tipoQuantidade) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.tipoQuantidade) || "auto"),
+      somenteContados: !!((dados.txtRetorno && dados.txtRetorno.somenteContados) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.somenteContados)),
+      somenteDivergencia: !!((dados.txtRetorno && dados.txtRetorno.somenteDivergencia) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.somenteDivergencia)),
+      somenteMaiorZero: !!((dados.txtRetorno && dados.txtRetorno.somenteMaiorZero) || (layoutAtual?.txtRetorno && layoutAtual.txtRetorno.somenteMaiorZero)),
+    },
+    colunas,
+    criadoEm: layoutAtual?.criadoEm || new Date().toISOString(),
+    atualizadoEm: new Date().toISOString(),
+    ultimoUsoEm: layoutAtual?.ultimoUsoEm || null,
+  };
+}
+
+function obterSituacaoItem(item) {
+  const qtdeContada = Number(item.qtdeContada) || 0;
+  const qtdeCongelada = Number(item.qtdeCongelada) || 0;
+  const divergencia = qtdeContada - qtdeCongelada;
+
+  if (qtdeContada === 0) return "Sem contagem";
+  if (Math.abs(divergencia) < 0.000001) return "Neutro";
+  return divergencia > 0 ? "Sobrando" : "Faltando";
+}
+
+function obterAjusteItem(item) {
+  const qtdeContada = Number(item.qtdeContada) || 0;
+  const qtdeCongelada = Number(item.qtdeCongelada) || 0;
+  const divergencia = qtdeContada - qtdeCongelada;
+
+  if (qtdeContada === 0) return qtdeCongelada;
+  if (Math.abs(divergencia) < 0.000001) return 0;
+  return divergencia;
+}
+
+function prepararLinhasExportacao(itens, colunas) {
+  const colunasAtivas = colunas
+    .filter((c) => c.incluida !== false)
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
+  const linhas = itens.map((item) => {
+    const linha = {};
+    colunasAtivas.forEach((col) => {
+      let valor = item[col.chave];
+      if (col.chave === "situacao") valor = obterSituacaoItem(item);
+      if (col.chave === "ajuste") valor = obterAjusteItem(item);
+      if (col.chave === "coletaEndereco") {
+        valor = item.enderecosContagem && item.enderecosContagem.length > 0
+          ? item.enderecosContagem.map((e) => e.enderecoNumero || e).join(", ")
+          : "";
+      }
+      if (valor === null || valor === undefined) valor = "";
+      linha[col.rotulo || col.chave] = valor;
+    });
+    return linha;
+  });
+
+  return { colunasAtivas, linhas };
+}
+
+function gerarCsvExportacao(linhas, colunasAtivas, delimitador, possuiCabecalho) {
+  const separador = delimitador || ";";
+  const cabecalhos = colunasAtivas.map((c) => c.rotulo || c.chave);
+
+  const escapar = (valor) => {
+    const texto = String(valor ?? "");
+    if (texto.includes(separador) || texto.includes("\n") || texto.includes('"')) {
+      return `"${texto.replace(/"/g, '""')}"`;
+    }
+    return texto;
+  };
+
+  const conteudo = [];
+  if (possuiCabecalho) {
+    conteudo.push(cabecalhos.map(escapar).join(separador));
+  }
+  linhas.forEach((linha) => {
+    conteudo.push(
+      colunasAtivas
+        .map((c) => escapar(linha[c.rotulo || c.chave]))
+        .join(separador)
+    );
+  });
+
+  return conteudo.join("\n");
+}
+
+function gerarTxtExportacao(linhas, colunasAtivas, delimitador, possuiCabecalho) {
+  return gerarCsvExportacao(linhas, colunasAtivas, delimitador || "\t", possuiCabecalho);
+}
+
+function gerarTxtRetornoExportacao(itens, opts = {}) {
+  const prefixo = opts.prefixo || "0001010";
+  const sufixo = opts.sufixo || "000000";
+  const tamanhoEan = Number(opts.tamanhoEan) || 13;
+  const tamanhoQtd = Number(opts.tamanhoQtd) || 8;
+  const tipoQuantidade = opts.tipoQuantidade || "auto";
+
+  let lista = Array.isArray(itens) ? itens : [];
+
+  if (opts.somenteContados) {
+    lista = lista.filter((item) => (Number(item.qtdeContada) || 0) > 0);
+  }
+  if (opts.somenteDivergencia) {
+    lista = lista.filter((item) => {
+      const qtdeContada = Number(item.qtdeContada) || 0;
+      const qtdeCongelada = Number(item.qtdeCongelada) || 0;
+      return qtdeContada - qtdeCongelada !== 0;
+    });
+  }
+  if (opts.somenteMaiorZero) {
+    lista = lista.filter((item) => (Number(item.qtdeCongelada) || 0) > 0);
+  }
+
+  let conteudo = "";
+  lista.forEach((item) => {
+    const codigoBase = String(item.codigoBarras || item.codigo || "").replace(/\D/g, "");
+    const codigoEan = codigoBase.padStart(tamanhoEan, "0").slice(-tamanhoEan);
+    const qtde = parseFloat(item.qtdeContada) || 0;
+    const textoCategoria = `${item.categoria || ""} ${item.descricao || ""}`.toLowerCase();
+
+    let quantidadeFormatada = "";
+    if (tipoQuantidade === "inteiro") {
+      quantidadeFormatada = Math.round(qtde).toString().padStart(tamanhoQtd, "0");
+    } else if (tipoQuantidade === "milhar") {
+      quantidadeFormatada = Math.round(qtde * 1000).toString().padStart(tamanhoQtd, "0");
+    } else {
+      if (textoCategoria.includes("kg")) {
+        quantidadeFormatada =
+          qtde % 1 === 0
+            ? qtde.toString().padStart(tamanhoQtd, "0")
+            : Math.round(qtde * 1000).toString().padStart(tamanhoQtd, "0");
+      } else {
+        quantidadeFormatada = Math.round(qtde).toString().padStart(tamanhoQtd, "0");
+      }
+    }
+
+    conteudo += `${prefixo}${codigoEan}${quantidadeFormatada}${sufixo}\n`;
+  });
+
+  return conteudo;
+}
+
+function gerarJsonExportacao(linhas, colunasAtivas) {
+  const cabecalhos = colunasAtivas.map((c) => c.rotulo || c.chave);
+  const saida = linhas.map((linha) => {
+    const obj = {};
+    cabecalhos.forEach((cab) => {
+      obj[cab] = linha[cab];
+    });
+    return obj;
+  });
+  return JSON.stringify(saida, null, 2);
+}
+
+async function gerarExcelExportacao(linhas, colunasAtivas) {
+  const ExcelJS = require("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const planilha = workbook.addWorksheet("Inventário");
+
+  const cabecalhos = colunasAtivas.map((c) => c.rotulo || c.chave);
+  planilha.addRow(cabecalhos);
+
+  linhas.forEach((linha) => {
+    planilha.addRow(cabecalhos.map((cab) => linha[cab]));
+  });
+
+  planilha.getRow(1).font = { bold: true };
+  planilha.columns.forEach((col) => {
+    let maxLen = 10;
+    col.eachCell({ includeEmpty: true }, (cell) => {
+      const len = String(cell.value ?? "").length;
+      if (len > maxLen) maxLen = len;
+    });
+    col.width = Math.min(maxLen + 2, 60);
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+function normalizarLayoutUniversal(
+  dados = {},
+  layoutAtual = null
+) {
+  const formatosPermitidos = new Set([
+    "txt",
+    "txt-retorno",
+    "csv",
+    "json",
+    "xlsx",
+  ]);
+
+  const leiturasPermitidas = new Set([
+    "automatico",
+    "posicao-fixa",
+    "delimitado",
+    "json",
+    "excel",
+  ]);
+
+  const destinosPermitidos = new Set([
+    "base-principal",
+    "saldo-atual",
+    "complementar",
+    "base-wms",
+  ]);
+
+  const formato = String(
+    dados.formato || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const tipoLeitura = String(
+    dados.tipoLeitura || "automatico"
+  )
+    .trim()
+    .toLowerCase();
+
+  const destino = String(
+    dados.destino || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const mapeamento =
+    dados.mapeamento &&
+    typeof dados.mapeamento === "object" &&
+    !Array.isArray(dados.mapeamento)
+      ? dados.mapeamento
+      : {};
+      const transformacoes =
+      normalizarTransformacoesUniversais(
+        dados.transformacoes ||
+        layoutAtual?.transformacoes ||
+        {}
+      );
+  return {
+    id:
+      layoutAtual?.id ||
+      gerarIdLayoutUniversal(),
+
+    nome: String(
+      dados.nome || layoutAtual?.nome || ""
+    ).trim(),
+
+    cliente: String(
+      dados.cliente ||
+      layoutAtual?.cliente ||
+      ""
+    ).trim(),
+
+    observacao: String(
+      dados.observacao ||
+      layoutAtual?.observacao ||
+      ""
+    ).trim(),
+
+    formato:
+      formatosPermitidos.has(formato)
+        ? formato
+        : "",
+
+    tipoLeitura:
+      leiturasPermitidas.has(tipoLeitura)
+        ? tipoLeitura
+        : "automatico",
+
+    delimitador: String(
+      dados.delimitador || ""
+    ),
+
+    possuiCabecalho:
+      dados.possuiCabecalho !== false,
+
+    destino:
+      destinosPermitidos.has(destino)
+        ? destino
+        : "",
+
+    mapeamento,
+    transformacoes,
+    criadoEm:
+      layoutAtual?.criadoEm ||
+      new Date().toISOString(),
+
+    atualizadoEm:
+      new Date().toISOString(),
+
+    ultimoUsoEm:
+      layoutAtual?.ultimoUsoEm || null,
+  };
+}
 function gerarNovaMatricula() {
   const numeros = usuarios
     .map((u) => {
@@ -1569,18 +4731,35 @@ function gerarRankingUsuarios() {
 }
 
 function parseMoeda(valor) {
-  if (!valor) return 0;
+  if (
+    valor === null ||
+    valor === undefined ||
+    String(valor).trim() === ""
+  ) {
+    return 0;
+  }
 
-  return (
-    parseFloat(
-      String(valor)
-        .replace(/\./g, "")
-        .replace(",", ".")
-        .trim()
-    ) || 0
-  );
+  /*
+    Usa a mesma conversão do Configurador Universal.
+
+    Formatos aceitos:
+
+    25.90       -> 25.90
+    25,90       -> 25.90
+    1.234,56    -> 1234.56
+    1,234.56    -> 1234.56
+    -25,90      -> -25.90
+    -25.90      -> -25.90
+  */
+  const numero =
+    converterNumeroUniversal(
+      valor
+    );
+
+  return Number.isFinite(numero)
+    ? numero
+    : 0;
 }
-
 function parseQuantidade(valor) {
   if (!valor) return 0;
 
@@ -1648,10 +4827,13 @@ async function salvarProdutosNoBanco(listaProdutos) {
     return;
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     db.serialize(() => {
       db.run("DELETE FROM produtos", (erroDelete) => {
-        if (erroDelete) return reject(erroDelete);
+        if (erroDelete) {
+          console.error("Erro ao limpar tabela produtos:", erroDelete.message);
+          return resolve();
+        }
 
         const stmt = db.prepare(`
           INSERT INTO produtos (
@@ -1678,7 +4860,9 @@ async function salvarProdutosNoBanco(listaProdutos) {
         }
 
         stmt.finalize((erroFinalize) => {
-          if (erroFinalize) return reject(erroFinalize);
+          if (erroFinalize) {
+            console.error("Erro ao salvar produtos no SQLite:", erroFinalize.message);
+          }
           resolve();
         });
       });
@@ -1704,7 +4888,9 @@ async function carregarProdutosDoBanco(callback = null) {
 
   db.all("SELECT * FROM produtos", [], (err, rows) => {
     if (err) {
-      console.error("Erro ao carregar produtos do banco:", err);
+      console.error("Erro ao carregar produtos do banco:", err.message);
+      inventario = [];
+      if (callback) callback();
       return;
     }
 
@@ -1862,6 +5048,285 @@ app.post("/modo-operacao", autenticar, permitirSomenteLiderOuAdmin, async (req, 
   }
 });
 
+app.get(
+  '/wms/base-esperada/produto',
+  autenticar,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(400).json({
+          erro:
+            'O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.',
+        });
+      }
+
+      const enderecoWms = String(
+        req.query?.enderecoWms || ''
+      ).trim();
+
+      const codigoBarras = String(
+        req.query?.codigoBarras || ''
+      ).trim();
+
+      const codigo = String(
+        req.query?.codigo || ''
+      ).trim();
+
+      if (!enderecoWms) {
+        return res.status(400).json({
+          erro:
+            'Informe o endereço WMS.',
+        });
+      }
+
+      if (!codigoBarras && !codigo) {
+        return res.status(400).json({
+          erro:
+            'Informe o código de barras ou o código interno.',
+        });
+      }
+
+      const item =
+        await buscarBaseEsperadaWmsPostgres({
+          enderecoWms,
+          codigoBarras,
+          codigo,
+        });
+
+      return res.json({
+        sucesso: true,
+        encontrado: Boolean(item),
+        item,
+      });
+    } catch (erro) {
+      console.error(
+        'Erro ao localizar produto na base WMS:',
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          'Falha ao consultar a base esperada WMS.',
+      });
+    }
+  }
+);
+app.get(
+  "/wms/base-esperada/:id",
+  autenticar,
+  permitirSomenteLiderOuAdmin,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(400).json({
+          erro:
+            "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+        });
+      }
+
+      const item =
+        await buscarBaseEsperadaWmsPorIdPostgres(
+          req.params.id
+        );
+
+      if (!item) {
+        return res.status(404).json({
+          erro:
+            "Registro da base esperada WMS não encontrado.",
+        });
+      }
+
+      return res.json({
+        sucesso: true,
+        item,
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao consultar base esperada WMS:",
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          "Falha ao consultar a base esperada WMS.",
+      });
+    }
+  }
+);
+app.get(
+  "/wms/base-esperada",
+  autenticar,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(503).json({
+          sucesso: false,
+          erro:
+            "PostgreSQL não está ativo. Confirme DATABASE_URL e USE_POSTGRES=true.",
+          diagnostico: {
+            possuiDatabaseUrl,
+            usePostgres:
+              process.env.USE_POSTGRES ||
+              "não informado",
+            nodeEnv:
+              process.env.NODE_ENV ||
+              "development",
+          },
+        });
+      }
+
+      const enderecoWms = String(
+        req.query?.enderecoWms || ""
+      ).trim();
+
+      const busca = String(
+        req.query?.busca || ""
+      ).trim();
+
+      const itens =
+        await carregarBaseEsperadaWmsPostgres({
+          enderecoWms,
+          busca,
+        });
+
+      return res.json({
+        sucesso: true,
+        total: Array.isArray(itens)
+          ? itens.length
+          : 0,
+        itens: Array.isArray(itens)
+          ? itens
+          : [],
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao carregar Base Esperada WMS:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          erro?.message ||
+          "Falha ao carregar a Base Esperada WMS.",
+      });
+    }
+  }
+);
+app.put(
+  "/wms/base-esperada/:id",
+  autenticar,
+  permitirSomenteLiderOuAdmin,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(400).json({
+          erro:
+            "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+        });
+      }
+
+      const item =
+        await atualizarBaseEsperadaWmsPostgres(
+          req.params.id,
+          {
+            enderecoWms:
+              req.body?.enderecoWms,
+            codigoBarras:
+              req.body?.codigoBarras,
+            codigo:
+              req.body?.codigo,
+            descricao:
+              req.body?.descricao,
+            quantidadeEsperada:
+              req.body?.quantidadeEsperada,
+          }
+        );
+
+      if (!item) {
+        return res.status(404).json({
+          erro:
+            "Registro da base esperada WMS não encontrado.",
+        });
+      }
+
+      return res.json({
+        sucesso: true,
+        item,
+        mensagem:
+          "Registro da base esperada WMS atualizado.",
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao atualizar base esperada WMS:",
+        erro
+      );
+
+      const conflito =
+        erro?.code === "23505" ||
+        String(erro?.message || "").includes(
+          "Já existe"
+        );
+
+      if (conflito) {
+        return res.status(409).json({
+          erro:
+            "Já existe este produto no endereço WMS informado.",
+        });
+      }
+
+      return res.status(400).json({
+        erro:
+          erro?.message ||
+          "Falha ao atualizar a base esperada WMS.",
+      });
+    }
+  }
+);
+app.delete(
+  "/wms/base-esperada/:id",
+  autenticar,
+  permitirSomenteLiderOuAdmin,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(400).json({
+          erro:
+            "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+        });
+      }
+
+      const excluido =
+        await excluirBaseEsperadaWmsPostgres(
+          req.params.id
+        );
+
+      if (!excluido) {
+        return res.status(404).json({
+          erro:
+            "Registro da base esperada WMS não encontrado.",
+        });
+      }
+
+      return res.json({
+        sucesso: true,
+        mensagem:
+          "Registro removido da base esperada WMS.",
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao excluir base esperada WMS:",
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          "Falha ao excluir o registro da base esperada WMS.",
+      });
+    }
+  }
+);
+
 app.get("/wms/contagens", autenticar, async (req, res) => {
   try {
     if (!usarPostgres) {
@@ -1897,18 +5362,46 @@ app.post("/wms/contagens", autenticar, async (req, res) => {
       req.session?.usuario?.nome ||
       "sistema";
 
-    const item = {
-      id: req.body?.id || `WMS-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      enderecoInventario: String(req.body?.enderecoInventario || "").trim(),
-      enderecoWms: String(req.body?.enderecoWms || "").trim(),
-      codigoBarras: String(req.body?.codigoBarras || req.body?.ean || "").trim(),
-      codigo: String(req.body?.codigo || "").trim(),
-      descricao: String(req.body?.descricao || "").trim(),
-      quantidadeCliente: Number(req.body?.quantidadeCliente || 0),
-      quantidadeContada: Number(req.body?.quantidadeContada || req.body?.quantidade || 0),
-      usuario,
-      data: new Date().toISOString(),
-    };
+      const item = {
+        id:
+          req.body?.id ||
+          `WMS-${Date.now()}-${Math.floor(
+            Math.random() * 1000
+          )}`,
+      
+        enderecoInventario: String(
+          req.body?.enderecoInventario || ''
+        ).trim(),
+      
+        enderecoWms: String(
+          req.body?.enderecoWms || ''
+        ).trim(),
+      
+        codigoBarras: String(
+          req.body?.codigoBarras ||
+          req.body?.ean ||
+          ''
+        ).trim(),
+      
+        codigo: String(
+          req.body?.codigo || ''
+        ).trim(),
+      
+        descricao: String(
+          req.body?.descricao || ''
+        ).trim(),
+      
+        quantidadeCliente: 0,
+      
+        quantidadeContada: Number(
+          req.body?.quantidadeContada ||
+          req.body?.quantidade ||
+          0
+        ),
+      
+        usuario,
+        data: new Date().toISOString(),
+      };
 
     if (!item.enderecoInventario || !item.enderecoWms) {
       return res.status(400).json({
@@ -1921,13 +5414,29 @@ app.post("/wms/contagens", autenticar, async (req, res) => {
         erro: "Informe código de barras ou código interno.",
       });
     }
+    const baseEsperada =
+  await buscarBaseEsperadaWmsPostgres({
+    enderecoWms: item.enderecoWms,
+    codigoBarras: item.codigoBarras,
+    codigo: item.codigo,
+  });
+
+item.quantidadeCliente =
+  Number(
+    baseEsperada?.quantidadeEsperada
+  ) || 0;
 
     const salvo = await salvarContagemWmsPostgres(item);
 
     return res.json({
       sucesso: true,
       item: salvo,
-      mensagem: "Contagem WMS registrada com sucesso.",
+      baseEsperadaEncontrada:
+        Boolean(baseEsperada),
+    
+      mensagem: baseEsperada
+        ? 'Contagem WMS registrada com sucesso.'
+        : 'Contagem registrada, mas o produto não foi encontrado na base esperada deste endereço.',
     });
   } catch (erro) {
     console.error("Erro ao registrar contagem WMS:", erro);
@@ -1936,7 +5445,225 @@ app.post("/wms/contagens", autenticar, async (req, res) => {
     });
   }
 });
+app.delete(
+  "/wms/contagens/:id",
+  autenticar,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(400).json({
+          erro:
+            "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+        });
+      }
 
+      const id = String(
+        req.params?.id || ""
+      ).trim();
+
+      if (!id) {
+        return res.status(400).json({
+          erro:
+            "Identificador da leitura WMS não informado.",
+        });
+      }
+
+      const usuario =
+        req.session?.usuario?.usuario ||
+        req.session?.usuario?.nome ||
+        "sistema";
+
+      const excluida =
+        await excluirContagemWmsPostgres(
+          id,
+          usuario
+        );
+
+      if (!excluida) {
+        return res.status(404).json({
+          erro:
+            "Leitura WMS não encontrada ou já excluída.",
+        });
+      }
+
+      return res.json({
+        sucesso: true,
+        mensagem:
+          "Leitura WMS excluída com sucesso.",
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao excluir leitura WMS:",
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          "Falha ao excluir a leitura WMS.",
+      });
+    }
+  }
+);
+app.post(
+  "/wms/finalizar-endereco",
+  autenticar,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(400).json({
+          erro:
+            "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+        });
+      }
+
+      const enderecoInventario = String(
+        req.body?.enderecoInventario || ""
+      ).trim();
+
+      const enderecoWms = String(
+        req.body?.enderecoWms || ""
+      ).trim();
+
+      const itens = Array.isArray(
+        req.body?.itens
+      )
+        ? req.body.itens
+        : [];
+
+      if (
+        !enderecoInventario ||
+        !enderecoWms
+      ) {
+        return res.status(400).json({
+          erro:
+            "Informe o endereço do inventário e o endereço WMS.",
+        });
+      }
+
+      if (!itens.length) {
+        return res.status(400).json({
+          erro:
+            "Não existem itens para finalizar.",
+        });
+      }
+
+      const usuario =
+        req.session?.usuario?.usuario ||
+        req.session?.usuario?.nome ||
+        "sistema";
+
+      const idsUnicos = new Set(
+        itens
+          .map((item) =>
+            String(
+              item.idWms ||
+                item.id ||
+                item.codigoBarras ||
+                item.codigo ||
+                ""
+            ).trim()
+          )
+          .filter(Boolean)
+      );
+
+      const totalVolume = itens.reduce(
+        (total, item) =>
+          total +
+          (Number(item.quantidade) || 0),
+        0
+      );
+
+      const finalizacao = {
+        id:
+          req.body?.id ||
+          `FINAL-WMS-${Date.now()}-${Math.floor(
+            Math.random() * 1000
+          )}`,
+
+        enderecoInventario,
+        enderecoWms,
+        usuario,
+        data: new Date().toISOString(),
+        totalItens: idsUnicos.size,
+        totalVolume,
+      };
+
+      const salva =
+      await salvarFinalizacaoWmsPostgres(
+        finalizacao
+      );
+    
+    /*
+      O endereço WMS pertence à operação WMS,
+      mas ranking, progresso e mapa continuam
+      sendo controlados pelo endereço do inventário.
+    */
+    const enderecoInventarioAtualizado =
+      await registrarEventoEndereco(
+        enderecoInventario,
+        "finalizacao",
+        usuario
+      );
+    
+    if (!enderecoInventarioAtualizado) {
+      console.warn(
+        `Finalização WMS salva, porém o endereço de inventário ${enderecoInventario} não foi localizado.`
+      );
+    }
+    
+    return res.json({
+      sucesso: true,
+      finalizacao: salva,
+      enderecoInventario:
+        enderecoInventarioAtualizado || null,
+      mensagem:
+        "Endereço WMS e endereço do inventário finalizados com sucesso.",
+    });
+    } catch (erro) {
+      console.error(
+        "Erro ao finalizar endereço WMS:",
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          "Falha ao finalizar o endereço WMS.",
+      });
+    }
+  }
+);
+app.get(
+  "/wms/finalizacoes",
+  autenticar,
+  async (req, res) => {
+    try {
+      if (!usarPostgres) {
+        return res.status(400).json({
+          erro:
+            "O módulo WMS usa PostgreSQL. Ative USE_POSTGRES=true.",
+        });
+      }
+
+      const itens =
+        await carregarFinalizacoesWmsPostgres();
+
+      return res.json({
+        sucesso: true,
+        itens,
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao carregar finalizações WMS:",
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          "Falha ao carregar finalizações WMS.",
+      });
+    }
+  }
+);
 app.get("/sem-base/dados", autenticar, permitirSomenteLiderOuAdmin, (req, res) => {
   return res.json({
     itens: Array.isArray(contagemSemBase) ? contagemSemBase : [],
@@ -2579,7 +6306,260 @@ function filtrarInventario({ categoria, ordem, busca }) {
 
   return resultado;
 }
+function localizarProdutoResumoOperacional(codigoBarras) {
+  const codigoNormalizado = String(
+    codigoBarras || ""
+  ).trim();
 
+  return inventario.find((produto) => {
+    return (
+      String(produto.codigoBarras || "").trim() ===
+      codigoNormalizado
+    );
+  });
+}
+
+function montarUltimasLeiturasDashboard(limite = 10) {
+  return [...(Array.isArray(contagens) ? contagens : [])]
+    .filter((item) => {
+      return (
+        item &&
+        item.ativo !== false &&
+        item.codigoBarras &&
+        item.data
+      );
+    })
+    .sort((a, b) => {
+      return (
+        new Date(b.data).getTime() -
+        new Date(a.data).getTime()
+      );
+    })
+    .slice(0, limite)
+    .map((item) => {
+      const produto =
+        localizarProdutoResumoOperacional(
+          item.codigoBarras
+        );
+
+      return {
+        id: item.id || "",
+        codigoBarras: item.codigoBarras || "",
+        codigo:
+          produto?.codigo ||
+          produto?.codigoInterno ||
+          "",
+        descricao:
+          produto?.descricao || "Sem descrição",
+        quantidade: Number(item.quantidade) || 0,
+        usuario: item.usuario || "Não informado",
+        enderecoNumero:
+          item.enderecoNumero ?? null,
+        data: item.data,
+      };
+    });
+}
+
+function montarUltimasFinalizacoesDashboard(
+  limite = 10
+) {
+  const lista = [];
+
+  (Array.isArray(enderecamentos)
+    ? enderecamentos
+    : []
+  ).forEach((endereco) => {
+    const finalizacoes = Array.isArray(
+      endereco?.finalizacoes
+    )
+      ? endereco.finalizacoes
+      : [];
+
+    finalizacoes.forEach((finalizacao) => {
+      if (
+        !finalizacao ||
+        finalizacao.excluida ||
+        !finalizacao.data
+      ) {
+        return;
+      }
+
+      const itens = Array.isArray(
+        finalizacao.itens
+      )
+        ? finalizacao.itens
+        : [];
+
+      lista.push({
+        id: finalizacao.id || "",
+        enderecoId:
+          Number(finalizacao.enderecoId) ||
+          Number(endereco.id) ||
+          0,
+        enderecoNumero:
+          Number(finalizacao.enderecoNumero) || 0,
+        enderecoNome:
+          endereco.nome ||
+          endereco.tipo ||
+          "Endereço",
+        usuario:
+          finalizacao.usuario ||
+          "Não informado",
+        totalItensUnicos: new Set(
+          itens
+            .map((item) =>
+              String(
+                item.codigoBarras ||
+                  item.ean ||
+                  item.codigo ||
+                  ""
+              ).trim()
+            )
+            .filter(Boolean)
+        ).size,
+        totalVolume: itens.reduce(
+          (total, item) =>
+            total +
+            (Number(item.quantidade) || 0),
+          0
+        ),
+        data: finalizacao.data,
+      });
+    });
+  });
+
+  return lista
+    .sort((a, b) => {
+      return (
+        new Date(b.data).getTime() -
+        new Date(a.data).getTime()
+      );
+    })
+    .slice(0, limite);
+}
+
+function montarMapaEnderecosDashboard() {
+  const resultado = [];
+
+  (Array.isArray(enderecamentos)
+    ? enderecamentos
+    : []
+  ).forEach((endereco) => {
+    const inicio = Number(endereco.inicio) || 0;
+    const fim = Number(endereco.fim) || 0;
+
+    const finalizacoes = Array.isArray(
+      endereco.finalizacoes
+    )
+      ? endereco.finalizacoes.filter(
+          (item) => !item.excluida
+        )
+      : [];
+
+    const transmissoes = Array.isArray(
+      endereco.transmissoes
+    )
+      ? endereco.transmissoes.filter(
+          (item) => !item.excluida
+        )
+      : [];
+
+    for (
+      let numero = inicio;
+      numero <= fim;
+      numero += 1
+    ) {
+      const finalizacoesNumero =
+        finalizacoes.filter(
+          (item) =>
+            Number(item.enderecoNumero) === numero
+        );
+
+      const transmissoesNumero =
+        transmissoes.filter(
+          (item) =>
+            Number(item.enderecoNumero) === numero &&
+            item.tipo === "transmissao"
+        );
+
+      let status = "pendente";
+
+      if (finalizacoesNumero.length > 1) {
+        status = "duplicado";
+      } else if (finalizacoesNumero.length === 1) {
+        status = "concluido";
+      } else if (transmissoesNumero.length > 0) {
+        status = "em-contagem";
+      }
+
+      const ultimoEvento = [
+        ...finalizacoesNumero,
+        ...transmissoesNumero,
+      ]
+        .filter((item) => item.data)
+        .sort(
+          (a, b) =>
+            new Date(b.data).getTime() -
+            new Date(a.data).getTime()
+        )[0];
+
+      resultado.push({
+        enderecoId: Number(endereco.id) || 0,
+        enderecoNumero: numero,
+        setor:
+          endereco.nome ||
+          endereco.tipo ||
+          "Endereço",
+        status,
+        usuario:
+          ultimoEvento?.usuario ||
+          "Não informado",
+        ultimaAtividade:
+          ultimoEvento?.data || null,
+      });
+    }
+  });
+
+  return resultado;
+}
+
+app.get(
+  "/api/dashboard-operacional",
+  autenticar,
+  permitirSomenteLiderOuAdmin,
+  (req, res) => {
+    try {
+      res.set({
+        "Cache-Control":
+          "no-store, no-cache, must-revalidate, private",
+        Pragma: "no-cache",
+        Expires: "0",
+      });
+
+      return res.json({
+        sucesso: true,
+        ultimasLeituras:
+          montarUltimasLeiturasDashboard(10),
+        ultimasFinalizacoes:
+          montarUltimasFinalizacoesDashboard(10),
+        mapaEnderecos:
+          montarMapaEnderecosDashboard(),
+        atualizadoEm: new Date().toISOString(),
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao montar dashboard operacional:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          "Falha ao carregar o resumo operacional.",
+      });
+    }
+  }
+);
 app.get("/inventario", autenticar, (req, res) => {
   if (modoOperacao === "sem-base") {
     const resultado = montarLinhasSemBaseParaTabela({
@@ -2598,6 +6578,359 @@ app.get("/inventario", autenticar, (req, res) => {
   res.json(resultado);
 });
 
+function normalizarChaveUsuarioRanking(valor) {
+  return String(valor || "")
+    .trim()
+    .toLowerCase();
+}
+function gerarMapaEnderecosConcluidosPorUsuario() {
+  const mapa = new Map();
+
+  function adicionarEndereco(usuario, chaveEndereco) {
+    const chaveUsuario = normalizarChaveUsuarioRanking(usuario);
+    const chave = String(chaveEndereco || "").trim();
+
+    if (!chaveUsuario || !chave) {
+      return;
+    }
+
+    if (!mapa.has(chaveUsuario)) {
+      mapa.set(chaveUsuario, new Set());
+    }
+
+    mapa.get(chaveUsuario).add(chave);
+  }
+
+  if (modoOperacao === "sem-base") {
+    const finalizacoes = Array.isArray(finalizacoesSemBase)
+      ? finalizacoesSemBase
+      : [];
+
+    finalizacoes.forEach((finalizacao) => {
+      if (!finalizacao || finalizacao.excluida) {
+        return;
+      }
+
+      const enderecoNumero = String(
+        finalizacao.enderecoNumero || ""
+      ).trim();
+
+      adicionarEndereco(
+        finalizacao.usuario,
+        `SEM-BASE:${enderecoNumero}`
+      );
+    });
+
+    return mapa;
+  }
+
+  const listaEnderecamentos = Array.isArray(enderecamentos)
+    ? enderecamentos
+    : [];
+
+  listaEnderecamentos.forEach((endereco) => {
+    const finalizacoes = Array.isArray(endereco?.finalizacoes)
+      ? endereco.finalizacoes
+      : [];
+
+    finalizacoes.forEach((finalizacao) => {
+      if (!finalizacao || finalizacao.excluida) {
+        return;
+      }
+
+      const enderecoId =
+        Number(finalizacao.enderecoId) ||
+        Number(endereco.id) ||
+        0;
+
+      const enderecoNumero =
+        Number(finalizacao.enderecoNumero) || 0;
+
+      if (!enderecoNumero) {
+        return;
+      }
+
+      adicionarEndereco(
+        finalizacao.usuario,
+        `${enderecoId}:${enderecoNumero}`
+      );
+    });
+  });
+
+  return mapa;
+}
+
+function montarDetalhesProgresso() {
+  const agora = Date.now();
+
+  const listaEnderecamentos = Array.isArray(enderecamentos)
+    ? enderecamentos
+    : [];
+
+  const finalizacoesValidas = [];
+
+  listaEnderecamentos.forEach((endereco) => {
+    const finalizacoes = Array.isArray(endereco?.finalizacoes)
+      ? endereco.finalizacoes
+      : [];
+
+    finalizacoes.forEach((finalizacao) => {
+      if (!finalizacao || finalizacao.excluida) return;
+
+      finalizacoesValidas.push({
+        id: finalizacao.id || "",
+        enderecoId:
+          Number(finalizacao.enderecoId) ||
+          Number(endereco.id) ||
+          0,
+        enderecoNumero:
+          Number(finalizacao.enderecoNumero) || 0,
+        enderecoNome:
+          endereco.nome ||
+          endereco.tipo ||
+          "Endereço",
+        usuario:
+          finalizacao.usuario ||
+          "Não informado",
+        data: finalizacao.data || null,
+        itens: Array.isArray(finalizacao.itens)
+          ? finalizacao.itens
+          : [],
+      });
+    });
+  });
+
+  const chavesConcluidas = new Set(
+    finalizacoesValidas
+      .filter((item) => item.enderecoNumero)
+      .map(
+        (item) =>
+          `${item.enderecoId}:${item.enderecoNumero}`
+      )
+  );
+
+  const totalPosicoes = listaEnderecamentos.reduce(
+    (total, endereco) => {
+      const inicio = Number(endereco?.inicio) || 0;
+      const fim = Number(endereco?.fim) || 0;
+
+      if (!inicio || fim < inicio) {
+        return total;
+      }
+
+      return total + (fim - inicio + 1);
+    },
+    0
+  );
+
+  const concluidos = chavesConcluidas.size;
+  const pendentes = Math.max(0, totalPosicoes - concluidos);
+
+  const operadoresAtivos = Object.entries(
+    mobileStatusUsuarios || {}
+  )
+    .filter(([, status]) => {
+      if (!status?.ultimaAtividade) return false;
+
+      const ultimaAtividade = new Date(
+        status.ultimaAtividade
+      ).getTime();
+
+      return (
+        Number.isFinite(ultimaAtividade) &&
+        agora - ultimaAtividade <= 30000
+      );
+    })
+    .map(([usuario, status]) => ({
+      usuario,
+      ultimaAtividade:
+        status.ultimaAtividade || null,
+    }));
+
+  const temposPorEndereco = [];
+
+  finalizacoesValidas.forEach((finalizacao) => {
+    const endereco = listaEnderecamentos.find(
+      (item) =>
+        Number(item.id) ===
+        Number(finalizacao.enderecoId)
+    );
+
+    if (!endereco || !finalizacao.data) return;
+
+    const eventos = Array.isArray(
+      endereco.transmissoes
+    )
+      ? endereco.transmissoes
+      : [];
+
+    const transmissoesDoNumero = eventos
+      .filter(
+        (evento) =>
+          evento?.tipo === "transmissao" &&
+          Number(evento.enderecoNumero) ===
+            Number(finalizacao.enderecoNumero) &&
+          evento.data
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.data).getTime() -
+          new Date(b.data).getTime()
+      );
+
+    const primeiraTransmissao =
+      transmissoesDoNumero[0];
+
+    if (!primeiraTransmissao) return;
+
+    const inicio = new Date(
+      primeiraTransmissao.data
+    ).getTime();
+
+    const fim = new Date(
+      finalizacao.data
+    ).getTime();
+
+    const duracao = fim - inicio;
+
+    if (
+      Number.isFinite(duracao) &&
+      duracao > 0
+    ) {
+      temposPorEndereco.push(duracao);
+    }
+  });
+
+  const tempoMedioMs = temposPorEndereco.length
+    ? temposPorEndereco.reduce(
+        (total, valor) => total + valor,
+        0
+      ) / temposPorEndereco.length
+    : 0;
+
+  const umaHoraAtras = agora - 60 * 60 * 1000;
+
+  const finalizadosUltimaHora =
+    finalizacoesValidas.filter((item) => {
+      const horario = new Date(item.data).getTime();
+
+      return (
+        Number.isFinite(horario) &&
+        horario >= umaHoraAtras &&
+        horario <= agora
+      );
+    }).length;
+
+  const ritmoPorHora = finalizadosUltimaHora;
+
+  let previsaoConclusao = null;
+
+  if (pendentes === 0 && concluidos > 0) {
+    previsaoConclusao = new Date().toISOString();
+  } else if (ritmoPorHora > 0 && pendentes > 0) {
+    const horasRestantes =
+      pendentes / ritmoPorHora;
+
+    previsaoConclusao = new Date(
+      agora +
+        horasRestantes *
+          60 *
+          60 *
+          1000
+    ).toISOString();
+  }
+
+  const ultimasFinalizacoes = [
+    ...finalizacoesValidas,
+  ]
+    .filter((item) => item.data)
+    .sort(
+      (a, b) =>
+        new Date(b.data).getTime() -
+        new Date(a.data).getTime()
+    )
+    .slice(0, 10)
+    .map((item) => ({
+      id: item.id,
+      enderecoId: item.enderecoId,
+      enderecoNumero: item.enderecoNumero,
+      enderecoNome: item.enderecoNome,
+      usuario: item.usuario,
+      data: item.data,
+      totalItensUnicos: new Set(
+        item.itens
+          .map(
+            (produto) =>
+              produto.codigoBarras ||
+              produto.codigo ||
+              produto.contagemId ||
+              ""
+          )
+          .filter(Boolean)
+      ).size,
+      totalVolume: item.itens.reduce(
+        (total, produto) =>
+          total +
+          (Number(produto.quantidade) || 0),
+        0
+      ),
+    }));
+
+  const percentual = totalPosicoes
+    ? (concluidos / totalPosicoes) * 100
+    : 0;
+
+  return {
+    totalPosicoes,
+    concluidos,
+    pendentes,
+    percentual,
+    tempoMedioMs,
+    ritmoPorHora,
+    previsaoConclusao,
+    operadoresAtivos,
+    totalOperadoresAtivos:
+      operadoresAtivos.length,
+    ultimasFinalizacoes,
+    atualizadoEm: new Date().toISOString(),
+  };
+}
+
+app.get(
+  "/api/progresso-detalhes",
+  autenticar,
+  permitirSomenteLiderOuAdmin,
+  (req, res) => {
+    try {
+      res.set({
+        "Cache-Control":
+          "no-store, no-cache, must-revalidate, private",
+        Pragma: "no-cache",
+        Expires: "0",
+      });
+
+      const detalhes =
+        montarDetalhesProgresso();
+
+      return res.status(200).json({
+        sucesso: true,
+        detalhes,
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao montar detalhes do progresso:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          "Falha ao carregar os detalhes do progresso.",
+      });
+    }
+  }
+);
+
 app.get("/ranking-usuarios", autenticar, (req, res) => {
   const ranking =
     modoOperacao === "sem-base"
@@ -2606,27 +6939,54 @@ app.get("/ranking-usuarios", autenticar, (req, res) => {
 
   const agora = Date.now();
 
+  const mapaEnderecosConcluidos =
+    gerarMapaEnderecosConcluidosPorUsuario();
+
   const rankingComStatus = ranking.map((item) => {
     const possiveisChaves = [
       item.usuario,
       item.nome,
       item.usuarioNome,
-      item.nomeUsuario
+      item.nomeUsuario,
     ].filter(Boolean);
-    
+
     const status = possiveisChaves
       .map((chave) => mobileStatusUsuarios[chave])
       .find(Boolean);
 
     const online =
       status &&
-      agora - new Date(status.ultimaAtividade).getTime() <= 30000;
+      agora -
+        new Date(status.ultimaAtividade).getTime() <=
+        30000;
+
+    const chaveUsuario =
+      possiveisChaves
+        .map(normalizarChaveUsuarioRanking)
+        .find((chave) =>
+          mapaEnderecosConcluidos.has(chave)
+        ) ||
+      normalizarChaveUsuarioRanking(item.usuario);
+
+    const enderecosConcluidos =
+      mapaEnderecosConcluidos.get(chaveUsuario)?.size || 0;
 
     return {
       ...item,
+      enderecosConcluidos,
       mobileOnline: !!online,
-      ultimaAtividadeMobile: status?.ultimaAtividade || null
+      ultimaAtividadeMobile:
+        status?.ultimaAtividade || null,
     };
+  });
+
+  rankingComStatus.sort((a, b) => {
+    return (
+      Number(b.enderecosConcluidos || 0) -
+        Number(a.enderecosConcluidos || 0) ||
+      Number(b.totalContado || 0) -
+        Number(a.totalContado || 0)
+    );
   });
 
   res.json(rankingComStatus);
@@ -2659,7 +7019,194 @@ app.post("/layout-txt", autenticar, (req, res) => {
     res.status(500).json({ erro: "Falha ao salvar layout TXT." });
   }
 });
+/* ==========================================================
+   LAYOUTS UNIVERSAIS
+========================================================== */
 
+app.get(
+  "/configurador-universal/layouts",
+  autenticar,
+  (req, res) => {
+    const ordenados = [
+      ...layoutsUniversais,
+    ].sort((a, b) => {
+      return String(a.nome || "")
+        .localeCompare(
+          String(b.nome || ""),
+          "pt-BR",
+          {
+            sensitivity: "base",
+          }
+        );
+    });
+
+    return res.json({
+      sucesso: true,
+      total: ordenados.length,
+      layouts: ordenados,
+    });
+  }
+);
+
+app.post(
+  "/configurador-universal/layouts",
+  autenticar,
+  async (req, res) => {
+    try {
+      const nome = String(
+        req.body?.nome || ""
+      ).trim();
+
+      if (!nome) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "Informe o nome do layout.",
+        });
+      }
+
+      const layout =
+        normalizarLayoutUniversal(
+          req.body
+        );
+
+      layoutsUniversais.push(layout);
+      salvarLayoutsUniversais();
+
+      return res.status(201).json({
+        sucesso: true,
+        mensagem:
+          "Layout universal salvo com sucesso.",
+        layout,
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao salvar layout universal:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          "Não foi possível salvar o layout universal.",
+      });
+    }
+  }
+);
+
+app.put(
+  "/configurador-universal/layouts/:id",
+  autenticar,
+  async (req, res) => {
+    try {
+      const id = String(
+        req.params.id || ""
+      ).trim();
+
+      const indice =
+        layoutsUniversais.findIndex(
+          (item) => item.id === id
+        );
+
+      if (indice === -1) {
+        return res.status(404).json({
+          sucesso: false,
+          erro:
+            "Layout universal não encontrado.",
+        });
+      }
+
+      const atual =
+        layoutsUniversais[indice];
+
+      const atualizado =
+        normalizarLayoutUniversal(
+          req.body,
+          atual
+        );
+
+      if (!atualizado.nome) {
+        return res.status(400).json({
+          sucesso: false,
+          erro:
+            "Informe o nome do layout.",
+        });
+      }
+
+      layoutsUniversais[indice] =
+        atualizado;
+
+      salvarLayoutsUniversais();
+
+      return res.json({
+        sucesso: true,
+        mensagem:
+          "Layout universal atualizado.",
+        layout: atualizado,
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao atualizar layout universal:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          "Não foi possível atualizar o layout universal.",
+      });
+    }
+  }
+);
+
+app.delete(
+  "/configurador-universal/layouts/:id",
+  autenticar,
+  (req, res) => {
+    try {
+      const id = String(
+        req.params.id || ""
+      ).trim();
+
+      const indice =
+        layoutsUniversais.findIndex(
+          (item) => item.id === id
+        );
+
+      if (indice === -1) {
+        return res.status(404).json({
+          sucesso: false,
+          erro:
+            "Layout universal não encontrado.",
+        });
+      }
+
+      layoutsUniversais.splice(
+        indice,
+        1
+      );
+
+      salvarLayoutsUniversais();
+
+      return res.json({
+        sucesso: true,
+        mensagem:
+          "Layout universal excluído.",
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao excluir layout universal:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          "Não foi possível excluir o layout universal.",
+      });
+    }
+  }
+);
 app.get("/layouts-txt", autenticar, (req, res) => {
   res.json(layoutsSalvos);
 });
@@ -2731,6 +7278,378 @@ app.delete("/layouts-txt/:id", autenticar, (req, res) => {
   } catch (erro) {
     console.error("Erro ao excluir layout salvo:", erro);
     res.status(500).json({ erro: "Falha ao excluir layout salvo." });
+  }
+});
+
+app.get("/exportacao-universal/colunas", autenticar, (req, res) => {
+  res.json({
+    colunas: COLUNAS_EXPORTACAO_DISPONIVEIS,
+    formatos: Array.from(FORMATOS_EXPORTACAO_PERMITIDOS),
+  });
+});
+
+app.get("/exportacao-universal/layouts", autenticar, (req, res) => {
+  const cliente = String(req.query.cliente || "").trim().toLowerCase();
+  const lista = cliente
+    ? layoutsExportacao.filter(
+        (l) => String(l.cliente || "").trim().toLowerCase() === cliente
+      )
+    : layoutsExportacao;
+  res.json(lista);
+});
+
+app.post("/exportacao-universal/layouts", autenticar, (req, res) => {
+  try {
+    const layout = normalizarLayoutExportacao(req.body || {});
+
+    if (!layout.nome) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: "Informe o nome do layout de exportação.",
+      });
+    }
+
+    if (!layout.colunas.length) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: "Selecione ao menos uma coluna.",
+      });
+    }
+
+    layoutsExportacao.push(layout);
+    salvarLayoutsExportacao();
+
+    return res.status(201).json({
+      sucesso: true,
+      mensagem: "Layout de exportação salvo com sucesso.",
+      layout,
+    });
+  } catch (erro) {
+    console.error("Erro ao salvar layout de exportação:", erro);
+    return res.status(500).json({
+      sucesso: false,
+      erro: "Não foi possível salvar o layout de exportação.",
+    });
+  }
+});
+
+app.put("/exportacao-universal/layouts/:id", autenticar, (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    const indice = layoutsExportacao.findIndex((item) => item.id === id);
+
+    if (indice === -1) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: "Layout de exportação não encontrado.",
+      });
+    }
+
+    const atualizado = normalizarLayoutExportacao(
+      req.body || {},
+      layoutsExportacao[indice]
+    );
+
+    if (!atualizado.nome) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: "Informe o nome do layout.",
+      });
+    }
+
+    if (!atualizado.colunas.length) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: "Selecione ao menos uma coluna.",
+      });
+    }
+
+    layoutsExportacao[indice] = atualizado;
+    salvarLayoutsExportacao();
+
+    return res.json({
+      sucesso: true,
+      mensagem: "Layout de exportação atualizado.",
+      layout: atualizado,
+    });
+  } catch (erro) {
+    console.error("Erro ao atualizar layout de exportação:", erro);
+    return res.status(500).json({
+      sucesso: false,
+      erro: "Não foi possível atualizar o layout de exportação.",
+    });
+  }
+});
+
+app.delete("/exportacao-universal/layouts/:id", autenticar, (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    const indice = layoutsExportacao.findIndex((item) => item.id === id);
+
+    if (indice === -1) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: "Layout de exportação não encontrado.",
+      });
+    }
+
+    layoutsExportacao.splice(indice, 1);
+    salvarLayoutsExportacao();
+
+    return res.json({
+      sucesso: true,
+      mensagem: "Layout de exportação excluído.",
+    });
+  } catch (erro) {
+    console.error("Erro ao excluir layout de exportação:", erro);
+    return res.status(500).json({
+      sucesso: false,
+      erro: "Não foi possível excluir o layout de exportação.",
+    });
+  }
+});
+
+app.get("/exportacao-universal/gerar", autenticar, async (req, res) => {
+  try {
+    let layout;
+    let layoutId = String(req.query.layoutId || "").trim();
+
+    if (layoutId) {
+      layout = layoutsExportacao.find((l) => l.id === layoutId);
+    }
+
+    if (!layout) {
+      const colunasQuery = String(req.query.colunas || "").trim();
+      const formato = String(req.query.formato || "csv").trim().toLowerCase();
+
+      const chaves = colunasQuery
+        ? colunasQuery.split(",").map((c) => c.trim()).filter(Boolean)
+        : COLUNAS_EXPORTACAO_DISPONIVEIS.map((c) => c.chave);
+
+      const colunas = chaves.map((chave, indice) => {
+        const encontrada = COLUNAS_EXPORTACAO_DISPONIVEIS.find(
+          (c) => c.chave === chave
+        );
+        return {
+          chave,
+          rotulo: encontrada ? encontrada.rotulo : chave,
+          incluida: true,
+          ordem: indice,
+        };
+      });
+
+      layout = normalizarLayoutExportacao({
+        nome:
+          String(
+            req.query.nome ||
+            "Exportação temporária"
+          ).trim(),
+      
+        cliente:
+          String(
+            req.query.cliente || ""
+          ).trim(),
+      
+        formato,
+      
+        delimitador:
+          String(
+            req.query.delimitador || ";"
+          ),
+      
+        possuiCabecalho:
+          req.query.possuiCabecalho !==
+          "false",
+      
+        colunas,
+      });
+    } else {
+      layout.ultimoUsoEm = new Date().toISOString();
+      salvarLayoutsExportacao();
+    }
+
+    const dadosInventario = usarPostgres
+      ? await carregarProdutosPostgres()
+      : inventario;
+
+    const itensComCalculos = dadosInventario.map((item) => ({
+      ...item,
+      divergencia:
+        (Number(item.qtdeContada) || 0) - (Number(item.qtdeCongelada) || 0),
+      valorCongelado:
+        (Number(item.custoUnitario) || 0) * (Number(item.qtdeCongelada) || 0),
+      valorContado:
+        (Number(item.custoUnitario) || 0) * (Number(item.qtdeContada) || 0),
+      valorDivergencia:
+        (Number(item.custoUnitario) || 0) *
+        ((Number(item.qtdeContada) || 0) - (Number(item.qtdeCongelada) || 0)),
+    }));
+
+    const { colunasAtivas, linhas } = prepararLinhasExportacao(
+      itensComCalculos,
+      layout.colunas
+    );
+
+    if (!colunasAtivas.length) {
+      return res.status(400).json({
+        sucesso: false,
+        erro: "Nenhuma coluna ativa no layout.",
+      });
+    }
+
+    const hoje = new Date();
+
+const dataArquivo =
+  hoje.getFullYear() +
+  "-" +
+  String(
+    hoje.getMonth() + 1
+  ).padStart(2, "0") +
+  "-" +
+  String(
+    hoje.getDate()
+  ).padStart(2, "0");
+
+function limparParteNomeArquivo(
+  valor,
+  padrao
+) {
+  const texto = String(
+    valor || padrao
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .trim()
+    .replace(
+      /[^a-zA-Z0-9\s_-]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      "_"
+    )
+    .replace(
+      /_+/g,
+      "_"
+    )
+    .replace(
+      /^_+|_+$/g,
+      ""
+    )
+    .toUpperCase();
+
+  return texto || padrao;
+}
+
+const nomeLayout =
+  limparParteNomeArquivo(
+    layout.nome,
+    "LAYOUT"
+  );
+
+const nomeCliente =
+  limparParteNomeArquivo(
+    layout.cliente,
+    "CLIENTE"
+  );
+
+const extensaoArquivo =
+  layout.formato === "xlsx"
+    ? "xlsx"
+    : layout.formato === "txt-retorno"
+      ? "txt"
+      : layout.formato;
+
+const nomeArquivo =
+  `${nomeLayout}_${nomeCliente}_${dataArquivo}.${extensaoArquivo}`;
+
+    if (layout.formato === "csv") {
+      const conteudo = gerarCsvExportacao(
+        linhas,
+        colunasAtivas,
+        layout.delimitador,
+        layout.possuiCabecalho
+      );
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${nomeArquivo}"`
+      );
+      return res.send(conteudo);
+    }
+
+    if (layout.formato === "txt") {
+      const conteudo = gerarTxtExportacao(
+        linhas,
+        colunasAtivas,
+        layout.delimitador,
+        layout.possuiCabecalho
+      );
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${nomeArquivo}"`
+      );
+      return res.send(conteudo);
+    }
+
+    if (layout.formato === "txt-retorno") {
+      const t = layout.txtRetorno || {};
+      const conteudo = gerarTxtRetornoExportacao(itensComCalculos, {
+        prefixo: req.query.prefixo || t.prefixo || "0001010",
+        sufixo: req.query.sufixo || t.sufixo || "000000",
+        tamanhoEan: Number(req.query.tamanhoEan) || t.tamanhoEan || 13,
+        tamanhoQtd: Number(req.query.tamanhoQtd) || t.tamanhoQtd || 8,
+        tipoQuantidade: req.query.tipoQuantidade || t.tipoQuantidade || "auto",
+        somenteContados: req.query.somenteContados === "1" || !!t.somenteContados,
+        somenteDivergencia: req.query.somenteDivergencia === "1" || !!t.somenteDivergencia,
+        somenteMaiorZero: req.query.somenteMaiorZero === "1" || !!t.somenteMaiorZero,
+      });
+      
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${nomeArquivo}"`
+      );
+      return res.send(conteudo);
+    }
+
+    if (layout.formato === "json") {
+      const conteudo = gerarJsonExportacao(linhas, colunasAtivas);
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${nomeArquivo}"`
+      );
+      return res.send(conteudo);
+    }
+
+    if (layout.formato === "xlsx") {
+      const buffer = await gerarExcelExportacao(linhas, colunasAtivas);
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${nomeArquivo}"`
+      );
+      return res.send(buffer);
+    }
+
+    return res.status(400).json({
+      sucesso: false,
+      erro: "Formato de exportação não suportado.",
+    });
+  } catch (erro) {
+    console.error("Erro ao gerar exportação universal:", erro);
+    return res.status(500).json({
+      sucesso: false,
+      erro: "Não foi possível gerar a exportação.",
+    });
   }
 });
 
@@ -4171,29 +9090,304 @@ function resumirCategoriasDivergencia(itens) {
   });
 }
 
-app.get("/exportar-pdf", autenticar, (req, res) => {
-  let resultado = [];
+app.get(
+  "/exportar-pdf",
+  autenticar,
+  async (req, res) => {
+    let resultado = [];
 
-  if (modoOperacao === "sem-base") {
-    resultado = montarLinhasSemBaseParaTabela({
-      busca: req.query.busca || "",
-    });
-  } else {
-    resultado = filtrarInventario({
-      categoria: req.query.categoria || "",
-      ordem: req.query.ordem || "",
-      busca: req.query.busca || "",
-    });
-
-    resultado = resultado.filter(
-      (item) => parseQuantidade(item.qtdeCongelada) > 0
-    );
-  }
+    if (modoOperacao === "sem-base") {
+      resultado =
+        montarLinhasSemBaseParaTabela({
+          busca:
+            req.query.busca || "",
+        });
+    } else if (
+      modoOperacao === "wms"
+    ) {
+      if (!usarPostgres) {
+        return res.status(503).json({
+          sucesso: false,
+          erro:
+            "O PostgreSQL precisa estar ativo para gerar o relatório WMS.",
+        });
+      }
+    
+      const baseEsperadaWms =
+        await carregarBaseEsperadaWmsPostgres(
+          {}
+        );
+    
+      const contagensWms =
+        await carregarContagensWmsPostgres();
+    
+      const normalizarCodigoWms = (
+        valor
+      ) =>
+        String(valor || "")
+          .trim()
+          .replace(/^0+/, "");
+    
+      resultado = (
+        Array.isArray(baseEsperadaWms)
+          ? baseEsperadaWms
+          : []
+      ).map((itemBase) => {
+        const enderecoWms =
+          String(
+            itemBase.enderecoWms || ""
+          ).trim();
+    
+        const codigoBarrasBase =
+          normalizarCodigoWms(
+            itemBase.codigoBarras
+          );
+    
+        const codigoBase =
+          normalizarCodigoWms(
+            itemBase.codigo
+          );
+    
+        const produtoCadastro =
+          inventario.find((produto) => {
+            const eanProduto =
+              normalizarCodigoWms(
+                produto.codigoBarras
+              );
+    
+            const codigoProduto =
+              normalizarCodigoWms(
+                produto.codigo ||
+                produto.codigoInterno
+              );
+    
+            return (
+              (
+                codigoBarrasBase &&
+                eanProduto ===
+                  codigoBarrasBase
+              ) ||
+              (
+                codigoBase &&
+                codigoProduto ===
+                  codigoBase
+              )
+            );
+          });
+    
+        const quantidadeEsperada =
+          Number(
+            itemBase.quantidadeEsperada
+          ) || 0;
+    
+        const quantidadeContada =
+          (
+            Array.isArray(contagensWms)
+              ? contagensWms
+              : []
+          )
+            .filter((contagem) => {
+              const mesmoEndereco =
+                String(
+                  contagem.enderecoWms ||
+                  ""
+                ).trim() === enderecoWms;
+    
+              if (!mesmoEndereco) {
+                return false;
+              }
+    
+              const eanContagem =
+                normalizarCodigoWms(
+                  contagem.codigoBarras
+                );
+    
+              const codigoContagem =
+                normalizarCodigoWms(
+                  contagem.codigo
+                );
+    
+              return (
+                (
+                  codigoBarrasBase &&
+                  eanContagem ===
+                    codigoBarrasBase
+                ) ||
+                (
+                  codigoBase &&
+                  codigoContagem ===
+                    codigoBase
+                )
+              );
+            })
+            .reduce(
+              (
+                total,
+                contagem
+              ) =>
+                total +
+                (
+                  Number(
+                    contagem.quantidadeContada
+                  ) || 0
+                ),
+              0
+            );
+    
+        const custoUnitario =
+          Number(
+            produtoCadastro
+              ?.custoUnitario
+          ) || 0;
+    
+        const divergencia =
+          quantidadeContada -
+          quantidadeEsperada;
+    
+        return {
+          enderecoWms,
+    
+          codigoBarras:
+            itemBase.codigoBarras ||
+            produtoCadastro
+              ?.codigoBarras ||
+            "",
+    
+          codigo:
+            itemBase.codigo ||
+            produtoCadastro?.codigo ||
+            produtoCadastro
+              ?.codigoInterno ||
+            "",
+    
+          descricao:
+            itemBase.descricao ||
+            produtoCadastro
+              ?.descricao ||
+            "Sem descrição",
+    
+          categoria:
+            produtoCadastro
+              ?.categoria || "",
+    
+          custoUnitario,
+    
+          qtdeCongelada:
+            quantidadeEsperada,
+    
+          qtdeContada:
+            quantidadeContada,
+    
+          divergencia,
+    
+          valorCongelado:
+            quantidadeEsperada *
+            custoUnitario,
+    
+          valorContado:
+            quantidadeContada *
+            custoUnitario,
+    
+          valorDivergencia:
+            divergencia *
+            custoUnitario,
+    
+          enderecosContagem: [],
+        };
+      });
+    
+      const busca =
+        String(
+          req.query.busca || ""
+        )
+          .trim()
+          .toLowerCase();
+    
+      if (busca) {
+        resultado =
+          resultado.filter(
+            (item) =>
+              [
+                item.enderecoWms,
+                item.codigoBarras,
+                item.codigo,
+                item.descricao,
+                item.categoria,
+              ].some((valor) =>
+                String(valor || "")
+                  .toLowerCase()
+                  .includes(busca)
+              )
+          );
+      }
+    
+      const categoria =
+        String(
+          req.query.categoria || ""
+        )
+          .trim()
+          .toLowerCase();
+    
+      if (categoria) {
+        resultado =
+          resultado.filter(
+            (item) =>
+              String(
+                item.categoria || ""
+              )
+                .toLowerCase()
+                .includes(categoria)
+          );
+      }
+    } else {
+      resultado =
+        filtrarInventario({
+          categoria:
+            req.query.categoria || "",
+    
+          ordem:
+            req.query.ordem || "",
+    
+          busca:
+            req.query.busca || "",
+        });
+    
+      resultado =
+        resultado.filter(
+          (item) =>
+            parseQuantidade(
+              item.qtdeCongelada
+            ) > 0
+        );
+    }
 
   const colunasSelecionadas = (req.query.colunas || "")
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean);
+    let cabecalhosPersonalizados = {};
+
+try {
+  cabecalhosPersonalizados =
+    JSON.parse(
+      String(
+        req.query.cabecalhos || "{}"
+      )
+    );
+
+  if (
+    !cabecalhosPersonalizados ||
+    typeof cabecalhosPersonalizados !==
+      "object" ||
+    Array.isArray(
+      cabecalhosPersonalizados
+    )
+  ) {
+    cabecalhosPersonalizados = {};
+  }
+} catch (erro) {
+  cabecalhosPersonalizados = {};
+}
     function obterEnderecosPdf(item) {
       const lista = Array.isArray(item.enderecosContagem)
         ? item.enderecosContagem
@@ -4296,6 +9490,17 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
       width: 95,
       align: "left",
     },
+    enderecoWms: {
+      titulo: "Endereço WMS",
+    
+      valor: (item) =>
+        String(
+          item.enderecoWms || ""
+        ),
+    
+      width: 82,
+      align: "left",
+    },
     coletaEndereco: {
       titulo: "Coleta End",
       valor: (item) => formatarColetaEnderecoPdf(item),
@@ -4334,6 +9539,7 @@ app.get("/exportar-pdf", autenticar, (req, res) => {
     "descricao",
     "categoria",
     "endereco",
+    "enderecoWms",
 "coletaEndereco",
 "custoUnitario",
     "qtdeCongelada",
@@ -4370,6 +9576,7 @@ const largurasBasePdf = {
   situacao: 70,
   ajuste: 70,
   endereco: 68,
+  enderecoWms: 82,
   coletaEndereco: 68,
   valorCongelado: 82,
   valorContado: 82,
@@ -4400,7 +9607,9 @@ if (indiceDescricaoPdf >= 0 && diferencaPdf > 0) {
 
   const tableBody = [
     colunasAtivas.map((coluna) => ({
-      text: mapaColunas[coluna].titulo,
+      text:
+  cabecalhosPersonalizados[coluna] ||
+  mapaColunas[coluna].titulo,
       style: "tableHeader",
       alignment: mapaColunas[coluna].align || "left",
     })),
@@ -6650,7 +11859,58 @@ app.get("/validar-endereco-mobile/:numero", autenticar, (req, res) => {
   }
 });
 app.get("/enderecamentos", autenticar, (req, res) => {
-  res.json(enderecamentos);
+  try {
+    const listaAtualizada = (
+      Array.isArray(enderecamentos)
+        ? enderecamentos
+        : []
+    ).map((endereco) => {
+      const normalizado =
+        normalizarEnderecoSalvo(endereco);
+
+      const resumo =
+        recalcularStatusFaixa(normalizado);
+
+      return {
+        ...normalizado,
+
+        status: resumo.status,
+
+        totalPosicoes:
+          resumo.totalPosicoes,
+
+        posicoesConcluidas:
+          resumo.concluidos,
+
+        posicoesPendentes:
+          resumo.pendentes,
+
+        posicoesEmContagem:
+          resumo.emContagem,
+
+        posicoesDuplicadas:
+          resumo.duplicados,
+      };
+    });
+
+    /*
+      Atualiza também a variável em memória,
+      evitando que outras telas usem valores antigos.
+    */
+    enderecamentos = listaAtualizada;
+
+    return res.json(listaAtualizada);
+  } catch (erro) {
+    console.error(
+      "Erro ao recalcular endereçamentos:",
+      erro
+    );
+
+    return res.status(500).json({
+      erro:
+        "Falha ao carregar os endereçamentos.",
+    });
+  }
 });
 
 app.get("/enderecamentos/posicoes-pendentes", autenticar, (req, res) => {
@@ -7077,86 +12337,282 @@ app.get('/enderecos-itens-contados/pdf', autenticar, (req, res) => {
 
     const body = [
       [
-        { text: 'EAN', style: 'tableHeader' },
-        { text: 'Cód. Interno', style: 'tableHeader' },
-        { text: 'Descrição', style: 'tableHeader' },
-        { text: 'Endereço', style: 'tableHeader' },
-        { text: 'Quantidade contada no endereço', style: 'tableHeader' },
-        { text: 'Origem', style: 'tableHeader' },
-        { text: 'Usuário', style: 'tableHeader' },
-        { text: 'Data', style: 'tableHeader' },
+        {
+          text: "EAN",
+          style: "tableHeader",
+        },
+        {
+          text: "Cód. interno",
+          style: "tableHeader",
+        },
+        {
+          text: "Descrição",
+          style: "tableHeader",
+        },
+        {
+          text: "Endereço",
+          style: "tableHeader",
+        },
+        {
+          text: "Quantidade",
+          style: "tableHeader",
+          alignment: "right",
+        },
+        {
+          text: "Usuário",
+          style: "tableHeader",
+        },
       ],
-      ...linhas.map((item) => ([
-        { text: item.codigoBarras, style: 'tableCell' },
-        { text: item.codigoInterno, style: 'tableCell' },
-        { text: item.descricao, style: 'tableCell' },
-        { text: item.endereco, style: 'tableCell' },
-        { text: String(item.quantidade).replace('.', ','), style: 'tableCell', alignment: 'right' },
-        { text: item.origem, style: 'tableCell' },
-        { text: item.usuario, style: 'tableCell' },
-        { text: item.data, style: 'tableCell' },
-      ]))
+    
+      ...linhas.map((item, indice) => {
+        const fundo =
+          indice % 2 === 0
+            ? "#f8fafc"
+            : "#ffffff";
+    
+        return [
+          {
+            text: item.codigoBarras,
+            style: "tableCell",
+            fillColor: fundo,
+          },
+          {
+            text: item.codigoInterno,
+            style: "tableCell",
+            fillColor: fundo,
+          },
+          {
+            text: item.descricao,
+            style: "tableCell",
+            fillColor: fundo,
+          },
+          {
+            text: item.endereco,
+            style: "tableCell",
+            fillColor: fundo,
+          },
+          {
+            text: Number(
+              item.quantidade || 0
+            ).toLocaleString("pt-BR"),
+            style: "tableCell",
+            alignment: "right",
+            bold: true,
+            color: "#0f766e",
+            fillColor: fundo,
+          },
+          {
+            text: item.usuario,
+            style: "tableCell",
+            fillColor: fundo,
+          },
+        ];
+      }),
     ];
-
+    
     const docDefinition = {
-      pageOrientation: 'landscape',
-      pageMargins: [20, 20, 20, 20],
+      pageOrientation: "landscape",
+      pageMargins: [28, 72, 28, 48],
+    
+      header: {
+        margin: [28, 18, 28, 0],
+    
+        columns: [
+          {
+            width: "*",
+            stack: [
+              {
+                text: "REALSTOCK",
+                color: "#14b8a6",
+                fontSize: 17,
+                bold: true,
+              },
+              {
+                text:
+                  "Inventário Inteligente · Relatório operacional",
+                color: "#64748b",
+                fontSize: 8,
+                margin: [0, 2, 0, 0],
+              },
+            ],
+          },
+    
+          {
+            width: "auto",
+            text: new Date().toLocaleString(
+              "pt-BR"
+            ),
+            color: "#64748b",
+            fontSize: 8,
+            alignment: "right",
+            margin: [0, 7, 0, 0],
+          },
+        ],
+      },
+    
+      footer: function (
+        paginaAtual,
+        totalPaginas
+      ) {
+        return {
+          margin: [28, 10, 28, 0],
+    
+          columns: [
+            {
+              text: "RealStock",
+              color: "#14b8a6",
+              bold: true,
+              fontSize: 9,
+            },
+    
+            {
+              text:
+                `Página ${paginaAtual} de ${totalPaginas}`,
+              alignment: "right",
+              color: "#64748b",
+              fontSize: 8,
+            },
+          ],
+        };
+      },
+    
       content: [
         {
-          text: 'Itens contados por endereço',
-          style: 'title'
+          canvas: [
+            {
+              type: "rect",
+              x: 0,
+              y: 0,
+              w: 786,
+              h: 4,
+              color: "#14b8a6",
+            },
+          ],
+          margin: [0, 0, 0, 14],
         },
+    
         {
-          text: `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
-          style: 'subTitle',
-          margin: [0, 0, 0, 10]
+          text: "Itens contados por endereço",
+          style: "title",
         },
+    
+        {
+          text:
+            `${linhas.length.toLocaleString(
+              "pt-BR"
+            )} registro(s) listado(s)`,
+          style: "subTitle",
+          margin: [0, 3, 0, 14],
+        },
+    
         {
           table: {
             headerRows: 1,
-            widths: [90, 75, '*', 90, 90, 55, 70, 85],
-            body
+    
+            widths: [
+              105,
+              82,
+              "*",
+              115,
+              82,
+              90,
+            ],
+    
+            body,
           },
+    
           layout: {
             fillColor: function (rowIndex) {
-              return rowIndex === 0 ? '#e5e7eb' : null;
-            }
-          }
-        }
+              return rowIndex === 0
+                ? "#123554"
+                : null;
+            },
+    
+            hLineColor: function () {
+              return "#dbe5ef";
+            },
+    
+            vLineColor: function () {
+              return "#dbe5ef";
+            },
+    
+            hLineWidth: function (
+              linhaIndex
+            ) {
+              return linhaIndex === 0 ? 0 : 0.6;
+            },
+    
+            vLineWidth: function () {
+              return 0.6;
+            },
+    
+            paddingLeft: function () {
+              return 8;
+            },
+    
+            paddingRight: function () {
+              return 8;
+            },
+    
+            paddingTop: function () {
+              return 7;
+            },
+    
+            paddingBottom: function () {
+              return 7;
+            },
+          },
+        },
       ],
+    
       styles: {
         title: {
-          fontSize: 16,
+          fontSize: 18,
           bold: true,
-          color: '#162f4a'
+          color: "#10243a",
         },
+    
         subTitle: {
           fontSize: 9,
-          color: '#475569'
+          color: "#64748b",
         },
+    
         tableHeader: {
           bold: true,
-          fontSize: 9,
-          color: '#0f172a',
-          margin: [0, 4, 0, 4]
+          fontSize: 8,
+          color: "#ffffff",
         },
+    
         tableCell: {
           fontSize: 8,
-          margin: [0, 4, 0, 4]
-        }
+          color: "#263649",
+        },
       },
+    
       defaultStyle: {
-        font: 'Helvetica'
-      }
+        font: "Helvetica",
+      },
     };
 
     const pdfDoc = printer.createPdfKitDocument(docDefinition);
 
-    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
-      'Content-Disposition',
+      "Content-Type",
+      "application/pdf"
+    );
+    
+    res.setHeader(
+      "Content-Disposition",
       'inline; filename="itens-contados-por-endereco.pdf"'
     );
+    
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, private"
+    );
+    
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
 
     pdfDoc.pipe(res);
     pdfDoc.end();
@@ -7495,8 +12951,10 @@ async function iniciarServidor() {
     }
     
     carregarLayoutTxt();
-    carregarLayoutsSalvos();
-    
+carregarLayoutsSalvos();
+carregarLayoutsUniversais();
+carregarLayoutsExportacao();
+
     await carregarContagemSemBase();
     await carregarFinalizacoesSemBase();
     await carregarModoOperacao();

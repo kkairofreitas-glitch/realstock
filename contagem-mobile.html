@@ -1954,6 +1954,8 @@ const multiplicadorSemBase = document.getElementById('multiplicadorSemBase');
 let enderecoWmsAtual = '';
 let itensEnderecoAtual = [];
   let filaTransmissao = [];
+  let etapaWmsAtual = 'endereco-inventario';
+let enderecoInventarioWmsPendente = '';
   let modoOperacaoAtual = 'com-base';
   let leituraSemBaseTimer = null;
   let leitorCameraHtml5 = null;
@@ -1982,8 +1984,10 @@ setInterval(enviarStatusMobile, 15000);
 
       limparEstadoColetaMobile();
 
-      alert('Seu usuário foi inativado.');
-
+      mostrarToast(
+  'Seu usuário foi inativado.',
+  'aviso'
+);
       window.location.href = '/logout';
       return;
     }
@@ -2065,6 +2069,21 @@ function aplicarModoOperacaoMobile() {
 
   const modoSemBase = modoOperacaoAtual === 'sem-base';
   const modoWms = modoOperacaoAtual === 'wms';
+
+
+  if (modoOperacaoAtual !== 'wms') {
+  etapaWmsAtual = 'endereco-inventario';
+  enderecoInventarioWmsPendente = '';
+  enderecoWmsAtual = '';
+}
+
+if (
+  modoOperacaoAtual === 'wms' &&
+  !enderecoAberto &&
+  !enderecoInventarioWmsPendente
+) {
+  etapaWmsAtual = 'endereco-inventario';
+}
 
   blocoEnderecoWms.classList.toggle('hidden', !modoWms);
 
@@ -2160,6 +2179,7 @@ function aplicarModoOperacaoMobile() {
 
   renderItensEnderecoAtual();
   atualizarEstadoColeta();
+  atualizarFluxoSequencialWms();
 }
 
 function mostrarAba(nome) {
@@ -2398,7 +2418,126 @@ function validarEnderecoLocal(valor) {
 
     atualizarResumoTransmissoes();
   }
+  function atualizarFluxoSequencialWms() {
+  if (modoOperacaoAtual !== 'wms') {
+    blocoEnderecoWms?.classList.toggle(
+      'hidden',
+      modoOperacaoAtual !== 'wms'
+    );
 
+    if (cardColetaEndereco) {
+      cardColetaEndereco.classList.toggle(
+        'hidden',
+        !enderecoAberto
+      );
+    }
+
+    return;
+  }
+
+  const aguardandoInventario =
+    etapaWmsAtual === 'endereco-inventario';
+
+  const aguardandoWms =
+    etapaWmsAtual === 'endereco-wms';
+
+  const aguardandoProduto =
+    etapaWmsAtual === 'produto';
+
+  enderecoAtualInput.disabled =
+    !aguardandoInventario;
+
+  if (btnLerCameraEndereco) {
+    btnLerCameraEndereco.disabled =
+      !aguardandoInventario;
+  }
+
+  if (blocoEnderecoWms) {
+    blocoEnderecoWms.classList.toggle(
+      'hidden',
+      !aguardandoWms
+    );
+  }
+
+  if (enderecoWmsInput) {
+    enderecoWmsInput.disabled =
+      !aguardandoWms;
+  }
+
+  if (btnLerCameraEnderecoWms) {
+    btnLerCameraEnderecoWms.disabled =
+      !aguardandoWms;
+  }
+
+  if (btnAbrirEndereco) {
+    btnAbrirEndereco.disabled =
+      aguardandoProduto;
+  }
+
+  if (cardColetaEndereco) {
+    cardColetaEndereco.classList.toggle(
+      'hidden',
+      !aguardandoProduto
+    );
+  }
+
+  if (cardItensEndereco) {
+    cardItensEndereco.classList.toggle(
+      'hidden',
+      !aguardandoProduto
+    );
+  }
+
+  if (aguardandoInventario) {
+    btnAbrirEndereco.textContent =
+      'Confirmar endereço do inventário';
+
+    enderecoAbertoInfo.textContent =
+      'Etapa 1 de 3: leia o endereço do inventário.';
+
+    setTimeout(() => {
+      enderecoAtualInput?.focus();
+    }, 100);
+
+    return;
+  }
+
+  if (aguardandoWms) {
+    btnAbrirEndereco.textContent =
+      'Confirmar endereço WMS';
+
+    enderecoAbertoInfo.textContent =
+      `Inventário confirmado: ${enderecoInventarioWmsPendente}`;
+
+    mensagemEndereco.textContent =
+      'Etapa 2 de 3: leia o endereço WMS.';
+
+    mensagemEndereco.className =
+      'mensagem info';
+
+    setTimeout(() => {
+      enderecoWmsInput?.focus();
+    }, 100);
+
+    return;
+  }
+
+  btnAbrirEndereco.textContent =
+    'Endereço aberto';
+
+  enderecoAbertoInfo.textContent =
+    `Inventário: ${enderecoAberto?.enderecoNumero || '--'} | WMS: ${enderecoAberto?.enderecoWms || '--'}`;
+
+  mensagemEndereco.textContent =
+    'Etapa 3 de 3: leia o produto.';
+
+  mensagemEndereco.className =
+    'mensagem sucesso';
+
+  setTimeout(() => {
+    codigoBusca?.focus();
+  }, 100);
+}
   function atualizarEstadoColeta() {
     const habilitado = !!enderecoAberto;
 
@@ -2426,15 +2565,17 @@ if (modoOperacaoAtual === 'sem-base') {
   }
 
   function salvarEstadoColetaMobile() {
-  const estado = {
-    enderecoAberto,
-    enderecoWmsAtual,
-    itensEnderecoAtual,
-    filaTransmissao,
-    produtoAtual,
-    modoOperacaoAtual,
-    salvoEm: new Date().toISOString()
-  };
+    const estado = {
+  enderecoAberto,
+  enderecoWmsAtual,
+  enderecoInventarioWmsPendente,
+  etapaWmsAtual,
+  itensEnderecoAtual,
+  filaTransmissao,
+  produtoAtual,
+  modoOperacaoAtual,
+  salvoEm: new Date().toISOString(),
+};
 
   localStorage.setItem('realstockEstadoColetaMobile', JSON.stringify(estado));
 }
@@ -2447,6 +2588,20 @@ function restaurarEstadoColetaMobile() {
     const estado = JSON.parse(bruto);
 
     enderecoAberto = estado.enderecoAberto || null;
+    enderecoInventarioWmsPendente =
+  estado.enderecoInventarioWmsPendente ||
+  estado.enderecoAberto?.enderecoNumero ||
+  '';
+
+etapaWmsAtual =
+  estado.etapaWmsAtual ||
+  (
+    estado.enderecoAberto?.enderecoWms
+      ? 'produto'
+      : enderecoInventarioWmsPendente
+      ? 'endereco-wms'
+      : 'endereco-inventario'
+  );
     enderecoWmsAtual =
   estado.enderecoWmsAtual ||
   estado.enderecoAberto?.enderecoWms ||
@@ -2472,6 +2627,7 @@ if (enderecoWmsInput) {
     renderFilaTransmissao();
     atualizarEstadoColeta();
     atualizarTelaPorEndereco();
+    atualizarFluxoSequencialWms();
   } catch (erro) {
     console.error('Erro ao restaurar coleta mobile:', erro);
   }
@@ -2487,21 +2643,35 @@ function preencherCodigoLidoPelaCamera(codigo) {
   tocarBipLeitura();
 
   if (destinoCamera === 'endereco') {
-    enderecoAtualInput.value = valor;
-    enderecoAtualInput.focus();
-    mensagemEndereco.textContent = `Endereço lido: ${valor}`;
-    mensagemEndereco.className = 'mensagem sucesso';
-    return;
-  }
+  enderecoAtualInput.value = valor;
+
+  mensagemEndereco.textContent =
+    `Endereço lido: ${valor}`;
+
+  mensagemEndereco.className =
+    'mensagem sucesso';
+
+  setTimeout(() => {
+    btnAbrirEndereco?.focus();
+  }, 100);
+
+  return;
+}
 
 
-  if (destinoCamera === 'endereco-wms') {
+if (destinoCamera === 'endereco-wms') {
   enderecoWmsInput.value = valor;
-  enderecoWmsInput.focus();
 
   mensagemEndereco.textContent =
     `Endereço WMS lido: ${valor}`;
-  mensagemEndereco.className = 'mensagem sucesso';
+
+  mensagemEndereco.className =
+    'mensagem sucesso';
+
+  setTimeout(() => {
+    btnAbrirEndereco?.focus();
+  }, 100);
+
   return;
 }
 
@@ -2645,96 +2815,199 @@ function fecharTecladoMobile() {
   }
 }
 async function abrirEndereco() {
-  const valor = enderecoAtualInput.value.trim();
+  if (
+    modoOperacaoAtual === 'wms' &&
+    etapaWmsAtual === 'endereco-wms'
+  ) {
+    const valorEnderecoWms = String(
+      enderecoWmsInput?.value || ''
+    ).trim();
 
-  const valorEnderecoWms = String(
-    enderecoWmsInput?.value || ''
-  ).trim();
+    if (!valorEnderecoWms) {
+      mensagemEndereco.textContent =
+        'Digite ou escaneie o endereço WMS.';
+
+      mensagemEndereco.className =
+        'mensagem erro';
+
+      enderecoWmsInput?.focus();
+      return;
+    }
+
+    enderecoWmsAtual = valorEnderecoWms;
+
+    enderecoAberto = {
+      enderecoNumero:
+        enderecoInventarioWmsPendente,
+
+      enderecoWms:
+        enderecoWmsAtual,
+    };
+
+    itensEnderecoAtual = [];
+    produtoAtual = null;
+
+    codigoBusca.value = '';
+    qtdeContada.value = '';
+
+    descricaoProduto.textContent =
+      'Nenhum produto localizado.';
+
+    etapaWmsAtual = 'produto';
+
+    salvarEstadoColetaMobile();
+    renderItensEnderecoAtual();
+    atualizarEstadoColeta();
+    atualizarTelaPorEndereco();
+    atualizarFluxoSequencialWms();
+
+    return;
+  }
+
+  const valor =
+    enderecoAtualInput.value.trim();
 
   if (!valor) {
     mensagemEndereco.textContent =
       'Digite ou escaneie um endereço.';
 
-    mensagemEndereco.className = 'mensagem erro';
+    mensagemEndereco.className =
+      'mensagem erro';
+
+    enderecoAtualInput.focus();
     return;
   }
 
   try {
-    mensagemEndereco.textContent = 'Validando endereço...';
-mensagemEndereco.className = 'mensagem info';
-mensagem.textContent = '';
+    mensagemEndereco.textContent =
+      'Validando endereço...';
 
-let enderecoValido = false;
+    mensagemEndereco.className =
+      'mensagem info';
 
-if (!navigator.onLine) {
-  enderecoValido = validarEnderecoLocal(valor);
-} else {
-  try {
-    const res = await fetch(`/validar-endereco-mobile/${encodeURIComponent(valor)}`, {
-      credentials: 'same-origin'
-    });
+    mensagem.textContent = '';
 
-    const data = await res.json();
+    let enderecoValido = false;
 
-    if (res.ok && data.valido) {
-      enderecoValido = true;
+    if (!navigator.onLine) {
+      enderecoValido =
+        validarEnderecoLocal(valor);
+    } else {
+      try {
+        const resposta = await fetch(
+          `/validar-endereco-mobile/${encodeURIComponent(valor)}`,
+          {
+            credentials: 'same-origin',
+          }
+        );
+
+        const dados =
+          await resposta.json();
+
+        if (
+          resposta.ok &&
+          dados.valido
+        ) {
+          enderecoValido = true;
+        }
+      } catch (erro) {
+        enderecoValido =
+          validarEnderecoLocal(valor);
+      }
     }
-  } catch (erro) {
-    enderecoValido = validarEnderecoLocal(valor);
-  }
-}
 
-if (!enderecoValido) {
-  throw new Error('Endereço não cadastrado no filtro baixado.');
-}
+    if (!enderecoValido) {
+      throw new Error(
+        'Endereço não cadastrado no filtro baixado.'
+      );
+    }
 
-enderecoWmsAtual =
-  modoOperacaoAtual === 'wms'
-    ? valorEnderecoWms
-    : '';
+    if (modoOperacaoAtual === 'wms') {
+      enderecoInventarioWmsPendente =
+        valor;
 
-enderecoAberto = {
-  enderecoNumero: valor,
-  enderecoWms: enderecoWmsAtual,
-};
+      enderecoAberto = null;
+      enderecoWmsAtual = '';
+      itensEnderecoAtual = [];
+      produtoAtual = null;
+
+      if (enderecoWmsInput) {
+        enderecoWmsInput.value = '';
+      }
+
+      etapaWmsAtual = 'endereco-wms';
+
+      salvarEstadoColetaMobile();
+      atualizarEstadoColeta();
+      atualizarTelaPorEndereco();
+      atualizarFluxoSequencialWms();
+
+      return;
+    }
+
+    enderecoAberto = {
+      enderecoNumero: valor,
+      enderecoWms: '',
+    };
 
     itensEnderecoAtual = [];
     produtoAtual = null;
+
     codigoBusca.value = '';
     qtdeContada.value = '';
+
     descricaoProduto.textContent =
       modoOperacaoAtual === 'sem-base'
         ? 'Leia um EAN ou código interno.'
         : 'Nenhum produto localizado.';
 
-        enderecoAbertoInfo.textContent =
-  modoOperacaoAtual === 'wms'
-    ? `Inventário: ${valor} | WMS: ${enderecoWmsAtual}`
-    : `Endereço aberto: ${valor}`;
-mensagemEndereco.textContent = 'Endereço validado e aberto com sucesso.';
-mensagemEndereco.className = 'mensagem sucesso';
-mensagem.textContent = '';
-mensagem.className = 'mensagem';
+    enderecoAbertoInfo.textContent =
+      `Endereço aberto: ${valor}`;
+
+    mensagemEndereco.textContent =
+      'Endereço validado e aberto com sucesso.';
+
+    mensagemEndereco.className =
+      'mensagem sucesso';
+
+    mensagem.textContent = '';
+    mensagem.className = 'mensagem';
 
     renderItensEnderecoAtual();
     salvarEstadoColetaMobile();
     atualizarEstadoColeta();
     atualizarTelaPorEndereco();
+
     codigoBusca.focus();
   } catch (erro) {
     enderecoAberto = null;
     enderecoWmsAtual = '';
+    enderecoInventarioWmsPendente = '';
     itensEnderecoAtual = [];
     produtoAtual = null;
 
-    enderecoAbertoInfo.textContent = 'Nenhum endereço aberto.';
-    mensagemEndereco.textContent = erro.message || 'Endereço não cadastrado.';
-mensagemEndereco.className = 'mensagem erro';
-mensagem.textContent = '';
+    if (modoOperacaoAtual === 'wms') {
+      etapaWmsAtual =
+        'endereco-inventario';
+    }
+
+    enderecoAbertoInfo.textContent =
+      'Nenhum endereço aberto.';
+
+    mensagemEndereco.textContent =
+      erro.message ||
+      'Endereço não cadastrado.';
+
+    mensagemEndereco.className =
+      'mensagem erro';
+
+    mensagem.textContent = '';
 
     renderItensEnderecoAtual();
     atualizarEstadoColeta();
     atualizarTelaPorEndereco();
+    atualizarFluxoSequencialWms();
+
     enderecoAtualInput.focus();
   }
 }
@@ -2817,6 +3090,9 @@ async function adicionarItemLocal() {
       mensagem.className = 'mensagem erro';
       return;
     }
+    let itemWmsSalvo = null;
+
+
     if (modoOperacaoAtual === 'wms') {
   if (!enderecoAberto?.enderecoWms) {
     mensagem.textContent =
@@ -2870,6 +3146,7 @@ async function adicionarItemLocal() {
         'Falha ao registrar contagem WMS.'
       );
     }
+    itemWmsSalvo = dados.item;
   } catch (erro) {
     mensagem.textContent =
       erro.message ||
@@ -2879,20 +3156,35 @@ async function adicionarItemLocal() {
   }
 }
 itensEnderecoAtual.unshift({
+  idWms:
+    itemWmsSalvo?.id || null,
+
   codigoDigitado,
-  codigoBarras: produtoAtual.codigoBarras || '',
+
+  codigoBarras:
+    produtoAtual.codigoBarras || '',
+
   codigo:
     produtoAtual.codigo ||
     produtoAtual.codigoInterno ||
     '',
-  descricao: produtoAtual.descricao || '',
-  quantidade,
-  quantidadeCliente:
-    Number(produtoAtual.qtdeCongelada) || 0,
-  enderecoNumero: enderecoAberto.enderecoNumero,
-  enderecoWms: enderecoAberto.enderecoWms || '',
-});
 
+  descricao:
+    produtoAtual.descricao || '',
+
+  quantidade,
+
+  quantidadeCliente:
+    Number(
+      produtoAtual.qtdeCongelada
+    ) || 0,
+
+  enderecoNumero:
+    enderecoAberto.enderecoNumero,
+
+  enderecoWms:
+    enderecoAberto.enderecoWms || '',
+});
 
     renderItensEnderecoAtual();
     salvarEstadoColetaMobile();
@@ -2918,21 +3210,74 @@ setTimeout(() => {
 }, 120);
 }
 
-function excluirUltimo() {
-    if (!itensEnderecoAtual.length) {
-      mensagem.textContent = 'Não há item para excluir.';
-      mensagem.className = 'mensagem erro';
+async function excluirUltimo() {
+  if (!itensEnderecoAtual.length) {
+    mensagem.textContent =
+      'Não há item para excluir.';
+
+    mensagem.className = 'mensagem erro';
+    return;
+  }
+
+  const ultimoItem =
+    itensEnderecoAtual[0];
+
+  if (
+    modoOperacaoAtual === 'wms' &&
+    ultimoItem?.idWms
+  ) {
+    try {
+      mensagem.textContent =
+        'Excluindo leitura WMS...';
+
+      mensagem.className =
+        'mensagem info';
+
+      const resposta = await fetch(
+        `/wms/contagens/${encodeURIComponent(
+          ultimoItem.idWms
+        )}`,
+        {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(
+          dados?.erro ||
+            'Falha ao excluir leitura WMS.'
+        );
+      }
+    } catch (erro) {
+      mensagem.textContent =
+        erro.message ||
+        'Erro ao excluir leitura WMS.';
+
+      mensagem.className =
+        'mensagem erro';
+
       return;
     }
-
-    itensEnderecoAtual.shift();
-    salvarEstadoColetaMobile();
-    renderItensEnderecoAtual();
-    atualizarEstadoColeta();
-
-    mensagem.textContent = 'Último item removido.';
-    mensagem.className = 'mensagem sucesso';
   }
+
+  itensEnderecoAtual.shift();
+
+  salvarEstadoColetaMobile();
+  renderItensEnderecoAtual();
+  atualizarEstadoColeta();
+
+  mensagem.textContent =
+    'Último item removido.';
+
+  mensagem.className =
+    'mensagem sucesso';
+}
 
   async function finalizarEndereco() {
   await pararLeituraCamera();
@@ -2949,13 +3294,106 @@ function excluirUltimo() {
     mensagem.className = 'mensagem erro';
     return;
   }
+  if (modoOperacaoAtual === 'wms') {
+  try {
+    mensagem.textContent =
+      'Finalizando endereço WMS...';
 
+    mensagem.className =
+      'mensagem info';
+
+    const resposta = await fetch(
+      '/wms/finalizar-endereco',
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type':
+            'application/json',
+          Accept: 'application/json',
+        },
+
+        credentials: 'same-origin',
+
+        body: JSON.stringify({
+          enderecoInventario:
+            enderecoAberto.enderecoNumero,
+
+          enderecoWms:
+            enderecoAberto.enderecoWms,
+
+          itens:
+            itensEnderecoAtual,
+        }),
+      }
+    );
+
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(
+        dados?.erro ||
+          'Falha ao finalizar endereço WMS.'
+      );
+    }
+
+    enderecoAberto = null;
+enderecoWmsAtual = '';
+enderecoInventarioWmsPendente = '';
+etapaWmsAtual = 'endereco-inventario';
+
+itensEnderecoAtual = [];
+produtoAtual = null;
+
+    enderecoAtualInput.value = '';
+
+    if (enderecoWmsInput) {
+      enderecoWmsInput.value = '';
+    }
+
+    codigoBusca.value = '';
+    qtdeContada.value = '';
+
+    descricaoProduto.textContent =
+      'Nenhum produto localizado.';
+
+    enderecoAbertoInfo.textContent =
+      'Nenhum endereço aberto.';
+
+    renderItensEnderecoAtual();
+    salvarEstadoColetaMobile();
+    atualizarEstadoColeta();
+    atualizarTelaPorEndereco();
+    atualizarFluxoSequencialWms();
+
+    mensagemEndereco.textContent = '';
+
+    mensagem.textContent =
+      dados.mensagem ||
+      'Endereço WMS finalizado com sucesso.';
+
+    mensagem.className =
+      'mensagem sucesso';
+
+    enderecoAtualInput.focus();
+    return;
+  } catch (erro) {
+    mensagem.textContent =
+      erro.message ||
+      'Erro ao finalizar endereço WMS.';
+
+    mensagem.className =
+      'mensagem erro';
+
+    return;
+  }
+}
   const lote = {
     enderecoNumero: enderecoAberto.enderecoNumero,
     usuario: usuarioLogado.textContent || 'desconhecido',
     data: new Date().toLocaleString('pt-BR'),
     itens: [...itensEnderecoAtual],
-    modo: modoOperacaoAtual === 'sem-base' ? 'sem-base' : 'com-base',
+    modo: modoOperacaoAtual,
   };
 
   filaTransmissao.unshift(lote);
