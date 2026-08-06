@@ -3661,11 +3661,63 @@ carregarModoOperacaoMobile().then(() => {
 });
 
  
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js?v=7')
-      .then(() => console.log('Service Worker registrado!'))
-      .catch((err) => console.log('Erro SW:', err));
-  }
+if (
+  'serviceWorker' in navigator
+) {
+  window.addEventListener(
+    'load',
+    async () => {
+      try {
+        const registros =
+          await navigator
+            .serviceWorker
+            .getRegistrations();
+
+        /*
+          Remove o registro antigo que
+          controlava o domínio inteiro.
+        */
+        for (
+          const registro
+          of registros
+        ) {
+          const escopo =
+            new URL(
+              registro.scope
+            ).pathname;
+
+          if (
+            escopo === '/' ||
+            escopo === ''
+          ) {
+            await registro.unregister();
+          }
+        }
+
+        const registro =
+          await navigator
+            .serviceWorker
+            .register(
+              '/service-worker.js?v=9',
+              {
+                scope:
+                  '/coleta-mobile',
+              }
+            );
+
+        console.log(
+          'Service Worker mobile registrado:',
+          registro.scope
+        );
+      } catch (erro) {
+        console.error(
+          'Erro ao registrar Service Worker mobile:',
+          erro
+        );
+      }
+    }
+  );
+}
   window.addEventListener('load', () => {
   setTimeout(() => {
     const splash = document.getElementById('splashScreen');
