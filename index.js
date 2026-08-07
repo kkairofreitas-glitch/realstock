@@ -3371,7 +3371,7 @@ function recalcularStatusFaixa(endereco) {
     }
 
     if (qtdTrans > 0) {
-      pendentes += 1;
+      emContagem += 1;
       continue;
     }
 
@@ -3474,7 +3474,12 @@ function obterResumoContagensDoProduto(codigoBarras) {
 function gerarIdFinalizacao(endereco) {
   return `FIN-${Number(endereco.id)}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
-async function registrarEventoEndereco(enderecoNumero, tipoEvento, usuario = "sistema") {
+async function registrarEventoEndereco(
+  enderecoNumero,
+  tipoEvento,
+  usuario = "sistema",
+  itensEvento = null
+) {
   const endereco = buscarEnderecoPorNumero(enderecoNumero);
   if (!endereco) return null;
 
@@ -3490,11 +3495,16 @@ async function registrarEventoEndereco(enderecoNumero, tipoEvento, usuario = "si
 
   const novoEvento = {
     tipo: tipoEvento,
-    enderecoNumero: Number(enderecoNumero),
+    enderecoNumero:
+      Number(enderecoNumero),
     usuario,
     data: agoraIso,
+  
+    itens:
+      Array.isArray(itensEvento)
+        ? itensEvento
+        : [],
   };
-
   endereco.transmissoes.push(novoEvento);
 
   const totalTransmissoes = endereco.transmissoes.filter(
@@ -3511,36 +3521,87 @@ async function registrarEventoEndereco(enderecoNumero, tipoEvento, usuario = "si
   if (tipoEvento === "finalizacao") {
     const finalizacaoId = gerarIdFinalizacao(endereco);
   
-    const itensDaFinalizacao = contagens
-      .filter((c) => {
-        return (
-          c.ativo !== false &&
-          Number(c.enderecoNumero) === Number(enderecoNumero) &&
-          !c.finalizacaoId
-        );
-      })
-      .map((c) => ({
-        contagemId: c.id,
-        codigoBarras: c.codigoBarras,
-        quantidade: Number(c.quantidade) || 0,
-        usuario: c.usuario,
-        data: c.data,
-      }));
+    const itensDaFinalizacao =
+  Array.isArray(itensEvento)
+    ? itensEvento.map(
+        (item, indice) => ({
+          contagemId:
+            item.contagemId ||
+            `SEM-BASE-${Date.now()}-${indice}`,
+
+          codigoBarras:
+            item.codigoBarras ||
+            item.ean ||
+            "",
+
+          codigo:
+            item.codigo || "",
+
+          quantidade:
+            Number(
+              item.quantidade
+            ) || 0,
+
+          usuario:
+            item.usuario ||
+            usuario,
+
+          data:
+            item.data ||
+            agoraIso,
+        })
+      )
+    : contagens
+        .filter((c) => {
+          return (
+            c.ativo !== false &&
+            Number(
+              c.enderecoNumero
+            ) ===
+              Number(
+                enderecoNumero
+              ) &&
+            !c.finalizacaoId
+          );
+        })
+        .map((c) => ({
+          contagemId: c.id,
+          codigoBarras:
+            c.codigoBarras,
+          codigo: c.codigo || "",
+          quantidade:
+            Number(
+              c.quantidade
+            ) || 0,
+          usuario: c.usuario,
+          data: c.data,
+        }));
   
-    contagens = contagens.map((c) => {
-      if (
-        c.ativo !== false &&
-        Number(c.enderecoNumero) === Number(enderecoNumero) &&
-        !c.finalizacaoId
-      ) {
-        return {
-          ...c,
-          finalizacaoId,
-        };
-      }
-  
-      return c;
-    });
+        if (
+          !Array.isArray(itensEvento)
+        ) {
+          contagens = contagens.map(
+            (c) => {
+              if (
+                c.ativo !== false &&
+                Number(
+                  c.enderecoNumero
+                ) ===
+                  Number(
+                    enderecoNumero
+                  ) &&
+                !c.finalizacaoId
+              ) {
+                return {
+                  ...c,
+                  finalizacaoId,
+                };
+              }
+        
+              return c;
+            }
+          );
+        }
   
     endereco.finalizacoes.push({
       id: finalizacaoId,
@@ -3754,21 +3815,100 @@ function formatarDataHoraTransmissao(valor) {
   });
 }
 
-function contarItensDoEndereco(endereco) {
-  if (!endereco) return 0;
+function contarItensDoEndereco(
+  endereco,
+  enderecoNumero = null
+) {
+  const numero = String(
+    enderecoNumero || ""
+  ).trim();
 
-  const inicio = Number(endereco.inicio) || 0;
-  const fim = Number(endereco.fim) || 0;
+  if (
+    modoOperacao === "sem-base"
+  ) {
+    const codigos = new Set();
 
-  if (fim < inicio) return 0;
+    (
+      Array.isArray(
+        contagemSemBase
+      )
+        ? contagemSemBase
+        : []
+    ).forEach((item) => {
+      const possuiEndereco =
+        (
+          Array.isArray(
+            item.enderecos
+          )
+            ? item.enderecos
+            : []
+        ).some(
+          (registro) =>
+            String(
+              registro.enderecoNumero ||
+              ""
+            ).trim() === numero &&
+            Number(
+              registro.quantidade
+            ) > 0
+        );
 
-  const itensNoIntervalo = inventario.filter((item) => {
-    const codigo = Number(item.codigo || item.codigoInterno || 0);
-    return codigo >= inicio && codigo <= fim;
-  });
+      if (!possuiEndereco) {
+        return;
+      }
 
-  const contados = itensNoIntervalo.filter((item) => Number(item.qtdeContada || 0) > 0);
-  return contados.length;
+      const chave =
+        String(
+          item.ean ||
+          item.codigo ||
+          ""
+        ).trim();
+
+      if (chave) {
+        codigos.add(chave);
+      }
+    });
+
+    return codigos.size;
+  }
+
+  const finalizacoes =
+    Array.isArray(
+      endereco?.finalizacoes
+    )
+      ? endereco.finalizacoes.filter(
+          (item) =>
+            !item.excluida &&
+            (
+              !numero ||
+              Number(
+                item.enderecoNumero
+              ) === Number(numero)
+            )
+        )
+      : [];
+
+  const itens =
+    finalizacoes.flatMap(
+      (item) =>
+        Array.isArray(item.itens)
+          ? item.itens
+          : []
+    );
+
+  return new Set(
+    itens
+      .map(
+        (item) =>
+          String(
+            item.codigoBarras ||
+            item.ean ||
+            item.codigo ||
+            ""
+          ).trim()
+      )
+      .filter(Boolean)
+  ).size;
 }
 
 function obterOrigemTransmissaoEndereco(endereco) {
@@ -3809,7 +3949,11 @@ const ultimoEnderecoContado =
       faixa: `${endereco.inicio || "--"} até ${endereco.fim || "--"}`,
       enderecoExato: ultimoEnderecoContado || "",
       data: formatarDataHoraTransmissao(endereco.ultimaContagemEm),
-      itens: contarItensDoEndereco(endereco),
+      itens: contarItensDoEndereco(
+        endereco,
+        endereco.enderecoNumero ||
+          ultimoEnderecoContado
+      ),
       origem: obterOrigemTransmissaoEndereco(endereco),
       contagensRecebidas: Number(endereco.contagensRecebidas || 0),
       duplicado: !!endereco.duplicado,
@@ -5669,7 +5813,106 @@ app.get("/sem-base/dados", autenticar, permitirSomenteLiderOuAdmin, (req, res) =
     itens: Array.isArray(contagemSemBase) ? contagemSemBase : [],
   });
 });
+app.post(
+  "/sem-base/abrir-endereco",
+  autenticar,
+  async (req, res) => {
+    try {
+      if (modoOperacao !== "sem-base") {
+        return res.status(400).json({
+          erro:
+            "Esta operação está disponível somente no modo sem base.",
+        });
+      }
 
+      const enderecoNumero = String(
+        req.body?.enderecoNumero || ""
+      ).trim();
+
+      if (!enderecoNumero) {
+        return res.status(400).json({
+          erro: "Informe o endereço.",
+        });
+      }
+
+      const usuario =
+        req.session?.usuario?.usuario ||
+        req.session?.usuario?.nome ||
+        "sistema";
+
+      const endereco =
+        buscarEnderecoPorNumero(
+          enderecoNumero
+        );
+
+      if (!endereco) {
+        return res.status(404).json({
+          erro:
+            "Endereço não encontrado no cadastro.",
+        });
+      }
+
+      if (
+        !Array.isArray(
+          endereco.transmissoes
+        )
+      ) {
+        endereco.transmissoes = [];
+      }
+
+      const eventosDoEndereco =
+        endereco.transmissoes
+          .filter(
+            (evento) =>
+              !evento.excluida &&
+              Number(
+                evento.enderecoNumero
+              ) ===
+                Number(enderecoNumero)
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.data) -
+              new Date(a.data)
+          );
+
+      const ultimoEvento =
+        eventosDoEndereco[0];
+
+      /*
+        Evita gerar várias transmissões
+        ao clicar repetidamente em abrir.
+      */
+      if (
+        ultimoEvento?.tipo !==
+        "transmissao"
+      ) {
+        await registrarEventoEndereco(
+          Number(enderecoNumero),
+          "transmissao",
+          usuario,
+          []
+        );
+      }
+
+      return res.json({
+        sucesso: true,
+        mensagem:
+          "Endereço aberto para contagem.",
+      });
+    } catch (erro) {
+      console.error(
+        "Erro ao abrir endereço sem base:",
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          "Não foi possível abrir o endereço.",
+      });
+    }
+  }
+);
 app.post("/sem-base/leitura", autenticar, async (req, res) => {
   try {
     const valorInformado = String(
@@ -5715,17 +5958,199 @@ app.post("/sem-base/leitura", autenticar, async (req, res) => {
           (e) => String(e.enderecoNumero || "") === enderecoNumero
         );
 
-        if (idxEndereco >= 0) {
-          item.enderecos[idxEndereco].quantidade =
-            (Number(item.enderecos[idxEndereco].quantidade) || 0) + 1;
-        } else {
-          item.enderecos.push({
-            enderecoNumero,
-            quantidade: 1,
+        function montarUltimasFinalizacoesDashboard(
+          limite = 10
+        ) {
+          if (
+            modoOperacao === "sem-base"
+          ) {
+            return [
+              ...(
+                Array.isArray(
+                  finalizacoesSemBase
+                )
+                  ? finalizacoesSemBase
+                  : []
+              ),
+            ]
+              .filter(
+                (item) =>
+                  item &&
+                  !item.excluida &&
+                  item.data
+              )
+              .sort(
+                (a, b) =>
+                  new Date(b.data) -
+                  new Date(a.data)
+              )
+              .slice(0, limite)
+              .map((finalizacao) => {
+                const itens =
+                  Array.isArray(
+                    finalizacao.itens
+                  )
+                    ? finalizacao.itens
+                    : [];
+        
+                const codigosUnicos =
+                  new Set(
+                    itens
+                      .map(
+                        (item) =>
+                          String(
+                            item.ean ||
+                            item.codigoBarras ||
+                            item.codigo ||
+                            ""
+                          ).trim()
+                      )
+                      .filter(Boolean)
+                  );
+        
+                return {
+                  id:
+                    finalizacao.id || "",
+        
+                  enderecoId: 0,
+        
+                  enderecoNumero:
+                    String(
+                      finalizacao.enderecoNumero ||
+                      ""
+                    ),
+        
+                  enderecoNome:
+                    "Endereço",
+        
+                  usuario:
+                    finalizacao.usuario ||
+                    "Não informado",
+        
+                  totalItensUnicos:
+                    codigosUnicos.size,
+        
+                  totalVolume:
+                    itens.reduce(
+                      (total, item) =>
+                        total +
+                        (
+                          Number(
+                            item.quantidade
+                          ) || 0
+                        ),
+                      0
+                    ),
+        
+                  data:
+                    finalizacao.data,
+                };
+              });
+          }
+        
+          const lista = [];
+        
+          (
+            Array.isArray(enderecamentos)
+              ? enderecamentos
+              : []
+          ).forEach((endereco) => {
+            const finalizacoes =
+              Array.isArray(
+                endereco?.finalizacoes
+              )
+                ? endereco.finalizacoes
+                : [];
+        
+            finalizacoes.forEach(
+              (finalizacao) => {
+                if (
+                  !finalizacao ||
+                  finalizacao.excluida ||
+                  !finalizacao.data
+                ) {
+                  return;
+                }
+        
+                const itens =
+                  Array.isArray(
+                    finalizacao.itens
+                  )
+                    ? finalizacao.itens
+                    : [];
+        
+                lista.push({
+                  id:
+                    finalizacao.id || "",
+        
+                  enderecoId:
+                    Number(
+                      finalizacao.enderecoId
+                    ) ||
+                    Number(
+                      endereco.id
+                    ) ||
+                    0,
+        
+                  enderecoNumero:
+                    Number(
+                      finalizacao.enderecoNumero
+                    ) || 0,
+        
+                  enderecoNome:
+                    endereco.nome ||
+                    endereco.tipo ||
+                    "Endereço",
+        
+                  usuario:
+                    finalizacao.usuario ||
+                    "Não informado",
+        
+                  totalItensUnicos:
+                    new Set(
+                      itens
+                        .map(
+                          (item) =>
+                            String(
+                              item.codigoBarras ||
+                              item.ean ||
+                              item.codigo ||
+                              ""
+                            ).trim()
+                        )
+                        .filter(Boolean)
+                    ).size,
+        
+                  totalVolume:
+                    itens.reduce(
+                      (total, item) =>
+                        total +
+                        (
+                          Number(
+                            item.quantidade
+                          ) || 0
+                        ),
+                      0
+                    ),
+        
+                  data:
+                    finalizacao.data,
+                });
+              }
+            );
           });
+        
+          return lista
+            .sort(
+              (a, b) =>
+                new Date(b.data) -
+                new Date(a.data)
+            )
+            .slice(0, limite);
         }
       }
-
+      item.data =
+      new Date().toISOString();
       itemAtualizado = item;
     } else {
       const novoItem = {
@@ -5733,11 +6158,18 @@ app.post("/sem-base/leitura", autenticar, async (req, res) => {
         codigo,
         quantidade: 1,
         ultimoUsuario: usuario,
+      
+        data:
+          new Date().toISOString(),
+      
         enderecos: enderecoNumero
           ? [
               {
                 enderecoNumero,
                 quantidade: 1,
+                usuario,
+                data:
+                  new Date().toISOString(),
               },
             ]
           : [],
@@ -5873,11 +6305,13 @@ app.post("/sem-base/finalizar-endereco", autenticar, async (req, res) => {
     finalizacoesSemBase.push(finalizacao);
     await salvarFinalizacoesSemBase();
 
-    const enderecoAtualizado = await registrarEventoEndereco(
-      Number(enderecoNumero),
-      "finalizacao",
-      usuario
-    );
+    const enderecoAtualizado =
+  await registrarEventoEndereco(
+    Number(enderecoNumero),
+    "finalizacao",
+    usuario,
+    itensDoEndereco
+  );
 
     return res.json({
       sucesso: true,
@@ -6319,22 +6753,100 @@ function localizarProdutoResumoOperacional(codigoBarras) {
   });
 }
 
-function montarUltimasLeiturasDashboard(limite = 10) {
-  return [...(Array.isArray(contagens) ? contagens : [])]
-    .filter((item) => {
-      return (
+function montarUltimasLeiturasDashboard(
+  limite = 10
+) {
+  if (
+    modoOperacao === "sem-base"
+  ) {
+    const leituras = [];
+
+    (
+      Array.isArray(
+        contagemSemBase
+      )
+        ? contagemSemBase
+        : []
+    ).forEach((item) => {
+      const enderecos =
+        Array.isArray(
+          item.enderecos
+        )
+          ? item.enderecos
+          : [];
+
+      enderecos.forEach(
+        (endereco) => {
+          leituras.push({
+            id:
+              `${item.ean || item.codigo}-` +
+              `${endereco.enderecoNumero}`,
+
+            codigoBarras:
+              item.ean || "",
+
+            codigo:
+              item.codigo || "",
+
+            descricao:
+              item.ean
+                ? "Produto sem base"
+                : "Código interno sem base",
+
+            quantidade:
+              Number(
+                endereco.quantidade
+              ) || 0,
+
+            usuario:
+              endereco.usuario ||
+              item.ultimoUsuario ||
+              "Não informado",
+
+            enderecoNumero:
+              endereco.enderecoNumero ||
+              null,
+
+            data:
+              endereco.data ||
+              item.data ||
+              null,
+          });
+        }
+      );
+    });
+
+    return leituras
+      .filter(
+        (item) => item.data
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.data) -
+          new Date(a.data)
+      )
+      .slice(0, limite);
+  }
+
+  return [
+    ...(
+      Array.isArray(contagens)
+        ? contagens
+        : []
+    ),
+  ]
+    .filter(
+      (item) =>
         item &&
         item.ativo !== false &&
         item.codigoBarras &&
         item.data
-      );
-    })
-    .sort((a, b) => {
-      return (
-        new Date(b.data).getTime() -
-        new Date(a.data).getTime()
-      );
-    })
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.data) -
+        new Date(a.data)
+    )
     .slice(0, limite)
     .map((item) => {
       const produto =
@@ -6344,17 +6856,32 @@ function montarUltimasLeiturasDashboard(limite = 10) {
 
       return {
         id: item.id || "",
-        codigoBarras: item.codigoBarras || "",
+
+        codigoBarras:
+          item.codigoBarras || "",
+
         codigo:
           produto?.codigo ||
           produto?.codigoInterno ||
           "",
+
         descricao:
-          produto?.descricao || "Sem descrição",
-        quantidade: Number(item.quantidade) || 0,
-        usuario: item.usuario || "Não informado",
+          produto?.descricao ||
+          "Sem descrição",
+
+        quantidade:
+          Number(
+            item.quantidade
+          ) || 0,
+
+        usuario:
+          item.usuario ||
+          "Não informado",
+
         enderecoNumero:
-          item.enderecoNumero ?? null,
+          item.enderecoNumero ??
+          null,
+
         data: item.data,
       };
     });
@@ -6363,78 +6890,191 @@ function montarUltimasLeiturasDashboard(limite = 10) {
 function montarUltimasFinalizacoesDashboard(
   limite = 10
 ) {
+  if (
+    modoOperacao === "sem-base"
+  ) {
+    return [
+      ...(
+        Array.isArray(
+          finalizacoesSemBase
+        )
+          ? finalizacoesSemBase
+          : []
+      ),
+    ]
+      .filter(
+        (item) =>
+          item &&
+          !item.excluida &&
+          item.data
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.data) -
+          new Date(a.data)
+      )
+      .slice(0, limite)
+      .map((finalizacao) => {
+        const itens =
+          Array.isArray(
+            finalizacao.itens
+          )
+            ? finalizacao.itens
+            : [];
+
+        const codigosUnicos =
+          new Set(
+            itens
+              .map(
+                (item) =>
+                  String(
+                    item.ean ||
+                    item.codigoBarras ||
+                    item.codigo ||
+                    ""
+                  ).trim()
+              )
+              .filter(Boolean)
+          );
+
+        return {
+          id:
+            finalizacao.id || "",
+
+          enderecoId: 0,
+
+          enderecoNumero:
+            String(
+              finalizacao.enderecoNumero ||
+              ""
+            ),
+
+          enderecoNome:
+            "Endereço",
+
+          usuario:
+            finalizacao.usuario ||
+            "Não informado",
+
+          totalItensUnicos:
+            codigosUnicos.size,
+
+          totalVolume:
+            itens.reduce(
+              (total, item) =>
+                total +
+                (
+                  Number(
+                    item.quantidade
+                  ) || 0
+                ),
+              0
+            ),
+
+          data:
+            finalizacao.data,
+        };
+      });
+  }
+
   const lista = [];
 
-  (Array.isArray(enderecamentos)
-    ? enderecamentos
-    : []
+  (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
   ).forEach((endereco) => {
-    const finalizacoes = Array.isArray(
-      endereco?.finalizacoes
-    )
-      ? endereco.finalizacoes
-      : [];
-
-    finalizacoes.forEach((finalizacao) => {
-      if (
-        !finalizacao ||
-        finalizacao.excluida ||
-        !finalizacao.data
-      ) {
-        return;
-      }
-
-      const itens = Array.isArray(
-        finalizacao.itens
+    const finalizacoes =
+      Array.isArray(
+        endereco?.finalizacoes
       )
-        ? finalizacao.itens
+        ? endereco.finalizacoes
         : [];
 
-      lista.push({
-        id: finalizacao.id || "",
-        enderecoId:
-          Number(finalizacao.enderecoId) ||
-          Number(endereco.id) ||
-          0,
-        enderecoNumero:
-          Number(finalizacao.enderecoNumero) || 0,
-        enderecoNome:
-          endereco.nome ||
-          endereco.tipo ||
-          "Endereço",
-        usuario:
-          finalizacao.usuario ||
-          "Não informado",
-        totalItensUnicos: new Set(
-          itens
-            .map((item) =>
-              String(
-                item.codigoBarras ||
-                  item.ean ||
-                  item.codigo ||
-                  ""
-              ).trim()
-            )
-            .filter(Boolean)
-        ).size,
-        totalVolume: itens.reduce(
-          (total, item) =>
-            total +
-            (Number(item.quantidade) || 0),
-          0
-        ),
-        data: finalizacao.data,
-      });
-    });
+    finalizacoes.forEach(
+      (finalizacao) => {
+        if (
+          !finalizacao ||
+          finalizacao.excluida ||
+          !finalizacao.data
+        ) {
+          return;
+        }
+
+        const itens =
+          Array.isArray(
+            finalizacao.itens
+          )
+            ? finalizacao.itens
+            : [];
+
+        lista.push({
+          id:
+            finalizacao.id || "",
+
+          enderecoId:
+            Number(
+              finalizacao.enderecoId
+            ) ||
+            Number(
+              endereco.id
+            ) ||
+            0,
+
+          enderecoNumero:
+            Number(
+              finalizacao.enderecoNumero
+            ) || 0,
+
+          enderecoNome:
+            endereco.nome ||
+            endereco.tipo ||
+            "Endereço",
+
+          usuario:
+            finalizacao.usuario ||
+            "Não informado",
+
+          totalItensUnicos:
+            new Set(
+              itens
+                .map(
+                  (item) =>
+                    String(
+                      item.codigoBarras ||
+                      item.ean ||
+                      item.codigo ||
+                      ""
+                    ).trim()
+                )
+                .filter(Boolean)
+            ).size,
+
+          totalVolume:
+            itens.reduce(
+              (total, item) =>
+                total +
+                (
+                  Number(
+                    item.quantidade
+                  ) || 0
+                ),
+              0
+            ),
+
+          data:
+            finalizacao.data,
+        });
+      }
+    );
   });
 
   return lista
-    .sort((a, b) => {
-      return (
-        new Date(b.data).getTime() -
-        new Date(a.data).getTime()
-      );
-    })
+    .sort(
+      (a, b) =>
+        new Date(b.data) -
+        new Date(a.data)
+    )
     .slice(0, limite);
 }
 
@@ -10862,11 +11502,19 @@ if (
       return res.status(404).json({ erro: 'Finalização/transmissão não encontrada.' });
     }
 
-    salvarEnderecamentos();
-    recalcularInventarioComBaseNasContagens();
-    await salvarProdutosNoBanco(inventario);
-broadcastInventario();
+    await salvarEnderecamentos();
 
+    if (
+      modoOperacao !== "sem-base"
+    ) {
+      recalcularInventarioComBaseNasContagens();
+    
+      await salvarProdutosNoBanco(
+        inventario
+      );
+    
+      broadcastInventario();
+    }
 const painelAtualizado = gerarPainelTransmissoesConsolidacao();
 
     return res.json({

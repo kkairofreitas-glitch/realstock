@@ -18138,7 +18138,11 @@ const seenContados = new Set();
     const codigo = raw.replace(/^0+/, '');
     if (!codigo) return;
 
-    if (!seenBase.has(codigo)) {
+    if (
+  modoOperacaoAtual !==
+    'sem-base' &&
+  !seenBase.has(codigo)
+) {
       seenBase.add(codigo);
 
       if (boxBase) {
@@ -18170,7 +18174,18 @@ const seenContados = new Set();
       ${Number(item.qtdeContada || 0).toLocaleString('pt-BR')}
     </small>
   `;
-
+  if (
+  modoOperacaoAtual ===
+  'sem-base' &&
+  boxBase
+) {
+  boxBase.innerHTML = `
+    <div class="painel-empty-state">
+      Modo sem base ativo.
+      Nenhum arquivo base utilizado.
+    </div>
+  `;
+}
   fragmentoItensContados.appendChild(div);
 }
     }
@@ -25259,72 +25274,128 @@ delete confirmBtn.dataset.mode;
       }
 
       async function executarAuditActionConfirmada() {
-  const confirmBtn = document.getElementById('auditActionConfirmBtn');
+  const confirmBtn = document.getElementById(
+    'auditActionConfirmBtn'
+  );
 
   const modeAtual = String(
-    confirmBtn?.dataset.mode || auditActionState.mode || ''
+    confirmBtn?.dataset.mode ||
+      auditActionState.mode ||
+      ''
   ).trim();
 
   const finalizacaoIdAtual = String(
-    confirmBtn?.dataset.finalizacaoId || auditActionState.finalizacaoId || ''
+    confirmBtn?.dataset.finalizacaoId ||
+      auditActionState.finalizacaoId ||
+      ''
   ).trim();
 
   const contagemIdAtual = String(
-    confirmBtn?.dataset.contagemId || auditActionState.contagemId || ''
+    confirmBtn?.dataset.contagemId ||
+      auditActionState.contagemId ||
+      ''
   ).trim();
 
   if (!modeAtual) {
-    showToast('Ação da auditoria inválida.');
+    mostrarToast(
+      'Ação da auditoria inválida.',
+      'aviso'
+    );
+
     return;
   }
 
-  if (confirmBtn) confirmBtn.disabled = true;
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+  }
 
   try {
     const enderecoSelecionadoId = String(
-      document.getElementById('auditoriaEnderecoSelecionadoId')?.value || ''
+      document.getElementById(
+        'auditoriaEnderecoSelecionadoId'
+      )?.value || ''
     ).trim();
 
     if (modeAtual === 'edit') {
-      const input = document.getElementById('auditNovaQuantidade');
-      const novaQuantidadeTexto = input?.value?.trim();
+      const input = document.getElementById(
+        'auditNovaQuantidade'
+      );
 
-      if (novaQuantidadeTexto === '' || novaQuantidadeTexto == null) {
-        showToast('Informe a nova quantidade.');
+      const novaQuantidadeTexto =
+        input?.value?.trim();
+
+      if (
+        novaQuantidadeTexto === '' ||
+        novaQuantidadeTexto == null
+      ) {
+        mostrarToast(
+          'Informe a nova quantidade.',
+          'aviso'
+        );
+
         return;
       }
 
-      const novaQuantidade = Number(novaQuantidadeTexto);
+      const novaQuantidade = Number(
+        novaQuantidadeTexto
+      );
 
-      if (Number.isNaN(novaQuantidade) || novaQuantidade < 0) {
-        showToast('Quantidade inválida.');
+      if (
+        Number.isNaN(novaQuantidade) ||
+        novaQuantidade < 0
+      ) {
+        mostrarToast(
+          'Quantidade inválida.',
+          'aviso'
+        );
+
         return;
       }
 
-      const res = await fetch('/editar-item-finalizacao', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          finalizacaoId: finalizacaoIdAtual,
-          contagemId: contagemIdAtual,
-          novaQuantidade,
-        }),
-      });
+      const res = await fetch(
+        '/editar-item-finalizacao',
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            finalizacaoId:
+              finalizacaoIdAtual,
+
+            contagemId:
+              contagemIdAtual,
+
+            novaQuantidade,
+          }),
+        }
+      );
 
       const dados = await res.json();
 
       if (!res.ok) {
-        throw new Error(dados.erro || 'Erro ao editar item.');
+        throw new Error(
+          dados.erro ||
+            'Erro ao editar item.'
+        );
       }
 
       fecharAuditActionModal();
-      showToast(dados.mensagem || 'Quantidade atualizada.');
+
+      mostrarToast(
+        dados.mensagem ||
+          'Quantidade atualizada.',
+        'sucesso'
+      );
 
       await carregarAuditoriaEnderecosDuplicados();
 
       if (enderecoSelecionadoId) {
-        await verAuditoriaEnderecoDuplicado(enderecoSelecionadoId);
+        await verAuditoriaEnderecoDuplicado(
+          enderecoSelecionadoId
+        );
       }
 
       return;
@@ -25333,15 +25404,22 @@ delete confirmBtn.dataset.mode;
     if (modeAtual === 'delete') {
       if (
         !finalizacaoIdAtual ||
-        finalizacaoIdAtual === 'undefined' ||
+        finalizacaoIdAtual ===
+          'undefined' ||
         finalizacaoIdAtual === 'null'
       ) {
-        showToast('ID da finalização inválido para exclusão.');
+        mostrarToast(
+          'ID da finalização inválido para exclusão.',
+          'erro'
+        );
+
         return;
       }
 
       const res = await fetch(
-        `/excluir-finalizacao/${encodeURIComponent(finalizacaoIdAtual)}`,
+        `/excluir-finalizacao/${encodeURIComponent(
+          finalizacaoIdAtual
+        )}`,
         {
           method: 'DELETE',
           credentials: 'same-origin',
@@ -25351,75 +25429,71 @@ delete confirmBtn.dataset.mode;
       const dados = await res.json();
 
       if (!res.ok) {
-        throw new Error(dados.erro || 'Erro ao excluir finalização.');
+        throw new Error(
+          dados.erro ||
+            'Erro ao excluir finalização.'
+        );
       }
 
       fecharAuditActionModal();
 
-showToast('Finalização excluída. Atualizando painel...');
+      mostrarToast(
+        'Finalização excluída com sucesso.',
+        'sucesso'
+      );
 
-// Atualiza visual rápido, sem travar o clique
-atualizarDashboardComEnderecamento();
-atualizarPainelOperacaoDashboard();
-refreshOperationalPanelsOnly();
+      await carregarAuditoriaEnderecosDuplicados();
 
-// Recarrega pesado depois, em segundo plano
-setTimeout(async () => {
-  try {
-    await carregarDados();
-    await carregarRankingUsuarios();
-    await carregarAuditoriaEnderecosDuplicados();
-
-    atualizarDashboardComEnderecamento();
-    atualizarPainelOperacaoDashboard();
-    refreshOperationalPanelsOnly();
-  } catch (e) {
-    console.error('Erro ao atualizar após exclusão:', e);
-  }
-}, 100);
-
-      const painel = dados?.painel || {};
-      const fila = Array.isArray(painel.fila) ? painel.fila : [];
-      const pendencias = Array.isArray(painel.pendencias) ? painel.pendencias : [];
-
-      const idPainel = enderecoSelecionadoId
-        ? `END-${enderecoSelecionadoId}`
-        : '';
-
-      const saiuDasPendencias =
-        idPainel && !pendencias.some((p) => String(p.id) === idPainel);
-
-      const entrouNaFila =
-        idPainel && fila.some((f) => String(f.id) === idPainel);
-
-      if (saiuDasPendencias && entrouNaFila) {
-        limparPainelAuditoriaEndereco();
-
-        mostrarAvisoCentralConsolidacao(
-          'Duplicidade resolvida. Esta posição deve ser consolidada novamente.'
+      const modalTc =
+        document.getElementById(
+          'modalTransmissoesConsolidacao'
         );
 
-        setTimeout(async () => {
-          abrirModalTransmissoesConsolidacao();
-          await renderizarModalTransmissoesConsolidacao();
-        }, 900);
-
-        return;
+      if (
+        modalTc &&
+        modalTc.getAttribute(
+          'aria-hidden'
+        ) === 'false'
+      ) {
+        await renderizarModalTransmissoesConsolidacao();
       }
 
-      if (enderecoSelecionadoId) {
-        await verAuditoriaEnderecoDuplicado(enderecoSelecionadoId);
-      }
+      atualizarPainelOperacaoDashboard();
+
+      limparPainelAuditoriaEndereco();
+
+      mostrarAvisoCentralConsolidacao(
+        'Duplicidade resolvida. Esta posição deve ser consolidada novamente.'
+      );
+
+      setTimeout(async () => {
+        abrirModalTransmissoesConsolidacao();
+
+        await renderizarModalTransmissoesConsolidacao();
+      }, 900);
 
       return;
     }
 
-    showToast('Modo de ação não reconhecido.');
+    mostrarToast(
+      'Modo de ação não reconhecido.',
+      'aviso'
+    );
   } catch (err) {
-    console.error('ERRO NA AÇÃO DA AUDITORIA:', err);
-    showToast(err.message || 'Erro ao executar ação da auditoria.');
+    console.error(
+      'ERRO NA AÇÃO DA AUDITORIA:',
+      err
+    );
+
+    mostrarToast(
+      err.message ||
+        'Erro ao executar ação da auditoria.',
+      'erro'
+    );
   } finally {
-    if (confirmBtn) confirmBtn.disabled = false;
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+    }
   }
 }
       function alternarAbaTc(aba) {
