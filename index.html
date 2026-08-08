@@ -16674,6 +16674,45 @@ body: JSON.stringify({
 
     modoOperacaoAtual = data?.modoOperacao || "com-base";
 
+    const elementosLista = [
+  "ultimasLeiturasDashboard",
+  "ultimasFinalizacoesDashboard",
+  "mapaEnderecosDashboard",
+  "arquivo-base-box",
+  "itens-contados-box",
+];
+
+elementosLista.forEach(
+  (id) => {
+    const elemento =
+      document.getElementById(
+        id
+      );
+
+    if (elemento) {
+      elemento.innerHTML = "";
+    }
+  }
+);
+
+[
+  "count-base",
+  "count-contados",
+  "total-produtos",
+  "itens-contados",
+  "itens-divergentes",
+].forEach((id) => {
+  const elemento =
+    document.getElementById(
+      id
+    );
+
+  if (elemento) {
+    elemento.textContent =
+      "0";
+  }
+});
+
     const statusEl = document.getElementById("statusModoOperacao");
 if (statusEl) {
   statusEl.textContent =
@@ -16704,10 +16743,12 @@ if (typeof carregarDados === "function") {
   await carregarDados();
 }
 
-if (typeof atualizarDashboardComEnderecamento === "function") {
-  atualizarDashboardComEnderecamento();
+if (
+  typeof atualizarDashboardComEnderecamento ===
+  "function"
+) {
+  await atualizarDashboardComEnderecamento();
 }
-
 if (typeof atualizarDashboardCompleto === "function") {
   await atualizarDashboardCompleto();
 }
