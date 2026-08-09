@@ -134,6 +134,88 @@ function normalizarModoOperacao(valor) {
   return "com-base";
 }
 
+function obterEnderecosSemBaseConhecidos() {
+  const numeros = new Set();
+
+  (Array.isArray(contagemSemBase) ? contagemSemBase : []).forEach((item) => {
+    const enderecos = Array.isArray(item?.enderecos)
+      ? item.enderecos
+      : [];
+
+    enderecos.forEach((registro) => {
+      const numero = String(
+        registro?.enderecoNumero || ""
+      ).trim();
+
+      if (numero) {
+        numeros.add(numero);
+      }
+    });
+  });
+
+  (
+    Array.isArray(finalizacoesSemBase)
+      ? finalizacoesSemBase
+      : []
+  ).forEach((item) => {
+    const numero = String(
+      item?.enderecoNumero || ""
+    ).trim();
+
+    if (numero) {
+      numeros.add(numero);
+    }
+  });
+
+  return numeros;
+}
+
+function resolverModoEventoEndereco(evento) {
+  const modoGravado = String(
+    evento?.modoOperacao || ""
+  ).trim();
+
+  if (
+    modoGravado === "com-base" ||
+    modoGravado === "sem-base" ||
+    modoGravado === "wms"
+  ) {
+    return modoGravado;
+  }
+
+  /*
+    Compatibilidade com registros antigos.
+
+    Antes, algumas transmissões/finalizações eram salvas
+    sem o campo modoOperacao.
+
+    Se o endereço também existe nos dados persistidos do
+    sem-base, tratamos esse evento legado como sem-base.
+  */
+  const numero = String(
+    evento?.enderecoNumero || ""
+  ).trim();
+
+  if (
+    numero &&
+    obterEnderecosSemBaseConhecidos().has(numero)
+  ) {
+    return "sem-base";
+  }
+
+  return "com-base";
+}
+
+function eventoPertenceAoModo(
+  evento,
+  modoReferencia = modoOperacao
+) {
+  return (
+    resolverModoEventoEndereco(evento) ===
+    normalizarModoOperacao(modoReferencia)
+  );
+}
+
 const dataDir = path.join(__dirname, "data");
 const contagensPath = path.join(dataDir, "contagens.json");
 const layoutTxtPath = path.join(dataDir, "layout-txt.json");
@@ -166,6 +248,158 @@ const FORMATOS_PREVIEW_UNIVERSAL = new Set([
   ".json",
   ".xlsx",
 ]);
+
+
+function limparEventosDoModoNosEnderecamentos(
+  modoReferencia
+) {
+  const modo = normalizarModoOperacao(
+    modoReferencia
+  );
+
+  enderecamentos = (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  ).map((endereco) => {
+    const transmissoes = (
+      Array.isArray(endereco?.transmissoes)
+        ? endereco.transmissoes
+        : []
+    ).filter(
+      (evento) =>
+        !eventoPertenceAoModo(
+          evento,
+          modo
+        )
+    );
+
+    const finalizacoes = (
+      Array.isArray(endereco?.finalizacoes)
+        ? endereco.finalizacoes
+        : []
+    ).filter(
+      (evento) =>
+        !eventoPertenceAoModo(
+          evento,
+          modo
+        )
+    );
+
+    return {
+      ...endereco,
+
+      transmissoes,
+      finalizacoes,
+
+      contagensRecebidas:
+        transmissoes.filter(
+          (evento) =>
+            evento?.tipo === "transmissao"
+        ).length,
+
+      finalizadoViaColetor:
+        finalizacoes.length > 0,
+
+      ultimaContagemEm:
+        transmissoes
+          .filter((evento) => evento?.data)
+          .sort(
+            (a, b) =>
+              new Date(b.data) -
+              new Date(a.data)
+          )[0]?.data || null,
+
+      finalizadoEm:
+        finalizacoes
+          .filter((evento) => evento?.data)
+          .sort(
+            (a, b) =>
+              new Date(b.data) -
+              new Date(a.data)
+          )[0]?.data || null,
+
+      atualizadoEm:
+        new Date().toISOString(),
+    };
+  });
+}
+
+function haAtividadeNoModo(
+  modoReferencia = modoOperacao
+) {
+  const modo = normalizarModoOperacao(
+    modoReferencia
+  );
+
+  if (modo === "sem-base") {
+    if (
+      (
+        Array.isArray(contagemSemBase) &&
+        contagemSemBase.length > 0
+      ) ||
+      (
+        Array.isArray(finalizacoesSemBase) &&
+        finalizacoesSemBase.length > 0
+      )
+    ) {
+      return true;
+    }
+  }
+
+  if (modo === "com-base") {
+    if (
+      (
+        Array.isArray(inventario) &&
+        inventario.length > 0
+      ) ||
+      (
+        Array.isArray(contagens) &&
+        contagens.length > 0
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  ).some((endereco) => {
+    const possuiTransmissao = (
+      Array.isArray(endereco?.transmissoes)
+        ? endereco.transmissoes
+        : []
+    ).some(
+      (evento) =>
+        !evento?.excluida &&
+        eventoPertenceAoModo(
+          evento,
+          modo
+        )
+    );
+
+    const possuiFinalizacao = (
+      Array.isArray(endereco?.finalizacoes)
+        ? endereco.finalizacoes
+        : []
+    ).some(
+      (evento) =>
+        !evento?.excluida &&
+        eventoPertenceAoModo(
+          evento,
+          modo
+        )
+    );
+
+    return (
+      possuiTransmissao ||
+      possuiFinalizacao
+    );
+  });
+}
+
 
 function limparNomeColunaUniversal(valor, indice) {
   const texto = String(valor ?? "").trim();
@@ -2192,7 +2426,9 @@ app.post(
 
         historicoAlteracoes = [];
         historicoAuditoriaItens = [];
-        enderecamentos = [];
+        limparEventosDoModoNosEnderecamentos(
+          "com-base"
+        );
         itemAuditoriaAtual = null;
 
         inventario =
@@ -2988,34 +3224,67 @@ function montarSnapshotEncerramento(usuario) {
   };
 }
 
-async function resetarSistemaAposEncerramento() {
-  inventario = [];
-  historicoAlteracoes = [];
-  historicoAuditoriaItens = [];
-  contagens = [];
-  enderecamentos = [];
-  contagemSemBase = [];
-  finalizacoesSemBase = [];
-  itemAuditoriaAtual = null;
-  modoOperacao = "com-base";
+async function resetarSistemaAposEncerramento(
+  modoReferencia = modoOperacao
+) {
+  const modo = normalizarModoOperacao(
+    modoReferencia
+  );
 
-  auditoriaImportacao = {
-    totalImportadoBruto: 0,
-    totalUnicosBruto: 0,
-    duplicatasRemovidas: 0,
-    itensZeradosIgnorados: 0,
-  };
+  /*
+    Primeiro removemos os eventos de endereçamento
+    pertencentes ao modo que está sendo encerrado.
+  */
+  limparEventosDoModoNosEnderecamentos(
+    modo
+  );
 
-  await salvarContagens();
-await salvarEnderecamentos();
-await salvarContagemSemBase();
-await salvarFinalizacoesSemBase();
-salvarModoOperacao();
+  /*
+    MODO SEM BASE
+  */
+  if (modo === "sem-base") {
+    contagemSemBase = [];
+    finalizacoesSemBase = [];
 
-if (usarPostgres) {
-  await limparInventarioPostgres();
+    await salvarContagemSemBase();
+    await salvarFinalizacoesSemBase();
+    await salvarEnderecamentos();
+
+    return;
+  }
+
+  /*
+    MODO COM BASE
+  */
+  if (modo === "com-base") {
+    inventario = [];
+    historicoAlteracoes = [];
+    historicoAuditoriaItens = [];
+    contagens = [];
+    itemAuditoriaAtual = null;
+
+    auditoriaImportacao = {
+      totalImportadoBruto: 0,
+      totalUnicosBruto: 0,
+      duplicatasRemovidas: 0,
+      itensZeradosIgnorados: 0,
+    };
+
+    await salvarProdutosNoBanco([]);
+    await salvarContagens();
+    await salvarEnderecamentos();
+
+    return;
+  }
+
+  /*
+    WMS:
+    neste ponto não apagamos dados dos outros modos.
+  */
+  await salvarEnderecamentos();
 }
-}
+
+
 function garantirPastaData() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -3135,6 +3404,12 @@ function normalizarEnderecoSalvo(item) {
 
   return {
     ...item,
+
+    modoOperacao:
+  normalizarModoOperacao(
+    item?.modoOperacao || "sem-base"
+  ),
+
     id: Number(item?.id) || 0,
     tipo: item?.tipo || "",
     nome: item?.nome || "",
@@ -3274,6 +3549,21 @@ function existeFaixaDuplicadaOuSobreposta({ idIgnorar = null, tipo, inicio, fim 
       return false;
     }
 
+
+    const modoItem =
+    normalizarModoOperacao(
+      item?.modoOperacao
+    );
+  
+  const modoAtual =
+    normalizarModoOperacao(
+      modoOperacao
+    );
+  
+  if (modoItem !== modoAtual) {
+    return false;
+  }
+
     const itemTipo = normalizarTextoEndereco(item.tipo).toLowerCase();
     if (itemTipo !== tipoNormalizado) {
       return false;
@@ -3289,15 +3579,7 @@ function existeFaixaDuplicadaOuSobreposta({ idIgnorar = null, tipo, inicio, fim 
   });
 }
 
-function buscarEnderecoPorNumero(enderecoNumero) {
-  const numero = Number(enderecoNumero);
 
-  return enderecamentos.find((item) => {
-    const inicio = Number(item.inicio) || 0;
-    const fim = Number(item.fim) || 0;
-    return numero >= inicio && numero <= fim;
-  });
-}
 function obterConsolidacaoPorNumero(endereco, enderecoNumero) {
   const consolidacoes = Array.isArray(endereco?.consolidacoesPorNumero)
     ? endereco.consolidacoesPorNumero
@@ -3310,12 +3592,24 @@ function obterConsolidacaoPorNumero(endereco, enderecoNumero) {
 function recalcularStatusFaixa(endereco) {
   const inicio = Number(endereco?.inicio) || 0;
   const fim = Number(endereco?.fim) || 0;
+  const eventos = Array.isArray(endereco?.transmissoes)
+  ? endereco.transmissoes.filter(
+      (evento) =>
+        !evento?.excluida &&
+        eventoPertenceAoModo(evento)
+    )
+  : [];
 
-  const eventos = Array.isArray(endereco?.transmissoes) ? endereco.transmissoes : [];
-  const finalizacoesAtivas = Array.isArray(endereco?.finalizacoes)
-    ? endereco.finalizacoes.filter((f) => !f.excluida)
-    : [];
-
+const finalizacoesAtivas = Array.isArray(
+  endereco?.finalizacoes
+)
+  ? endereco.finalizacoes.filter(
+      (finalizacao) =>
+        !finalizacao?.excluida &&
+        eventoPertenceAoModo(finalizacao)
+    )
+  : [];
+  
   if (fim < inicio) {
     return {
       status: "pendente",
@@ -7009,30 +7303,30 @@ function montarUltimasFinalizacoesDashboard(
 
 function montarMapaEnderecosDashboard() {
   const resultado = [];
-  const modoAtual =
-  normalizarModoOperacao(
+
+  const modoAtual = normalizarModoOperacao(
     modoOperacao
   );
 
-const pertenceAoModoAtual = (
-  evento
-) => {
-  const modoEvento =
-    String(
-      evento?.modoOperacao ||
-      "com-base"
-    ).trim();
+  const pertenceAoModoAtual = (evento) =>
+    eventoPertenceAoModo(
+      evento,
+      modoAtual
+    );
 
-  return (
-    modoEvento ===
-    modoAtual
+  const enderecosDoModoAtual = (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  ).filter(
+    (endereco) =>
+      normalizarModoOperacao(
+        endereco?.modoOperacao
+      ) === modoAtual
   );
-};
 
-  (Array.isArray(enderecamentos)
-    ? enderecamentos
-    : []
-  ).forEach((endereco) => {
+  enderecosDoModoAtual.forEach((endereco) => {
+
     const inicio = Number(endereco.inicio) || 0;
     const fim = Number(endereco.fim) || 0;
 
@@ -7182,6 +7476,7 @@ function normalizarChaveUsuarioRanking(valor) {
 function gerarMapaEnderecosConcluidosPorUsuario() {
   const mapa = new Map();
 
+ 
   function adicionarEndereco(usuario, chaveEndereco) {
     const chaveUsuario = normalizarChaveUsuarioRanking(usuario);
     const chave = String(chaveEndereco || "").trim();
@@ -7224,10 +7519,19 @@ function gerarMapaEnderecosConcluidosPorUsuario() {
     ? enderecamentos
     : [];
 
-  listaEnderecamentos.forEach((endereco) => {
-    const finalizacoes = Array.isArray(endereco?.finalizacoes)
-      ? endereco.finalizacoes
-      : [];
+    listaEnderecamentos.forEach((endereco) => {
+      const finalizacoes =
+        Array.isArray(
+          endereco?.finalizacoes
+        )
+          ? endereco.finalizacoes.filter(
+              (finalizacao) =>
+                !finalizacao?.excluida &&
+                eventoPertenceAoModo(
+                  finalizacao
+                )
+            )
+          : [];
 
     finalizacoes.forEach((finalizacao) => {
       if (!finalizacao || finalizacao.excluida) {
@@ -7259,15 +7563,34 @@ function gerarMapaEnderecosConcluidosPorUsuario() {
 function montarDetalhesProgresso() {
   const agora = Date.now();
 
-  const listaEnderecamentos = Array.isArray(enderecamentos)
-    ? enderecamentos
-    : [];
+  const modoAtual =
+    normalizarModoOperacao(
+      modoOperacao
+    );
 
+  const listaEnderecamentos = (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  ).filter(
+    (endereco) =>
+      normalizarModoOperacao(
+        endereco?.modoOperacao
+      ) === modoAtual
+  );
   const finalizacoesValidas = [];
 
   listaEnderecamentos.forEach((endereco) => {
-    const finalizacoes = Array.isArray(endereco?.finalizacoes)
-      ? endereco.finalizacoes
+    const finalizacoes = Array.isArray(
+      endereco?.finalizacoes
+    )
+      ? endereco.finalizacoes.filter(
+          (finalizacao) =>
+            !finalizacao?.excluida &&
+            eventoPertenceAoModo(
+              finalizacao
+            )
+        )
       : [];
 
     finalizacoes.forEach((finalizacao) => {
@@ -7357,7 +7680,13 @@ function montarDetalhesProgresso() {
     const eventos = Array.isArray(
       endereco.transmissoes
     )
-      ? endereco.transmissoes
+      ? endereco.transmissoes.filter(
+          (evento) =>
+            !evento?.excluida &&
+            eventoPertenceAoModo(
+              evento
+            )
+        )
       : [];
 
     const transmissoesDoNumero = eventos
@@ -11250,8 +11579,17 @@ app.put('/editar-item-finalizacao', autenticar, (req, res) => {
     let alterado = false;
 
     enderecamentos = enderecamentos.map((end) => {
-      const finalizacoes = Array.isArray(end.finalizacoes) ? end.finalizacoes : [];
-
+      const finalizacoes = Array.isArray(
+        endereco?.finalizacoes
+      )
+        ? endereco.finalizacoes.filter(
+            (finalizacao) =>
+              !finalizacao?.excluida &&
+              eventoPertenceAoModo(
+                finalizacao
+              )
+          )
+        : [];
       const novasFinalizacoes = finalizacoes.map((fin) => {
         if (String(fin.id) !== String(finalizacaoId)) return fin;
 
@@ -11647,13 +11985,23 @@ const painelAtualizado = gerarPainelTransmissoesConsolidacao();
     return res.status(500).json({ erro: 'Erro ao excluir finalização.' });
   }
 });
-app.post("/encerrar-inventario", autenticar, (req, res) => {
+app.post("/encerrar-inventario", autenticar, async (req, res) => {
   try {
     garantirPastaEncerramentos();
 
-    if (!inventario.length) {
+    const modoEncerrado =
+      normalizarModoOperacao(
+        modoOperacao
+      );
+
+    if (
+      !haAtividadeNoModo(
+        modoEncerrado
+      )
+    ) {
       return res.status(400).json({
-        erro: "Não há inventário ativo para encerrar."
+        erro:
+          `Não há inventário ativo no modo ${modoEncerrado} para encerrar.`
       });
     }
 
@@ -11671,11 +12019,23 @@ app.post("/encerrar-inventario", autenticar, (req, res) => {
       "utf8"
     );
 
-    fs.writeFileSync(
-      path.join(pastaEncerramento, "inventario-final.csv"),
-      gerarCsvInventario(inventario),
-      "utf8"
-    );
+    const linhasEncerramento =
+  modoEncerrado === "sem-base"
+    ? montarLinhasSemBaseParaTabela({
+        busca: ""
+      })
+    : inventario;
+
+fs.writeFileSync(
+  path.join(
+    pastaEncerramento,
+    "inventario-final.csv"
+  ),
+  gerarCsvInventario(
+    linhasEncerramento
+  ),
+  "utf8"
+);
 
     const resumoTxt = [
       `Encerrado em: ${snapshot.encerradoEm}`,
@@ -11703,14 +12063,19 @@ app.post("/encerrar-inventario", autenticar, (req, res) => {
       "utf8"
     );
 
-    resetarSistemaAposEncerramento();
+    await resetarSistemaAposEncerramento(
+      modoEncerrado
+    );
+    
     broadcastInventario();
-
+    
     return res.json({
       sucesso: true,
       nomePasta,
-      mensagem: "Inventário encerrado com sucesso."
+      mensagem:
+        `Inventário do modo ${modoEncerrado} encerrado com sucesso.`
     });
+
   } catch (erro) {
     console.error("Erro ao encerrar inventário:", erro);
     return res.status(500).json({
@@ -12526,6 +12891,11 @@ app.post("/transmitir-endereco", autenticar, (req, res) => {
 
     endereco.transmissoes.push({
       tipo: "transmissao",
+    
+      modoOperacao: normalizarModoOperacao(
+        modoOperacao
+      ),
+    
       statusConsolidacao: "pendente",
       enderecoNumero: Number(enderecoNumero),
       usuario,
@@ -12628,11 +12998,25 @@ app.get("/validar-endereco-mobile/:numero", autenticar, (req, res) => {
 });
 app.get("/enderecamentos", autenticar, (req, res) => {
   try {
-    const listaAtualizada = (
-      Array.isArray(enderecamentos)
-        ? enderecamentos
-        : []
-    ).map((endereco) => {
+    
+    const modoAtual =
+    normalizarModoOperacao(
+      modoOperacao
+    );
+  
+  const listaAtualizada = (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  )
+    .filter(
+      (endereco) =>
+        normalizarModoOperacao(
+          endereco?.modoOperacao
+        ) === modoAtual
+    )
+    .map((endereco) => {
+
       const normalizado =
         normalizarEnderecoSalvo(endereco);
 
@@ -12661,12 +13045,7 @@ app.get("/enderecamentos", autenticar, (req, res) => {
       };
     });
 
-    /*
-      Atualiza também a variável em memória,
-      evitando que outras telas usem valores antigos.
-    */
-    enderecamentos = listaAtualizada;
-
+    
     return res.json(listaAtualizada);
   } catch (erro) {
     console.error(
@@ -12689,12 +13068,28 @@ app.get("/enderecamentos/posicoes-pendentes", autenticar, (req, res) => {
       const inicio = Number(endereco.inicio) || 0;
       const fim = Number(endereco.fim) || 0;
 
-      const finalizacoesAtivas = Array.isArray(endereco.finalizacoes)
-        ? endereco.finalizacoes.filter((f) => !f.excluida)
+      const finalizacoesAtivas = Array.isArray(
+        endereco.finalizacoes
+      )
+        ? endereco.finalizacoes.filter(
+            (finalizacao) =>
+              !finalizacao?.excluida &&
+              eventoPertenceAoModo(
+                finalizacao
+              )
+          )
         : [];
-
-      const transmissoesAtivas = Array.isArray(endereco.transmissoes)
-        ? endereco.transmissoes.filter((t) => !t.excluida)
+      
+      const transmissoesAtivas = Array.isArray(
+        endereco.transmissoes
+      )
+        ? endereco.transmissoes.filter(
+            (transmissao) =>
+              !transmissao?.excluida &&
+              eventoPertenceAoModo(
+                transmissao
+              )
+          )
         : [];
 
       for (let numero = inicio; numero <= fim; numero++) {
@@ -12786,6 +13181,12 @@ app.post("/enderecamentos", autenticar, (req, res) => {
     const novoEndereco = {
       id: gerarNovoIdEnderecamento(),
       tipo: tipoLimpo,
+
+      modoOperacao:
+      normalizarModoOperacao(
+        modoOperacao
+      ),
+
       nome: nomeLimpo,
       inicio: nInicio,
       fim: nFim,

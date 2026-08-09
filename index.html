@@ -2780,70 +2780,7 @@ to{
           padding: 14px 16px 16px;
         }
       }
-      .toast-sistema {
-  position: fixed;
-
-  top: 22px;
-  left: 50%;
-  right: auto;
-
-  width: max-content;
-  min-width: 280px;
-  max-width: min(
-    520px,
-    calc(100vw - 32px)
-  );
-
-  padding: 14px 22px;
-
-  border: 1px solid
-    rgba(255, 255, 255, 0.14);
-  border-left: 5px solid #3b82f6;
-  border-radius: 12px;
-
-  background: #0f172a;
-  color: #ffffff;
-
-  font-size: 14px;
-  font-weight: 700;
-  text-align: center;
-
-  box-shadow:
-    0 12px 30px
-    rgba(15, 23, 42, 0.22);
-
-  opacity: 0;
-  pointer-events: none;
-
-  transform:
-    translate(-50%, -16px);
-
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease;
-
-  z-index: 999999;
-}
-
-.toast-sistema.show {
-  opacity: 1;
-  pointer-events: auto;
-
-  transform:
-    translate(-50%, 0);
-}
-
-.toast-sistema.sucesso {
-  border-left-color: #22c55e;
-}
-
-.toast-sistema.erro {
-  border-left-color: #ef4444;
-}
-
-.toast-sistema.aviso {
-  border-left-color: #f59e0b;
-}
+     
 
       .importacao-badge {
         display: inline-flex;
@@ -5800,27 +5737,6 @@ tbody tr:hover td {
   background: rgba(255,255,255,0.10) !important;
 }
 
-/* TOASTS MAIS PROFISSIONAIS */
-.toast,
-.toast-sistema {
-  border-radius: 16px !important;
-  background: #0f172a !important;
-  color: #ffffff !important;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.28) !important;
-  border-left: 5px solid #3b82f6 !important;
-}
-
-.toast-sistema.sucesso {
-  border-left-color: #22c55e !important;
-}
-
-.toast-sistema.erro {
-  border-left-color: #ef4444 !important;
-}
-
-.toast-sistema.aviso {
-  border-left-color: #f59e0b !important;
-}
 
 /* INPUTS E FILTROS */
 .filter-actions-bar {
@@ -10177,147 +10093,332 @@ body[data-modo-operacao="wms"]
   filter: none !important;
 }
 /* ==========================================================
-   MENSAGENS GLOBAIS CENTRALIZADAS
+   MODAL GLOBAL DE MENSAGENS
+   sucesso | aviso | erro
 ========================================================== */
 
 #toastSistema.toast-sistema {
   position: fixed !important;
+  inset: 0 !important;
 
-  top: 50% !important;
-  left: 50% !important;
-  right: auto !important;
-  bottom: auto !important;
+  width: 100% !important;
+  height: 100% !important;
 
-  width: min(
-    520px,
-    calc(100vw - 32px)
-  ) !important;
+  transform: none !important;
 
-  min-width: 320px;
-  min-height: 72px;
+min-width: 0 !important;
+max-width: none !important;
+
+border: none !important;
+border-radius: 0 !important;
+
+box-shadow: none !important;
+
+color: inherit !important;
 
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 14px;
+  justify-content: center;
 
-  padding: 16px 20px;
+  padding: 20px;
 
-  border: 1px solid transparent !important;
-  border-left-width: 6px !important;
-  border-radius: 14px !important;
-
-  color: #ffffff !important;
-
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 800;
-  line-height: 1.4;
-  text-align: left;
-
-  box-shadow:
-    0 20px 55px
-    rgba(15, 23, 42, 0.28) !important;
+  background:
+  rgba(0, 0, 0, 0.36) !important;
 
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 
-  transform:
-    translate(-50%, -50%)
-    scale(0.96) !important;
-
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease,
-    visibility 0.2s ease;
+    opacity 0.18s ease,
+    visibility 0.18s ease;
 
   z-index: 9999999 !important;
 }
 
-/* Mensagem visível */
+
+/* ==========================================================
+   VISÍVEL
+========================================================== */
+
 #toastSistema.toast-sistema.show {
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto;
 
-  transform:
-    translate(-50%, -50%)
-    scale(1) !important;
+  transform: none !important;
 }
 
-/* Ícone */
-#toastSistema .toast-sistema-icone {
-  width: 42px;
-  height: 42px;
 
-  flex: 0 0 42px;
+/* ==========================================================
+   CAIXA PRINCIPAL
+========================================================== */
 
-  display: inline-flex;
+.toast-sistema-card {
+  width: min(
+    490px,
+    calc(100vw - 32px)
+  );
+
+  min-height: 320px;
+
+  background: #ffffff;
+
+  border-radius: 5px;
+
+  box-shadow:
+    0 8px 30px
+    rgba(0, 0, 0, 0.18);
+
+  padding:
+    38px
+    42px
+    28px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  text-align: center;
+
+  transform: scale(0.94);
+
+  transition:
+    transform 0.18s ease;
+
+  font-family: inherit;
+}
+
+
+#toastSistema.show
+.toast-sistema-card {
+  transform: scale(1);
+}
+
+
+/* ==========================================================
+   ÍCONE
+========================================================== */
+
+#toastSistema
+.toast-sistema-icone {
+  width: 84px;
+  height: 84px;
+
+  flex: 0 0 84px;
+
+  display: flex;
   align-items: center;
   justify-content: center;
 
   border-radius: 50%;
 
-  background: rgba(
-    255,
-    255,
-    255,
-    0.16
-  );
+  background: transparent !important;
+
+  border: 4px solid;
+
+  font-size: 42px;
+
+  margin-bottom: 26px;
+}
+
+
+/* SUCESSO */
+
+#toastSistema.sucesso
+.toast-sistema-icone {
+  color: #22c55e;
+  border-color: #22c55e;
+}
+
+
+/* AVISO */
+
+#toastSistema.aviso
+.toast-sistema-icone {
+  color: #eab308;
+  border-color: #facc15;
+}
+
+
+/* ERRO */
+
+#toastSistema.erro
+.toast-sistema-icone {
+  color: #f87171;
+  border-color: #f87171;
+}
+
+
+/* ==========================================================
+   TÍTULO
+========================================================== */
+
+.toast-sistema-titulo {
+  margin: 0 0 12px;
+
+  color: #5f5f5f;
+
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+
+/* ==========================================================
+   TEXTO
+========================================================== */
+
+#toastSistema
+.toast-sistema-texto {
+  width: 100%;
+
+  color: #777777;
+
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.45;
+
+  text-align: center;
+
+  overflow-wrap: anywhere;
+
+  margin-bottom: 28px;
+}
+
+
+/* ==========================================================
+   BOTÃO OK
+========================================================== */
+
+.toast-sistema-ok {
+  min-width: 88px;
+  height: 40px;
+
+  padding: 0 24px;
+
+  border: none;
+  border-radius: 4px;
+
+  background: #2f8bd8;
 
   color: #ffffff;
 
-  font-size: 1.15rem;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.16s ease,
+    transform 0.16s ease;
 }
 
-/* Texto */
-#toastSistema .toast-sistema-texto {
-  flex: 1;
-  min-width: 0;
 
-  overflow-wrap: anywhere;
+.toast-sistema-ok:hover {
+  background: #247ac3;
 }
 
-/* Sucesso — verde */
-#toastSistema.toast-sistema.sucesso {
-  background: #166534 !important;
-  border-color: #22c55e !important;
+
+.toast-sistema-ok:active {
+  transform: scale(0.97);
 }
 
-/* Aviso — amarelo */
-#toastSistema.toast-sistema.aviso {
-  background: #a16207 !important;
-  border-color: #facc15 !important;
+
+/* ==========================================================
+   VARIAÇÕES LEVES DE FUNDO
+========================================================== */
+
+#toastSistema.sucesso
+.toast-sistema-card {
+  border-top:
+    5px solid #22c55e;
 }
 
-/* Erro — vermelho */
-#toastSistema.toast-sistema.erro {
-  background: #991b1b !important;
-  border-color: #ef4444 !important;
+
+#toastSistema.aviso
+.toast-sistema-card {
+  border-top:
+    5px solid #facc15;
 }
 
-/* Responsivo */
+
+#toastSistema.erro
+.toast-sistema-card {
+  border-top:
+    5px solid #f87171;
+}
+
+
+/* ==========================================================
+   RESPONSIVO
+========================================================== */
+
 @media (max-width: 600px) {
+
   #toastSistema.toast-sistema {
-    min-width: 0;
-    width: calc(
-      100vw - 28px
-    ) !important;
+    padding: 16px;
+  }
 
-    min-height: 66px;
+  .toast-sistema-card {
+    width: 100%;
 
-    padding: 14px 16px;
+    min-height: 290px;
 
-    font-size: 0.88rem;
+    padding:
+      32px
+      24px
+      24px;
   }
 
   #toastSistema
   .toast-sistema-icone {
-    width: 36px;
-    height: 36px;
-    flex-basis: 36px;
+    width: 72px;
+    height: 72px;
+
+    flex-basis: 72px;
+
+    font-size: 34px;
+
+    margin-bottom: 20px;
   }
+
+  .toast-sistema-titulo {
+    font-size: 25px;
+  }
+
+  #toastSistema
+  .toast-sistema-texto {
+    font-size: 15px;
+  }
+}
+/* ==========================================================
+   COR DO MODO ATUAL - RODAPÉ DA SIDEBAR
+========================================================== */
+
+/* COM BASE - mantém turquesa */
+body[data-modo-operacao="com-base"]
+#statusModoOperacao {
+  color: #14d8c4 !important;
+  text-shadow:
+    0 0 8px rgba(20, 216, 196, 0.18);
+}
+
+/* SEM BASE - amarelo */
+body[data-modo-operacao="sem-base"]
+#statusModoOperacao {
+  color: #facc15 !important;
+  text-shadow:
+    0 0 8px rgba(250, 204, 21, 0.20);
+}
+
+/* WMS - azul */
+body[data-modo-operacao="wms"]
+#statusModoOperacao {
+  color: #60a5fa !important;
+  text-shadow:
+    0 0 8px rgba(96, 165, 250, 0.20);
 }
     </style>
   </head>
@@ -18215,18 +18316,7 @@ const seenContados = new Set();
       ${Number(item.qtdeContada || 0).toLocaleString('pt-BR')}
     </small>
   `;
-  if (
-  modoOperacaoAtual ===
-  'sem-base' &&
-  boxBase
-) {
-  boxBase.innerHTML = `
-    <div class="painel-empty-state">
-      Modo sem base ativo.
-      Nenhum arquivo base utilizado.
-    </div>
-  `;
-}
+  
   fragmentoItensContados.appendChild(div);
 }
     }
@@ -18375,9 +18465,21 @@ const seenContados = new Set();
 corpo.replaceChildren(fragmentoTabela);
 
 if (boxBase) {
-  boxBase.replaceChildren(
-    fragmentoArquivoBase
-  );
+  if (
+    modoOperacaoAtual ===
+    'sem-base'
+  ) {
+    boxBase.innerHTML = `
+      <div class="painel-empty-state">
+        Modo sem base ativo.<br>
+        Nenhum arquivo base utilizado.
+      </div>
+    `;
+  } else {
+    boxBase.replaceChildren(
+      fragmentoArquivoBase
+    );
+  }
 }
 
 if (boxContados) {
@@ -24732,52 +24834,134 @@ function imprimirPosicoesPendentes() {
     return;
   }
 
+
   const tiposPermitidos = [
     'sucesso',
     'aviso',
     'erro',
   ];
 
+
   const tipoNormalizado =
     tiposPermitidos.includes(tipo)
       ? tipo
       : 'aviso';
 
-  const icones = {
-    sucesso:
-      'fa-solid fa-circle-check',
 
-    aviso:
-      'fa-solid fa-triangle-exclamation',
+  /* ========================================================
+     CONFIGURAÇÃO VISUAL DE CADA TIPO
+  ======================================================== */
 
-    erro:
-      'fa-solid fa-circle-xmark',
+  const configuracoes = {
+
+    sucesso: {
+      titulo: 'Sucesso!',
+      icone:
+        'fa-solid fa-check',
+    },
+
+    aviso: {
+      titulo: 'Atenção!',
+      icone:
+        'fa-solid fa-exclamation',
+    },
+
+    erro: {
+      titulo: 'Atenção!',
+      icone:
+        'fa-solid fa-xmark',
+    },
+
   };
 
+
+  const config =
+    configuracoes[
+      tipoNormalizado
+    ];
+
+
   /*
-    Limpa o conteúdo anterior sem usar
-    texto HTML vindo da mensagem.
+    Cancela qualquer timer antigo.
+
+    Agora a mensagem NÃO desaparecerá
+    automaticamente.
+
+    Ela só fecha quando o usuário
+    clicar em OK.
   */
+  clearTimeout(
+    toast._timer
+  );
+
+
   toast.replaceChildren();
 
+
+  /* ========================================================
+     CARD
+  ======================================================== */
+
+  const card =
+    document.createElement(
+      'div'
+    );
+
+  card.className =
+    'toast-sistema-card';
+
+
+  /* ========================================================
+     ÍCONE
+  ======================================================== */
+
   const icone =
-    document.createElement('span');
+    document.createElement(
+      'div'
+    );
 
   icone.className =
     'toast-sistema-icone';
 
+
   const elementoIcone =
-    document.createElement('i');
+    document.createElement(
+      'i'
+    );
 
   elementoIcone.className =
-    icones[tipoNormalizado];
+    config.icone;
+
 
   icone.appendChild(
     elementoIcone
   );
 
+
+  /* ========================================================
+     TÍTULO
+  ======================================================== */
+
+  const titulo =
+    document.createElement(
+      'h2'
+    );
+
+  titulo.className =
+    'toast-sistema-titulo';
+
+  titulo.textContent =
+    config.titulo;
+
+
+  /* ========================================================
+     MENSAGEM
+  ======================================================== */
+
   const texto =
-    document.createElement('span');
+    document.createElement(
+      'div'
+    );
 
   texto.className =
     'toast-sistema-texto';
@@ -24788,20 +24972,60 @@ function imprimirPosicoesPendentes() {
       'Operação concluída.'
     );
 
-  toast.append(
-    icone,
-    texto
+
+  /* ========================================================
+     BOTÃO OK
+  ======================================================== */
+
+  const botao =
+    document.createElement(
+      'button'
+    );
+
+  botao.type =
+    'button';
+
+  botao.className =
+    'toast-sistema-ok';
+
+  botao.textContent =
+    'Ok';
+
+
+  botao.addEventListener(
+    'click',
+    fecharToastSistema
   );
+
+
+  /* ========================================================
+     MONTA O CARD
+  ======================================================== */
+
+  card.append(
+    icone,
+    titulo,
+    texto,
+    botao
+  );
+
+
+  toast.appendChild(
+    card
+  );
+
 
   toast.className =
     `toast-sistema show ${tipoNormalizado}`;
 
+
   toast.setAttribute(
     'role',
     tipoNormalizado === 'erro'
-      ? 'alert'
-      : 'status'
+      ? 'alertdialog'
+      : 'dialog'
   );
+
 
   toast.setAttribute(
     'aria-live',
@@ -24810,30 +25034,86 @@ function imprimirPosicoesPendentes() {
       : 'polite'
   );
 
-  clearTimeout(
-    toast._timer
-  );
-
-  /*
-    Todas as mensagens permanecem
-    visíveis por exatamente 5 segundos.
-  */
-  toast._timer =
-    setTimeout(() => {
-      toast.className =
-        'toast-sistema';
-
-      toast.setAttribute(
-        'aria-hidden',
-        'true'
-      );
-    }, 5000);
 
   toast.setAttribute(
     'aria-hidden',
     'false'
   );
+
+
+  /*
+    Leva o foco para o botão.
+  */
+  setTimeout(() => {
+    botao.focus();
+  }, 50);
 }
+
+function fecharToastSistema() {
+  const toast =
+    document.getElementById(
+      'toastSistema'
+    );
+
+  if (!toast) {
+    return;
+  }
+
+
+  toast.classList.remove(
+    'show'
+  );
+
+
+  toast.setAttribute(
+    'aria-hidden',
+    'true'
+  );
+
+
+  setTimeout(() => {
+
+    if (
+      !toast.classList.contains(
+        'show'
+      )
+    ) {
+      toast.replaceChildren();
+
+      toast.className =
+        'toast-sistema';
+    }
+
+  }, 180);
+}
+
+document.addEventListener(
+  'keydown',
+  (event) => {
+
+    if (
+      event.key !== 'Escape'
+    ) {
+      return;
+    }
+
+
+    const toast =
+      document.getElementById(
+        'toastSistema'
+      );
+
+
+    if (
+      toast?.classList.contains(
+        'show'
+      )
+    ) {
+      fecharToastSistema();
+    }
+
+  }
+);
      
       async function atualizarTipoUltimaImportacaoResumo() {
         try {
