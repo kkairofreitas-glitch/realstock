@@ -7113,9 +7113,18 @@ function montarUltimasLeiturasDashboard(
 function montarUltimasFinalizacoesDashboard(
   limite = 10
 ) {
-  if (
-    modoOperacao === "sem-base"
-  ) {
+  const modoAtual =
+    normalizarModoOperacao(
+      modoOperacao
+    );
+
+  /*
+    ========================================================
+    MODO SEM BASE
+    ========================================================
+  */
+
+  if (modoAtual === "sem-base") {
     return [
       ...(
         Array.isArray(
@@ -7200,97 +7209,123 @@ function montarUltimasFinalizacoesDashboard(
       });
   }
 
+
+  /*
+    ========================================================
+    COM BASE / WMS
+
+    Aqui filtramos PRIMEIRO os endereços do modo atual
+    e DEPOIS as finalizações do mesmo modo.
+    ========================================================
+  */
+
   const lista = [];
 
-  (
+  const enderecosDoModoAtual = (
     Array.isArray(enderecamentos)
       ? enderecamentos
       : []
-  ).forEach((endereco) => {
-    const finalizacoes =
-      Array.isArray(
-        endereco?.finalizacoes
-      )
-        ? endereco.finalizacoes
-        : [];
+  ).filter(
+    (endereco) =>
+      normalizarModoOperacao(
+        endereco?.modoOperacao
+      ) === modoAtual
+  );
 
-    finalizacoes.forEach(
-      (finalizacao) => {
-        if (
-          !finalizacao ||
-          finalizacao.excluida ||
-          !finalizacao.data
-        ) {
-          return;
-        }
 
-        const itens =
-          Array.isArray(
-            finalizacao.itens
-          )
-            ? finalizacao.itens
-            : [];
+  enderecosDoModoAtual.forEach(
+    (endereco) => {
 
-        lista.push({
-          id:
-            finalizacao.id || "",
-
-          enderecoId:
-            Number(
-              finalizacao.enderecoId
-            ) ||
-            Number(
-              endereco.id
-            ) ||
-            0,
-
-          enderecoNumero:
-            Number(
-              finalizacao.enderecoNumero
-            ) || 0,
-
-          enderecoNome:
-            endereco.nome ||
-            endereco.tipo ||
-            "Endereço",
-
-          usuario:
-            finalizacao.usuario ||
-            "Não informado",
-
-          totalItensUnicos:
-            new Set(
-              itens
-                .map(
-                  (item) =>
-                    String(
-                      item.codigoBarras ||
-                      item.ean ||
-                      item.codigo ||
-                      ""
-                    ).trim()
+      const finalizacoes =
+        Array.isArray(
+          endereco?.finalizacoes
+        )
+          ? endereco.finalizacoes.filter(
+              (finalizacao) =>
+                finalizacao &&
+                !finalizacao.excluida &&
+                finalizacao.data &&
+                eventoPertenceAoModo(
+                  finalizacao,
+                  modoAtual
                 )
-                .filter(Boolean)
-            ).size,
+            )
+          : [];
 
-          totalVolume:
-            itens.reduce(
-              (total, item) =>
-                total +
-                (
-                  Number(
-                    item.quantidade
-                  ) || 0
-                ),
-              0
-            ),
 
-          data:
-            finalizacao.data,
-        });
-      }
-    );
-  });
+      finalizacoes.forEach(
+        (finalizacao) => {
+
+          const itens =
+            Array.isArray(
+              finalizacao.itens
+            )
+              ? finalizacao.itens
+              : [];
+
+
+          lista.push({
+            id:
+              finalizacao.id || "",
+
+            enderecoId:
+              Number(
+                finalizacao.enderecoId
+              ) ||
+              Number(
+                endereco.id
+              ) ||
+              0,
+
+            enderecoNumero:
+              Number(
+                finalizacao.enderecoNumero
+              ) || 0,
+
+            enderecoNome:
+              endereco.nome ||
+              endereco.tipo ||
+              "Endereço",
+
+            usuario:
+              finalizacao.usuario ||
+              "Não informado",
+
+            totalItensUnicos:
+              new Set(
+                itens
+                  .map(
+                    (item) =>
+                      String(
+                        item.codigoBarras ||
+                        item.ean ||
+                        item.codigo ||
+                        ""
+                      ).trim()
+                  )
+                  .filter(Boolean)
+              ).size,
+
+            totalVolume:
+              itens.reduce(
+                (total, item) =>
+                  total +
+                  (
+                    Number(
+                      item.quantidade
+                    ) || 0
+                  ),
+                0
+              ),
+
+            data:
+              finalizacao.data,
+          });
+        }
+      );
+    }
+  );
+
 
   return lista
     .sort(
