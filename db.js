@@ -353,60 +353,184 @@ async function carregarProdutosPostgres() {
   }));
 }
 
-async function salvarEnderecamentosPostgres(listaEnderecamentos = []) {
-  await pool.query("DELETE FROM enderecamentos");
+async function salvarEnderecamentosPostgres(
+  listaEnderecamentos = []
+) {
+  const lista =
+    Array.isArray(
+      listaEnderecamentos
+    )
+      ? listaEnderecamentos
+      : [];
 
-  for (const item of listaEnderecamentos) {
-    await pool.query(
-      `
-      INSERT INTO enderecamentos (
-        id,
-        tipo,
-        nome,
-        inicio,
-        fim,
-        sequencia,
-        status,
-        observacoes,
-        dados,
-        transmissoes,
-        finalizacoes,
-        consolidacoes_por_numero
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      ON CONFLICT (id)
-      DO UPDATE SET
-        tipo = EXCLUDED.tipo,
-        nome = EXCLUDED.nome,
-        inicio = EXCLUDED.inicio,
-        fim = EXCLUDED.fim,
-        sequencia = EXCLUDED.sequencia,
-        status = EXCLUDED.status,
-        observacoes = EXCLUDED.observacoes,
-        dados = EXCLUDED.dados,
-        transmissoes = EXCLUDED.transmissoes,
-        finalizacoes = EXCLUDED.finalizacoes,
-        consolidacoes_por_numero = EXCLUDED.consolidacoes_por_numero,
-        atualizado_em = NOW()
-      `,
-      [
-        Number(item.id) || 0,
-        item.tipo || "",
-        item.nome || "",
-        Number(item.inicio) || 0,
-        Number(item.fim) || 0,
-        Number(item.sequencia) || 0,
-        item.status || "pendente",
-        item.observacoes || "",
-        JSON.stringify(item),
-        JSON.stringify(item.transmissoes || []),
-        JSON.stringify(item.finalizacoes || []),
-        JSON.stringify(item.consolidacoesPorNumero || []),
-      ]
+
+  /*
+    Proteção contra apagamento acidental.
+
+    Uma lista vazia NÃO deve destruir
+    toda a tabela automaticamente.
+
+    Quando quisermos realmente zerar
+    os endereçamentos, isso deverá ser
+    feito explicitamente.
+  */
+  if (lista.length === 0) {
+    console.warn(
+      "⚠️ salvarEnderecamentosPostgres recebeu lista vazia. " +
+      "A tabela enderecamentos não será apagada."
     );
+
+    return;
   }
 
-  console.log(`✅ Endereçamentos salvos no PostgreSQL: ${listaEnderecamentos.length}`);
+
+  const client =
+    await pool.connect();
+
+
+  try {
+    await client.query(
+      "BEGIN"
+    );
+
+
+    /*
+      Mantemos a sincronização completa,
+      mas somente quando existe conteúdo
+      válido para persistir.
+    */
+    await client.query(
+      "DELETE FROM enderecamentos"
+    );
+
+
+    for (const item of lista) {
+
+      await client.query(
+        `
+        INSERT INTO enderecamentos (
+          id,
+          tipo,
+          nome,
+          inicio,
+          fim,
+          sequencia,
+          status,
+          observacoes,
+          dados,
+          transmissoes,
+          finalizacoes,
+          consolidacoes_por_numero
+        )
+        VALUES (
+          $1,$2,$3,$4,$5,$6,
+          $7,$8,$9,$10,$11,$12
+        )
+        ON CONFLICT (id)
+        DO UPDATE SET
+          tipo =
+            EXCLUDED.tipo,
+
+          nome =
+            EXCLUDED.nome,
+
+          inicio =
+            EXCLUDED.inicio,
+
+          fim =
+            EXCLUDED.fim,
+
+          sequencia =
+            EXCLUDED.sequencia,
+
+          status =
+            EXCLUDED.status,
+
+          observacoes =
+            EXCLUDED.observacoes,
+
+          dados =
+            EXCLUDED.dados,
+
+          transmissoes =
+            EXCLUDED.transmissoes,
+
+          finalizacoes =
+            EXCLUDED.finalizacoes,
+
+          consolidacoes_por_numero =
+            EXCLUDED.consolidacoes_por_numero,
+
+          atualizado_em =
+            NOW()
+        `,
+        [
+          Number(item.id) || 0,
+
+          item.tipo || "",
+
+          item.nome || "",
+
+          Number(item.inicio) || 0,
+
+          Number(item.fim) || 0,
+
+          Number(item.sequencia) || 0,
+
+          item.status || "pendente",
+
+          item.observacoes || "",
+
+          JSON.stringify(
+            item
+          ),
+
+          JSON.stringify(
+            item.transmissoes || []
+          ),
+
+          JSON.stringify(
+            item.finalizacoes || []
+          ),
+
+          JSON.stringify(
+            item.consolidacoesPorNumero ||
+            []
+          ),
+        ]
+      );
+    }
+
+
+    await client.query(
+      "COMMIT"
+    );
+
+
+    console.log(
+      `✅ Endereçamentos salvos no PostgreSQL: ${lista.length}`
+    );
+
+  } catch (erro) {
+
+    await client.query(
+      "ROLLBACK"
+    );
+
+
+    console.error(
+      "Erro ao salvar endereçamentos no PostgreSQL:",
+      erro
+    );
+
+
+    throw erro;
+
+  } finally {
+
+    client.release();
+
+  }
 }
 
 async function carregarEnderecamentosPostgres() {

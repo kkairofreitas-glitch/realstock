@@ -3538,6 +3538,58 @@ function gerarNovoIdEnderecamento() {
   const ids = enderecamentos.map((e) => Number(e.id) || 0);
   return ids.length ? Math.max(...ids) + 1 : 1;
 }
+function buscarEnderecoPorNumero(
+  enderecoNumero,
+  modoReferencia = modoOperacao
+) {
+  const numero = Number(
+    enderecoNumero
+  );
+
+  if (
+    !Number.isFinite(numero) ||
+    numero <= 0
+  ) {
+    return null;
+  }
+
+  const modoAtual =
+    normalizarModoOperacao(
+      modoReferencia
+    );
+
+  const lista =
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : [];
+
+  return (
+    lista.find((item) => {
+      const modoEndereco =
+        normalizarModoOperacao(
+          item?.modoOperacao
+        );
+
+      if (
+        modoEndereco !==
+        modoAtual
+      ) {
+        return false;
+      }
+
+      const inicio =
+        Number(item?.inicio) || 0;
+
+      const fim =
+        Number(item?.fim) || 0;
+
+      return (
+        numero >= inicio &&
+        numero <= fim
+      );
+    }) || null
+  );
+}
 
 function existeFaixaDuplicadaOuSobreposta({ idIgnorar = null, tipo, inicio, fim }) {
   const nInicio = Number(inicio) || 0;
@@ -12990,47 +13042,94 @@ app.post("/finalizar-endereco", autenticar, (req, res) => {
     return res.status(500).json({ erro: "Falha ao finalizar endereço." });
   }
 });
-app.get("/validar-endereco-mobile/:numero", autenticar, (req, res) => {
-  try {
-    carregarEnderecamentos();
+app.get(
+  "/validar-endereco-mobile/:numero",
+  autenticar,
+  async (req, res) => {
+    try {
 
-    const numero = Number(req.params.numero);
+      /*
+        Aguarda os endereçamentos serem carregados.
 
-    if (!Number.isFinite(numero) || numero <= 0) {
-      return res.status(400).json({
-        valido: false,
-        erro: "Endereço inválido."
-      });
-    }
+        No Render, quando usar PostgreSQL,
+        essa leitura é assíncrona.
+      */
+      await carregarEnderecamentos();
 
-    const endereco = buscarEnderecoPorNumero(numero);
+      const numero =
+        Number(req.params.numero);
 
-    if (!endereco) {
-      return res.status(404).json({
-        valido: false,
-        erro: `Endereço ${numero} não cadastrado.`
-      });
-    }
-
-    return res.json({
-      valido: true,
-      endereco: {
-        id: endereco.id,
-        nome: endereco.nome,
-        tipo: endereco.tipo,
-        inicio: endereco.inicio,
-        fim: endereco.fim,
-        enderecoNumero: numero
+      if (
+        !Number.isFinite(numero) ||
+        numero <= 0
+      ) {
+        return res.status(400).json({
+          valido: false,
+          erro: "Endereço inválido.",
+        });
       }
-    });
-  } catch (erro) {
-    console.error("Erro ao validar endereço mobile:", erro);
-    return res.status(500).json({
-      valido: false,
-      erro: "Falha ao validar endereço."
-    });
+
+      const modoAtual =
+        normalizarModoOperacao(
+          modoOperacao
+        );
+
+      const endereco =
+        buscarEnderecoPorNumero(
+          numero,
+          modoAtual
+        );
+
+      if (!endereco) {
+        return res.status(404).json({
+          valido: false,
+
+          erro:
+            `Endereço ${numero} não cadastrado no modo ${modoAtual}.`,
+        });
+      }
+
+      return res.json({
+        valido: true,
+
+        endereco: {
+          id:
+            endereco.id,
+
+          nome:
+            endereco.nome,
+
+          tipo:
+            endereco.tipo,
+
+          inicio:
+            endereco.inicio,
+
+          fim:
+            endereco.fim,
+
+          enderecoNumero:
+            numero,
+
+          modoOperacao:
+            endereco.modoOperacao,
+        },
+      });
+
+    } catch (erro) {
+      console.error(
+        "Erro ao validar endereço mobile:",
+        erro
+      );
+
+      return res.status(500).json({
+        valido: false,
+        erro:
+          "Falha ao validar endereço.",
+      });
+    }
   }
-});
+);
 app.get("/enderecamentos", autenticar, (req, res) => {
   try {
     
