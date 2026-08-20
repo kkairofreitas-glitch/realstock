@@ -8296,9 +8296,10 @@ const totalEnderecosCadastrados = (
         mobileOnline:
           !!online,
       
-        ultimaAtividadeMobile:
+          ultimaAtividadeMobile:
           status?.ultimaAtividade || null,
       };
+  });
 
   rankingComStatus.sort((a, b) => {
     return (
