@@ -3240,19 +3240,82 @@ async function resetarSistemaAposEncerramento(
   );
 
   /*
-    MODO SEM BASE
+  ==========================================================
+  MODO SEM BASE
+  ==========================================================
+
+  Encerrar o inventário significa encerrar
+  todo o ciclo desse modo:
+
+  - contagens
+  - finalizações
+  - transmissões
+  - cadastros de endereços
+
+  Endereços pertencentes aos outros modos
+  permanecem intactos.
+*/
+if (modo === "sem-base") {
+
+  /*
+    1. Limpa dados operacionais
+    específicos do sem base.
   */
-  if (modo === "sem-base") {
-    contagemSemBase = [];
-    finalizacoesSemBase = [];
+  contagemSemBase = [];
 
-    await salvarContagemSemBase();
-    await salvarFinalizacoesSemBase();
-    await salvarEnderecamentos();
+  finalizacoesSemBase = [];
 
-    return;
-  }
 
+  /*
+    2. Remove os CADASTROS DE ENDEREÇO
+    pertencentes ao sem base.
+
+    Exemplo:
+    1, 2, 3, 4 e 5 deixam de existir
+    depois do encerramento.
+  */
+  enderecamentos = (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  ).filter(
+    (endereco) =>
+      normalizarModoOperacao(
+        endereco?.modoOperacao
+      ) !== "sem-base"
+  );
+
+
+  /*
+    3. Persiste as limpezas.
+  */
+  await salvarContagemSemBase();
+
+  await salvarFinalizacoesSemBase();
+
+
+  /*
+    permitirVazio = true é proposital.
+
+    Se não existir nenhum endereço de
+    outro modo, enderecamentos ficará [].
+
+    Nesse caso o PostgreSQL DEVE ser
+    realmente zerado.
+  */
+  await salvarEnderecamentos({
+    permitirVazio: true,
+  });
+
+
+  console.log(
+    "✅ Inventário SEM BASE encerrado: " +
+    "contagens, finalizações e endereços removidos."
+  );
+
+
+  return;
+}
   /*
     MODO COM BASE
   */
@@ -3514,23 +3577,60 @@ async function carregarEnderecamentos() {
   }
 }
 
-async function salvarEnderecamentos() {
+async function salvarEnderecamentos(
+  opcoes = {}
+) {
   try {
     garantirPastaData();
 
+
+    /*
+      JSON local sempre representa
+      exatamente o estado atual da memória.
+    */
     fs.writeFileSync(
       enderecamentosPath,
-      JSON.stringify(enderecamentos, null, 2),
+      JSON.stringify(
+        enderecamentos,
+        null,
+        2
+      ),
       "utf8"
     );
 
+
+    /*
+      PostgreSQL:
+      lista vazia só poderá apagar a tabela
+      quando isso tiver sido autorizado
+      explicitamente.
+    */
     if (usarPostgres) {
-      await salvarEnderecamentosPostgres(enderecamentos);
+      await salvarEnderecamentosPostgres(
+        enderecamentos,
+        {
+          permitirVazio:
+            opcoes?.permitirVazio === true,
+        }
+      );
     }
 
-    console.log("✅ Endereçamentos salvos no JSON e PostgreSQL.");
+
+    console.log(
+      `✅ Endereçamentos salvos: ${
+        Array.isArray(enderecamentos)
+          ? enderecamentos.length
+          : 0
+      }`
+    );
+
   } catch (erro) {
-    console.error("Erro ao salvar endereçamentos:", erro.message);
+    console.error(
+      "Erro ao salvar endereçamentos:",
+      erro.message
+    );
+
+    throw erro;
   }
 }
 
@@ -7082,9 +7182,10 @@ function montarUltimasLeiturasDashboard(
               endereco.enderecoNumero ||
               null,
 
-            data:
+              data:
               endereco.data ||
               item.data ||
+              item.ultimaLeituraEm ||
               null,
           });
         }
@@ -7667,45 +7768,195 @@ function montarDetalhesProgresso() {
   );
   const finalizacoesValidas = [];
 
-  listaEnderecamentos.forEach((endereco) => {
-    const finalizacoes = Array.isArray(
-      endereco?.finalizacoes
+
+/*
+  ========================================================
+  SEM BASE
+
+  Usa finalizacoesSemBase porque nela estão:
+  - operador real
+  - produtos
+  - quantidades
+  - volume
+  ========================================================
+*/
+if (modoAtual === "sem-base") {
+
+  (
+    Array.isArray(
+      finalizacoesSemBase
     )
-      ? endereco.finalizacoes.filter(
-          (finalizacao) =>
-            !finalizacao?.excluida &&
-            eventoPertenceAoModo(
-              finalizacao
-            )
+      ? finalizacoesSemBase
+      : []
+  )
+    .filter(
+      (finalizacao) =>
+        finalizacao &&
+        !finalizacao.excluida
+    )
+    .forEach(
+      (finalizacao) => {
+
+        const enderecoNumero =
+          Number(
+            finalizacao.enderecoNumero
+          ) || 0;
+
+
+        if (!enderecoNumero) {
+          return;
+        }
+
+
+        const endereco =
+          buscarEnderecoPorNumero(
+            enderecoNumero,
+            modoAtual
+          );
+
+
+        if (!endereco) {
+          return;
+        }
+
+
+        const itens =
+          Array.isArray(
+            finalizacao.itens
+          )
+            ? finalizacao.itens.map(
+                (item) => ({
+                  ...item,
+
+                  codigoBarras:
+                    item.codigoBarras ||
+                    item.ean ||
+                    "",
+
+                  codigo:
+                    item.codigo ||
+                    "",
+
+                  quantidade:
+                    Number(
+                      item.quantidade
+                    ) || 0,
+                })
+              )
+            : [];
+
+
+        finalizacoesValidas.push({
+          id:
+            finalizacao.id || "",
+
+          enderecoId:
+            Number(
+              endereco.id
+            ) || 0,
+
+          enderecoNumero,
+
+          enderecoNome:
+            endereco.nome ||
+            endereco.tipo ||
+            "Endereço",
+
+          usuario:
+            finalizacao.usuario ||
+            "Não informado",
+
+          data:
+            finalizacao.data ||
+            null,
+
+          itens,
+        });
+      }
+    );
+
+
+/*
+  ========================================================
+  COM BASE / WMS
+
+  Mantém a fonte normal de endereçamentos.
+  ========================================================
+*/
+} else {
+
+  listaEnderecamentos.forEach(
+    (endereco) => {
+
+      const finalizacoes =
+        Array.isArray(
+          endereco?.finalizacoes
         )
-      : [];
+          ? endereco.finalizacoes.filter(
+              (finalizacao) =>
+                !finalizacao?.excluida &&
+                eventoPertenceAoModo(
+                  finalizacao,
+                  modoAtual
+                )
+            )
+          : [];
 
-    finalizacoes.forEach((finalizacao) => {
-      if (!finalizacao || finalizacao.excluida) return;
 
-      finalizacoesValidas.push({
-        id: finalizacao.id || "",
-        enderecoId:
-          Number(finalizacao.enderecoId) ||
-          Number(endereco.id) ||
-          0,
-        enderecoNumero:
-          Number(finalizacao.enderecoNumero) || 0,
-        enderecoNome:
-          endereco.nome ||
-          endereco.tipo ||
-          "Endereço",
-        usuario:
-          finalizacao.usuario ||
-          "Não informado",
-        data: finalizacao.data || null,
-        itens: Array.isArray(finalizacao.itens)
-          ? finalizacao.itens
-          : [],
-      });
-    });
-  });
+      finalizacoes.forEach(
+        (finalizacao) => {
 
+          if (
+            !finalizacao ||
+            finalizacao.excluida
+          ) {
+            return;
+          }
+
+
+          finalizacoesValidas.push({
+            id:
+              finalizacao.id || "",
+
+            enderecoId:
+              Number(
+                finalizacao.enderecoId
+              ) ||
+              Number(
+                endereco.id
+              ) ||
+              0,
+
+            enderecoNumero:
+              Number(
+                finalizacao.enderecoNumero
+              ) || 0,
+
+            enderecoNome:
+              endereco.nome ||
+              endereco.tipo ||
+              "Endereço",
+
+            usuario:
+              finalizacao.usuario ||
+              "Não informado",
+
+            data:
+              finalizacao.data ||
+              null,
+
+            itens:
+              Array.isArray(
+                finalizacao.itens
+              )
+                ? finalizacao.itens
+                : [],
+          });
+        }
+      );
+    }
+  );
+}
   const chavesConcluidas = new Set(
     finalizacoesValidas
       .filter((item) => item.enderecoNumero)
@@ -7954,6 +8205,47 @@ app.get("/ranking-usuarios", autenticar, (req, res) => {
   const mapaEnderecosConcluidos =
     gerarMapaEnderecosConcluidosPorUsuario();
 
+
+    const modoAtualRanking =
+  normalizarModoOperacao(
+    modoOperacao
+  );
+
+const totalEnderecosCadastrados = (
+  Array.isArray(enderecamentos)
+    ? enderecamentos
+    : []
+)
+  .filter(
+    (endereco) =>
+      normalizarModoOperacao(
+        endereco?.modoOperacao
+      ) === modoAtualRanking
+  )
+  .reduce(
+    (total, endereco) => {
+      const inicio =
+        Number(endereco?.inicio) || 0;
+
+      const fim =
+        Number(endereco?.fim) || 0;
+
+      if (
+        !inicio ||
+        !fim ||
+        fim < inicio
+      ) {
+        return total;
+      }
+
+      return (
+        total +
+        (fim - inicio + 1)
+      );
+    },
+    0
+  );
+
   const rankingComStatus = ranking.map((item) => {
     const possiveisChaves = [
       item.usuario,
@@ -7983,14 +8275,30 @@ app.get("/ranking-usuarios", autenticar, (req, res) => {
     const enderecosConcluidos =
       mapaEnderecosConcluidos.get(chaveUsuario)?.size || 0;
 
-    return {
-      ...item,
-      enderecosConcluidos,
-      mobileOnline: !!online,
-      ultimaAtividadeMobile:
-        status?.ultimaAtividade || null,
-    };
-  });
+      return {
+        ...item,
+      
+        enderecosConcluidos,
+      
+        /*
+          Participação = endereços concluídos
+          pelo operador / total cadastrado
+          no modo atual.
+        */
+        percentual:
+          totalEnderecosCadastrados > 0
+            ? (
+                enderecosConcluidos /
+                totalEnderecosCadastrados
+              ) * 100
+            : 0,
+      
+        mobileOnline:
+          !!online,
+      
+        ultimaAtividadeMobile:
+          status?.ultimaAtividade || null,
+      };
 
   rankingComStatus.sort((a, b) => {
     return (
@@ -9257,22 +9565,63 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
       
             existente.enderecos.push({
               enderecoNumero,
-              quantidade: Number(registro.quantidade) || 0,
+            
+              quantidade:
+                Number(
+                  registro.quantidade
+                ) || 0,
+            
+              usuario:
+                registro.usuario ||
+                transmissaoPendente.usuario ||
+                usuarioConsolidacao,
+            
+              data:
+                registro.data ||
+                agoraIso,
             });
       
             existente.ultimoUsuario = registro.usuario;
             existente.ultimaLeituraEm = registro.data;
           } else {
             contagemSemBase.push({
-              ean: registro.codigoBarras,
-              codigo: registro.codigo,
-              quantidade: Number(registro.quantidade) || 0,
-              ultimoUsuario: registro.usuario,
-              ultimaLeituraEm: registro.data,
+              ean:
+                registro.codigoBarras,
+            
+              codigo:
+                registro.codigo,
+            
+              quantidade:
+                Number(
+                  registro.quantidade
+                ) || 0,
+            
+              ultimoUsuario:
+                registro.usuario ||
+                transmissaoPendente.usuario ||
+                usuarioConsolidacao,
+            
+              ultimaLeituraEm:
+                registro.data ||
+                agoraIso,
+            
               enderecos: [
                 {
                   enderecoNumero,
-                  quantidade: Number(registro.quantidade) || 0,
+            
+                  quantidade:
+                    Number(
+                      registro.quantidade
+                    ) || 0,
+            
+                  usuario:
+                    registro.usuario ||
+                    transmissaoPendente.usuario ||
+                    usuarioConsolidacao,
+            
+                  data:
+                    registro.data ||
+                    agoraIso,
                 },
               ],
             });
@@ -13780,6 +14129,475 @@ app.post('/enderecos-itens-contados/editar', autenticar, (req, res) => {
     return res.status(500).json({ erro: 'Falha ao editar item contado por endereço.' });
   }
 });
+
+function formatarDataHoraManaus(
+  valor = new Date()
+) {
+  const data =
+    valor instanceof Date
+      ? valor
+      : new Date(valor);
+
+  if (
+    Number.isNaN(
+      data.getTime()
+    )
+  ) {
+    return "--";
+  }
+
+  return new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      timeZone:
+        "America/Manaus",
+
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+
+      hour12: false,
+    }
+  ).format(data);
+}
+
+
+function montarLinhasPdfItensPorEndereco({
+  endereco = "",
+  termo = "",
+  somenteAtivos = "true",
+} = {}) {
+
+  const termoBusca =
+    String(
+      termo || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const enderecoBusca =
+    String(
+      endereco || ""
+    ).trim();
+
+
+  /*
+    ========================================================
+    SEM BASE
+    ========================================================
+  */
+
+  if (
+    normalizarModoOperacao(
+      modoOperacao
+    ) === "sem-base"
+  ) {
+
+    const linhas = [];
+
+
+    (
+      Array.isArray(
+        contagemSemBase
+      )
+        ? contagemSemBase
+        : []
+    ).forEach((item) => {
+
+      const chaveItem =
+        String(
+          item.ean ||
+          item.codigo ||
+          ""
+        ).trim();
+
+
+      const mapaEnderecos =
+        new Map();
+
+
+      (
+        Array.isArray(
+          item.enderecos
+        )
+          ? item.enderecos
+          : []
+      ).forEach(
+        (registro) => {
+
+          const numero =
+            String(
+              registro.enderecoNumero ||
+              ""
+            ).trim();
+
+
+          if (!numero) {
+            return;
+          }
+
+
+          const atual =
+            mapaEnderecos.get(
+              numero
+            ) || {
+              quantidade: 0,
+
+              usuario:
+                registro.usuario ||
+                item.ultimoUsuario ||
+                "--",
+
+              data:
+                registro.data ||
+                item.data ||
+                item.ultimaLeituraEm ||
+                null,
+            };
+
+
+          atual.quantidade +=
+            Number(
+              registro.quantidade
+            ) || 0;
+
+
+          if (
+            registro.data &&
+            (
+              !atual.data ||
+              new Date(
+                registro.data
+              ) >
+                new Date(
+                  atual.data
+                )
+            )
+          ) {
+            atual.data =
+              registro.data;
+
+            atual.usuario =
+              registro.usuario ||
+              atual.usuario;
+          }
+
+
+          mapaEnderecos.set(
+            numero,
+            atual
+          );
+        }
+      );
+
+
+      mapaEnderecos.forEach(
+        (
+          registro,
+          numero
+        ) => {
+
+          if (
+            enderecoBusca &&
+            numero !==
+              enderecoBusca
+          ) {
+            return;
+          }
+
+
+          const ean =
+            String(
+              item.ean || ""
+            );
+
+          const codigoInterno =
+            String(
+              item.codigo || ""
+            );
+
+
+          const descricao =
+            "Item sem base";
+
+
+          const combinado =
+            (
+              `${ean} ` +
+              `${codigoInterno} ` +
+              `${descricao} ` +
+              `${numero}`
+            ).toLowerCase();
+
+
+          if (
+            termoBusca &&
+            !combinado.includes(
+              termoBusca
+            )
+          ) {
+            return;
+          }
+
+
+          const enderecoObj =
+            buscarEnderecoPorNumero(
+              Number(numero),
+              "sem-base"
+            );
+
+
+          linhas.push({
+            codigoBarras:
+              ean,
+
+            codigoInterno,
+
+            descricao,
+
+            endereco:
+              `${
+                enderecoObj?.nome ||
+                "ENDEREÇO"
+              } • ${numero}`,
+
+            enderecoNumero:
+              Number(numero) || 0,
+
+            quantidade:
+              Number(
+                registro.quantidade
+              ) || 0,
+
+            origem:
+              "sem-base",
+
+            usuario:
+              registro.usuario ||
+              "--",
+
+            data:
+              registro.data
+                ? formatarDataHoraManaus(
+                    registro.data
+                  )
+                : "--",
+
+            chaveItem,
+          });
+        }
+      );
+    });
+
+
+    return linhas.sort(
+      (a, b) => {
+
+        if (
+          a.enderecoNumero !==
+          b.enderecoNumero
+        ) {
+          return (
+            a.enderecoNumero -
+            b.enderecoNumero
+          );
+        }
+
+        return String(
+          a.codigoBarras ||
+          a.codigoInterno ||
+          ""
+        ).localeCompare(
+          String(
+            b.codigoBarras ||
+            b.codigoInterno ||
+            ""
+          ),
+          "pt-BR"
+        );
+      }
+    );
+  }
+
+
+  /*
+    ========================================================
+    COM BASE / WMS
+    ========================================================
+  */
+
+  return (
+    Array.isArray(contagens)
+      ? contagens
+      : []
+  )
+    .filter((item) => {
+
+      if (!item) {
+        return false;
+      }
+
+      if (
+        somenteAtivos === "true" &&
+        item.ativo === false
+      ) {
+        return false;
+      }
+
+      if (
+        enderecoBusca &&
+        String(
+          item.enderecoNumero || ""
+        ) !== enderecoBusca
+      ) {
+        return false;
+      }
+
+
+      const produto =
+        inventario.find(
+          (p) =>
+            String(
+              p.codigoBarras || ""
+            ) ===
+            String(
+              item.codigoBarras || ""
+            )
+        );
+
+
+      const combinado =
+        (
+          `${
+            produto?.codigo ||
+            produto?.codigoInterno ||
+            ""
+          } ` +
+          `${item.codigoBarras || ""} ` +
+          `${produto?.descricao || ""} ` +
+          `${item.enderecoNumero || ""}`
+        ).toLowerCase();
+
+
+      if (
+        termoBusca &&
+        !combinado.includes(
+          termoBusca
+        )
+      ) {
+        return false;
+      }
+
+
+      return true;
+    })
+    .map((item) => {
+
+      const produto =
+        inventario.find(
+          (p) =>
+            String(
+              p.codigoBarras || ""
+            ) ===
+            String(
+              item.codigoBarras || ""
+            )
+        );
+
+
+      const enderecoObj =
+        item.enderecoId
+          ? enderecamentos.find(
+              (e) =>
+                Number(e.id) ===
+                Number(
+                  item.enderecoId
+                )
+            )
+          : buscarEnderecoPorNumero(
+              item.enderecoNumero
+            );
+
+
+      return {
+        codigoBarras:
+          item.codigoBarras ||
+          "",
+
+        codigoInterno:
+          produto?.codigo ||
+          produto?.codigoInterno ||
+          "",
+
+        descricao:
+          produto?.descricao ||
+          "Item não encontrado",
+
+        endereco:
+          `${
+            enderecoObj?.nome ||
+            "ENDEREÇO"
+          } • ${
+            Number(
+              item.enderecoNumero
+            ) || 0
+          }`,
+
+        enderecoNumero:
+          Number(
+            item.enderecoNumero
+          ) || 0,
+
+        quantidade:
+          Number(
+            item.quantidade
+          ) || 0,
+
+        origem:
+          item.origem ||
+          "coleta",
+
+        usuario:
+          item.usuario ||
+          "--",
+
+        data:
+          item.data
+            ? formatarDataHoraManaus(
+                item.data
+              )
+            : "--",
+      };
+    })
+    .sort(
+      (a, b) => {
+
+        if (
+          a.enderecoNumero !==
+          b.enderecoNumero
+        ) {
+          return (
+            a.enderecoNumero -
+            b.enderecoNumero
+          );
+        }
+
+        return String(
+          a.descricao || ""
+        ).localeCompare(
+          String(
+            b.descricao || ""
+          ),
+          "pt-BR"
+        );
+      }
+    );
+}
+
 app.get('/enderecos-itens-contados/pdf', autenticar, (req, res) => {
   try {
     const {
@@ -13788,71 +14606,12 @@ app.get('/enderecos-itens-contados/pdf', autenticar, (req, res) => {
       somenteAtivos = 'true'
     } = req.query;
 
-    const termoBusca = String(termo || '').trim().toLowerCase();
-    const enderecoBusca = String(endereco || '').trim();
-
-    const linhas = (Array.isArray(contagens) ? contagens : [])
-      .filter((item) => {
-        if (!item) return false;
-
-        if (somenteAtivos === 'true' && item.ativo === false) {
-          return false;
-        }
-
-        if (enderecoBusca && String(item.enderecoNumero || '') !== enderecoBusca) {
-          return false;
-        }
-
-        const produto = inventario.find(
-          (p) => String(p.codigoBarras || '') === String(item.codigoBarras || '')
-        );
-
-        const codigoInterno = String(produto?.codigo || produto?.codigoInterno || '').toLowerCase();
-        const ean = String(item.codigoBarras || '').toLowerCase();
-        const descricao = String(produto?.descricao || '').toLowerCase();
-        const enderecoTexto = String(item.enderecoNumero || '').toLowerCase();
-
-        if (termoBusca) {
-          const combinado = `${codigoInterno} ${ean} ${descricao} ${enderecoTexto}`;
-          if (!combinado.includes(termoBusca)) {
-            return false;
-          }
-        }
-
-        return true;
-      })
-      .map((item) => {
-        const produto = inventario.find(
-          (p) => String(p.codigoBarras || '') === String(item.codigoBarras || '')
-        );
-
-        const enderecoObj = item.enderecoId
-          ? enderecamentos.find((e) => Number(e.id) === Number(item.enderecoId))
-          : buscarEnderecoPorNumero(item.enderecoNumero);
-
-        return {
-          codigoBarras: item.codigoBarras || '',
-          codigoInterno: produto?.codigo || produto?.codigoInterno || '',
-          descricao: produto?.descricao || 'Item não encontrado',
-          endereco: `${enderecoObj?.nome || 'ENDEREÇO'} • ${Number(item.enderecoNumero) || 0}`,
-          quantidade: Number(item.quantidade) || 0,
-          origem: item.origem || 'coleta',
-          usuario: item.usuario || '--',
-          data: item.data
-            ? new Date(item.data).toLocaleString('pt-BR')
-            : '--'
-        };
-      })
-      .sort((a, b) => {
-        const enderecoA = Number(String(a.endereco).split('•')[1] || 0);
-        const enderecoB = Number(String(b.endereco).split('•')[1] || 0);
-
-        if (enderecoA !== enderecoB) {
-          return enderecoA - enderecoB;
-        }
-
-        return String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR');
-      });
+    const linhas =
+    montarLinhasPdfItensPorEndereco({
+      endereco,
+      termo,
+      somenteAtivos,
+    });
 
     const printer = new PdfPrinter(fonts);
 
@@ -13960,9 +14719,10 @@ app.get('/enderecos-itens-contados/pdf', autenticar, (req, res) => {
     
           {
             width: "auto",
-            text: new Date().toLocaleString(
-              "pt-BR"
-            ),
+            text:
+  formatarDataHoraManaus(
+    new Date()
+  ),
             color: "#64748b",
             fontSize: 8,
             alignment: "right",

@@ -354,7 +354,8 @@ async function carregarProdutosPostgres() {
 }
 
 async function salvarEnderecamentosPostgres(
-  listaEnderecamentos = []
+  listaEnderecamentos = [],
+  opcoes = {}
 ) {
   const lista =
     Array.isArray(
@@ -363,22 +364,32 @@ async function salvarEnderecamentosPostgres(
       ? listaEnderecamentos
       : [];
 
+  const permitirVazio =
+    opcoes?.permitirVazio === true;
+
 
   /*
-    Proteção contra apagamento acidental.
+    ========================================================
+    PROTEÇÃO CONTRA APAGAMENTO ACIDENTAL
+    ========================================================
 
-    Uma lista vazia NÃO deve destruir
-    toda a tabela automaticamente.
+    Lista vazia normalmente NÃO apaga o PostgreSQL.
 
-    Quando quisermos realmente zerar
-    os endereçamentos, isso deverá ser
-    feito explicitamente.
+    Somente operações explícitas, como ENCERRAMENTO,
+    poderão enviar:
+
+    { permitirVazio: true }
   */
-  if (lista.length === 0) {
+  if (
+    lista.length === 0 &&
+    !permitirVazio
+  ) {
     console.warn(
       "⚠️ salvarEnderecamentosPostgres recebeu lista vazia. " +
       "A tabela enderecamentos não será apagada."
     );
+
+   
 
     return;
   }
