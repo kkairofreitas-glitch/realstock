@@ -287,13 +287,7 @@
   margin-bottom: 10px;
 }
 
-    .dica-sem-base {
-      font-size: 0.84rem;
-      line-height: 1.35;
-      color: #64748b;
-      font-weight: bold;
-      margin-top: 4px;
-    }
+    
     .mobile-header {
   position: relative;
   display: flex;
@@ -366,58 +360,397 @@
   background: #b91c1c;
   color: #ffffff;
 }
-#splashScreen {
+/* =========================================================
+   SPLASH REALSTOCK - ABERTURA DO PWA
+   ========================================================= */
+
+   #splashScreen {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #0a1f3d, #1a3a52);
   z-index: 99999;
+
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      #12395c 0%,
+      #071f3a 48%,
+      #031326 100%
+    );
+
+  overflow: hidden;
+
+  opacity: 1;
+  visibility: visible;
+
+  transition:
+    opacity 0.4s ease,
+    visibility 0.4s ease;
+}
+
+/*
+  Só mostramos a splash quando o JS
+  confirmar que é uma abertura do PWA.
+*/
+#splashScreen.splash-ativa {
+  display: flex;
+}
+
+.splash-realstock-content {
+  position: relative;
+
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.35s ease, visibility 0.35s ease;
+
+  width: min(82vw, 330px);
+
+  text-align: center;
+
+  animation:
+    splashConteudoEntrada 0.65s
+    cubic-bezier(.2,.8,.2,1)
+    both;
 }
 
+/* Halo externo */
+.splash-logo-wrap {
+  position: relative;
+
+  width: 190px;
+  height: 190px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 22px;
+}
+
+/* Círculo luminoso atrás da logo */
+.splash-logo-wrap::before {
+  content: "";
+
+  position: absolute;
+  inset: -13px;
+
+  border-radius: 50%;
+
+  border: 2px solid
+    rgba(0, 215, 220, 0.22);
+
+  box-shadow:
+    0 0 22px rgba(0, 210, 220, 0.18),
+    inset 0 0 22px rgba(0, 210, 220, 0.08);
+
+  animation:
+    splashPulso 1.5s ease-in-out infinite;
+}
+
+/* Arco giratório em torno da logo */
+.splash-logo-wrap::after {
+  content: "";
+
+  position: absolute;
+  inset: -13px;
+
+  border-radius: 50%;
+
+  border:
+    3px solid transparent;
+
+  border-top-color:
+    #12d4d8;
+
+  border-right-color:
+    rgba(18, 212, 216, 0.24);
+
+  animation:
+    splashArco 1.15s linear infinite;
+}
+
+/* Logo */
 #splashScreen img {
-  width: 130px;
-  height: 130px;
-  border-radius: 28px;
+  position: relative;
+  z-index: 2;
+
+  width: 168px;
+  height: 168px;
+
+  display: block;
+
   object-fit: cover;
-  box-shadow: 0 18px 45px rgba(0,0,0,0.35);
-  margin-bottom: 18px;
+
+  border-radius: 34px;
+
+  box-shadow:
+    0 22px 60px
+      rgba(0, 0, 0, 0.42),
+    0 0 28px
+      rgba(0, 201, 207, 0.14);
+
+  animation:
+    splashLogoEntrada 0.75s
+    cubic-bezier(.16,1,.3,1)
+    both;
 }
 
+/*
+  Brilho que atravessa a logo.
+*/
+.splash-logo-brilho {
+  position: absolute;
+
+  z-index: 3;
+
+  width: 165px;
+  height: 165px;
+
+  overflow: hidden;
+
+  border-radius: 34px;
+
+  pointer-events: none;
+}
+
+.splash-logo-brilho::after {
+  content: "";
+
+  position: absolute;
+
+  top: -35%;
+  left: -80%;
+
+  width: 45%;
+  height: 170%;
+
+  transform:
+    rotate(20deg);
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,0.30),
+      transparent
+    );
+
+  animation:
+    splashBrilho 1.25s
+    0.35s ease-in-out forwards;
+}
+
+/* Nome */
 #splashScreen h1 {
   margin: 0;
+
   color: #ffffff;
-  font-size: 1.9rem;
+
+  font-size: 2rem;
+  line-height: 1;
+
   font-weight: 900;
+
+  letter-spacing: -0.04em;
+
+  text-shadow:
+    0 5px 18px
+      rgba(0,0,0,0.32);
+
+  animation:
+    splashTextoEntrada
+    0.55s 0.28s ease both;
 }
 
+#splashScreen h1 span {
+  color: #10cbd0;
+}
+
+/* Subtítulo */
 #splashScreen p {
-  margin-top: 8px;
-  color: #cbd5e1;
-  font-size: 1rem;
-  font-weight: 700;
+  margin:
+    9px 0 0;
+
+  color:
+    rgba(255,255,255,0.73);
+
+  font-size: 0.78rem;
+
+  font-weight: 800;
+
+  letter-spacing: 0.18em;
+
+  text-transform: uppercase;
+
+  animation:
+    splashTextoEntrada
+    0.55s 0.42s ease both;
 }
 
+/* Pequena barra inferior */
+.splash-progress {
+  position: relative;
+
+  width: 110px;
+  height: 3px;
+
+  margin-top: 24px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background:
+    rgba(255,255,255,0.14);
+}
+
+.splash-progress::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  transform:
+    translateX(-100%);
+
+  border-radius: inherit;
+
+  background:
+    linear-gradient(
+      90deg,
+      #079ba8,
+      #10d9da,
+      #ffffff
+    );
+
+  animation:
+    splashProgresso 1.25s
+    0.25s ease-out forwards;
+}
+
+/* Saída */
 #splashScreen.splash-hide {
   opacity: 0;
   visibility: hidden;
 }
-.splash-loader {
-  width: 42px;
-  height: 42px;
-  margin-top: 20px;
-  border: 4px solid rgba(255,255,255,0.25);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: girarSplash 0.8s linear infinite;
+
+/* ================= ANIMAÇÕES ================= */
+
+@keyframes splashConteudoEntrada {
+  from {
+    opacity: 0;
+    transform:
+      translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0);
+  }
 }
 
-@keyframes girarSplash {
+@keyframes splashLogoEntrada {
+  0% {
+    opacity: 0;
+    transform:
+      scale(0.72);
+  }
+
+  65% {
+    opacity: 1;
+    transform:
+      scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      scale(1);
+  }
+}
+
+@keyframes splashTextoEntrada {
+  from {
+    opacity: 0;
+    transform:
+      translateY(8px);
+  }
+
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+    transform:
+      translateY(0);
+  }
+}
+
+@keyframes splashArco {
+  to {
+    transform:
+      rotate(360deg);
+  }
+}
+
+@keyframes splashPulso {
+  0%,
+  100% {
+    transform:
+      scale(0.98);
+
+    opacity: 0.55;
+  }
+
+  50% {
+    transform:
+      scale(1.035);
+
+    opacity: 1;
+  }
+}
+
+@keyframes splashBrilho {
+  from {
+    left: -80%;
+  }
+
+  to {
+    left: 145%;
+  }
+}
+
+@keyframes splashProgresso {
+  from {
+    transform:
+      translateX(-100%);
+  }
+
+  to {
+    transform:
+      translateX(0);
+  }
+}
+
+/*
+  Acessibilidade:
+  se o aparelho pedir redução de movimento,
+  não fazemos animações exageradas.
+*/
+@media (
+  prefers-reduced-motion: reduce
+) {
+  .splash-realstock-content,
+  #splashScreen img,
+  #splashScreen h1,
+  #splashScreen p,
+  .splash-logo-wrap::before,
+  .splash-logo-wrap::after,
+  .splash-logo-brilho::after,
+  .splash-progress::after {
+    animation: none !important;
   }
 }
 .toast-mobile {
@@ -1524,16 +1857,41 @@ body.sem-endereco-aberto #cardItensEndereco {
 <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
-  <div id="splashScreen">
-  <img
-  src="/logo-realstock.png"
-  alt="RealStock"
-  onerror="this.style.display='none'"
-/>
-    <h1>RealStock</h1>
-    <p>Sistema de Coleta</p>
-    <span class="splash-loader"></span>
+  <div
+  id="splashScreen"
+  aria-hidden="true"
+>
+  <div class="splash-realstock-content">
+
+    <div class="splash-logo-wrap">
+
+      <img
+        src="/icones/icone-512.png"
+        alt="RealStock"
+      />
+
+      <div
+        class="splash-logo-brilho"
+        aria-hidden="true"
+      ></div>
+
+    </div>
+
+    <h1>
+      Real<span>Stock</span>
+    </h1>
+
+    <p>
+      Inventário Inteligente
+    </p>
+
+    <div
+      class="splash-progress"
+      aria-hidden="true"
+    ></div>
+
   </div>
+</div>
   
   <header class="mobile-header">
   <button
@@ -1694,14 +2052,18 @@ disabled
         <option value="scanner">Scanner (automático)</option>
       </select>
 
-      <label for="qtdeContada" id="labelQtdeContada">Quantidade</label>
-      <input
-        type="number"
-        id="qtdeContada"
-        placeholder="Digite a quantidade"
-        min="1"
-        disabled
-      >
+      <label for="qtdeContada" id="labelQtdeContada">
+      Quantidade
+    </label>
+    
+    <input
+      type="text"
+      id="qtdeContada"
+      inputmode="decimal"
+      autocomplete="off"
+      placeholder="Ex.: 16 ou 16,088"
+      disabled
+    >
       <label
   for="multiplicadorSemBase"
   id="labelMultiplicadorSemBase"
@@ -1734,9 +2096,7 @@ disabled
         <span>Finalizar endereço</span>
       </button>
 
-      <div id="dicaSemBase" class="dica-sem-base hidden">
-        No modo sem base, após abrir o endereço, cada leitura é enviada automaticamente para o dashboard. No modo manual, digite e pressione Enter.
-      </div>
+     
 
       <div id="mensagem" class="mensagem"></div>
     </div>
@@ -1936,7 +2296,7 @@ const qtdeContada = document.getElementById('qtdeContada');
   const labelQtdeContada = document.getElementById('labelQtdeContada');
   const labelModoEntradaSemBase = document.getElementById('labelModoEntradaSemBase');
   const modoEntradaSemBase = document.getElementById('modoEntradaSemBase');
-  const dicaSemBase = document.getElementById('dicaSemBase');
+  
   const labelMultiplicadorSemBase = document.getElementById('labelMultiplicadorSemBase');
 const multiplicadorSemBase = document.getElementById('multiplicadorSemBase');
   const tituloItensEndereco = document.getElementById('tituloItensEndereco');
@@ -2123,7 +2483,7 @@ if (
 
     labelModoEntradaSemBase.classList.remove('hidden');
     modoEntradaSemBase.classList.remove('hidden');
-    dicaSemBase.classList.remove('hidden');
+    
 
     labelMultiplicadorSemBase.classList.remove('hidden');
     multiplicadorSemBase.classList.remove('hidden');
@@ -2161,7 +2521,7 @@ if (
 
     labelModoEntradaSemBase.classList.add('hidden');
     modoEntradaSemBase.classList.add('hidden');
-    dicaSemBase.classList.add('hidden');
+    
 
     labelMultiplicadorSemBase.classList.add('hidden');
     multiplicadorSemBase.classList.add('hidden');
@@ -2362,13 +2722,21 @@ function validarEnderecoLocal(valor) {
       if (modoOperacaoAtual === 'sem-base') {
         div.innerHTML = `
           <strong>${item.eanOuCodigo || '--'}</strong>
-          <span>Qtd: ${item.quantidade}</span>
+          <span>
+  Qtd: ${formatarQuantidadeMobile(
+    item.quantidade
+  )}
+</span>
           <span>Endereço: ${item.enderecoNumero || '--'}</span>
         `;
       } else {
         div.innerHTML = `
           <strong>${item.descricao}</strong>
-          <span>Qtd: ${item.quantidade}</span>
+          <span>
+  Qtd: ${formatarQuantidadeMobile(
+    item.quantidade
+  )}
+</span>
           <span>EAN: ${item.codigoBarras || '--'}</span>
           <span>Código interno: ${item.codigo || '--'}</span>
         `;
@@ -3086,9 +3454,102 @@ async function registrarLeituraSemBaseAutomatica(valorInformado) {
   }, 120);
 }
 
+function converterQuantidadeMobile(valor) {
+  let texto = String(valor ?? '')
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/[^\d,.\-]/g, '');
+
+  if (!texto) {
+    return 0;
+  }
+
+  const possuiVirgula =
+    texto.includes(',');
+
+  const possuiPonto =
+    texto.includes('.');
+
+  /*
+    Aceita:
+
+    16,088    -> 16.088
+    16.088    -> 16.088
+    16        -> 16
+    1.234,567 -> 1234.567
+    1,234.567 -> 1234.567
+  */
+  if (
+    possuiVirgula &&
+    possuiPonto
+  ) {
+    const ultimaVirgula =
+      texto.lastIndexOf(',');
+
+    const ultimoPonto =
+      texto.lastIndexOf('.');
+
+    if (
+      ultimaVirgula >
+      ultimoPonto
+    ) {
+      /*
+        Padrão brasileiro.
+        1.234,567
+      */
+      texto = texto
+        .replace(/\./g, '')
+        .replace(',', '.');
+    } else {
+      /*
+        Padrão internacional.
+        1,234.567
+      */
+      texto = texto.replace(/,/g, '');
+    }
+  } else if (possuiVirgula) {
+    /*
+      16,088 -> 16.088
+    */
+    texto = texto.replace(',', '.');
+  }
+
+  const numero =
+    Number(texto);
+
+  return Number.isFinite(numero)
+    ? numero
+    : 0;
+}
+function formatarQuantidadeMobile(
+  valor,
+  casas = 3
+) {
+  const numero =
+    Number(valor) || 0;
+
+  if (Number.isInteger(numero)) {
+    return numero.toLocaleString(
+      'pt-BR'
+    );
+  }
+
+  return numero.toLocaleString(
+    'pt-BR',
+    {
+      minimumFractionDigits: casas,
+      maximumFractionDigits: casas,
+    }
+  );
+}
 async function adicionarItemLocal() {
-    const codigoDigitado = codigoBusca.value.trim();
-    const quantidade = Number(qtdeContada.value) || 0;
+  const codigoDigitado =
+    codigoBusca.value.trim();
+
+  const quantidade =
+    converterQuantidadeMobile(
+      qtdeContada.value
+    );
 
     if (!enderecoAberto) {
       mensagem.textContent = 'Abra um endereço antes de coletar.';
@@ -3747,15 +4208,98 @@ if (
     }
   );
 }
-  window.addEventListener('load', () => {
+function iniciarSplashPwaRealStock() {
+  const splash =
+    document.getElementById(
+      'splashScreen'
+    );
+
+  if (!splash) {
+    return;
+  }
+
+  /*
+    Detecta se realmente estamos dentro
+    do PWA instalado.
+  */
+  const estaEmPwa =
+    window.matchMedia(
+      '(display-mode: standalone)'
+    ).matches ||
+    window.navigator.standalone === true;
+
+  /*
+    sessionStorage dura somente durante
+    esta execução/sessão do aplicativo.
+
+    Portanto:
+    - abriu PWA -> mostra
+    - navegou dentro -> não mostra
+    - atualizou tela -> não mostra novamente
+  */
+  const splashJaExibida =
+    sessionStorage.getItem(
+      'realstock_splash_exibida'
+    ) === '1';
+
+  /*
+    Se abriu pelo navegador comum,
+    ou se a splash já apareceu nesta
+    abertura do PWA, removemos imediatamente.
+  */
+  if (
+    !estaEmPwa ||
+    splashJaExibida
+  ) {
+    splash.remove();
+    return;
+  }
+
+  /*
+    Marca imediatamente para evitar
+    uma segunda execução.
+  */
+  sessionStorage.setItem(
+    'realstock_splash_exibida',
+    '1'
+  );
+
+  splash.classList.add(
+    'splash-ativa'
+  );
+
+  splash.setAttribute(
+    'aria-hidden',
+    'false'
+  );
+
+  /*
+    Tempo total da animação.
+    Curto o suficiente para não
+    atrasar o conferente.
+  */
   setTimeout(() => {
-    const splash = document.getElementById('splashScreen');
-    if (splash) {
-      splash.classList.add('splash-hide');
-      setTimeout(() => splash.remove(), 400);
-    }
-  }, 2500);
-});
+
+    splash.classList.add(
+      'splash-hide'
+    );
+
+    setTimeout(() => {
+      splash.remove();
+    }, 450);
+
+  }, 1650);
+}
+
+
+/*
+  Executa assim que a página terminar
+  de carregar.
+*/
+window.addEventListener(
+  'load',
+  iniciarSplashPwaRealStock
+);
 </script>
 </body>
 </html>

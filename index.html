@@ -1214,11 +1214,11 @@
       }
 
       .schedule-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr auto;
-        gap: 10px;
-        align-items: end;
-      }
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 10px;
+  align-items: end;
+}
 
       .field {
         display: flex;
@@ -1270,6 +1270,43 @@
         background: #1b3a5a;
         transform: translateY(-1px);
       }
+
+      .reset-clock-btn {
+  height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #162f4a;
+  font-weight: 800;
+  padding: 0 14px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  white-space: nowrap;
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.reset-clock-btn:hover {
+  background: #f8fafc;
+  border-color: #12b8c8;
+  color: #087f8c;
+
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.reset-clock-btn i {
+  font-size: 0.82rem;
+}
       
       .schedule-note {
         margin-top: 8px;
@@ -7069,7 +7106,7 @@ body[data-modo-operacao="wms"] #areaFinalizacoesWms {
 }
 
 .mapa-status.concluido {
-  background: #22c55e;
+  background: #12b8c8;
 }
 
 .mapa-status.em-contagem {
@@ -7133,15 +7170,15 @@ body[data-modo-operacao="wms"] #areaFinalizacoesWms {
 }
 
 .mapa-endereco-item.concluido {
-  color: #166534;
-  background: #dcfce7;
-  border-color: #86efac;
+  color: #087f8c;
+  background: #d9f9fb;
+  border-color: #55d8df;
 }
 
 .mapa-endereco-item.em-contagem {
-  color: #92400e;
-  background: #fef3c7;
-  border-color: #fcd34d;
+  color: #78350f;
+  background: #fde68a;
+  border-color: #f59e0b;
 }
 
 .mapa-endereco-item.pendente {
@@ -11027,16 +11064,28 @@ body[data-modo-operacao="wms"]
                   <label for="horaInicioInventario">Hora de início</label>
                   <input type="time" id="horaInicioInventario" />
                 </div>
+              
                 <div class="field">
                   <label for="horaMetaEncerramento">Meta de encerramento</label>
                   <input type="time" id="horaMetaEncerramento" />
                 </div>
+              
                 <button
                   class="save-btn"
                   type="button"
                   onclick="salvarConfiguracaoInventario()"
                 >
                   Salvar
+                </button>
+              
+                <button
+                  class="reset-clock-btn"
+                  type="button"
+                  onclick="zerarRelogioOperacional()"
+                  title="Zerar o tempo decorrido e reiniciar a medição operacional"
+                >
+                  <i class="fa-solid fa-rotate-left"></i>
+                  Zerar relógio
                 </button>
               </div>
               <div class="schedule-note">
@@ -14251,11 +14300,12 @@ aria-hidden="true"
                       <div class="inventory-field">
                         <label for="auditoriaNovaQuantidade">Nova quantidade contada</label>
                         <input
-                          type="number"
-                          id="auditoriaNovaQuantidade"
-                          min="0"
-                          placeholder="Digite a nova quantidade"
-                        />
+  type="text"
+  id="auditoriaNovaQuantidade"
+  inputmode="decimal"
+  autocomplete="off"
+  placeholder="Ex.: 16 ou 16,088"
+/>
                       </div>
             
                       <div class="inventory-field">
@@ -17092,15 +17142,26 @@ pie.style.background = `conic-gradient(
       }
 
       function getCurrentConfigFromUIOrStorage() {
-        const storageCfg = getInventoryConfig();
-        const startInput = document.getElementById('horaInicioInventario');
-        const targetInput = document.getElementById('horaMetaEncerramento');
+  const storageCfg = getInventoryConfig();
 
-        return {
-          start: startInput?.value || storageCfg.start || '08:00',
-          target: targetInput?.value || storageCfg.target || '18:00',
-        };
-      }
+  const startInput =
+    document.getElementById('horaInicioInventario');
+
+  const targetInput =
+    document.getElementById('horaMetaEncerramento');
+
+  return {
+    start:
+      startInput?.value ||
+      storageCfg.start ||
+      '',
+
+    target:
+      targetInput?.value ||
+      storageCfg.target ||
+      '',
+  };
+}
 
       function updateLiveClocks() {
   const cfg = getCurrentConfigFromUIOrStorage();
@@ -17143,9 +17204,11 @@ pie.style.background = `conic-gradient(
     return;
   }
 
-  const nowMs = now.getTime();
-  const startMs = startDate.getTime();
-  const targetMs = targetDate.getTime();
+  const inicioOperacional = getInicioOperacionalEfetivo(startDate);
+
+const nowMs = now.getTime();
+const startMs = inicioOperacional.getTime();
+const targetMs = targetDate.getTime();
 
   let elapsedSeconds = 0;
   let remainingSeconds = totalSeconds;
@@ -17212,63 +17275,451 @@ pie.style.background = `conic-gradient(
   }
 }
 
-      function startLiveClocks() {
-        updateLiveClocks();
+function startLiveClocks() {
+  /*
+    Garante que não existam dois relógios.
+  */
+  if (runtimeClockTimer) {
+    clearInterval(runtimeClockTimer);
+    runtimeClockTimer = null;
+  }
 
-        if (runtimeClockTimer) {
-          clearInterval(runtimeClockTimer);
-        }
+  const cfg = getInventoryConfig();
 
-        runtimeClockTimer = setInterval(() => {
-          updateLiveClocks();
-        }, 1000);
-      }
+  /*
+    Sem início OU sem meta:
+    relógio permanece completamente parado.
+  */
+  if (!cfg.start || !cfg.target) {
+    return;
+  }
+
+  /*
+    Primeira atualização imediata.
+  */
+  updateLiveClocks();
+
+  /*
+    Depois atualiza a cada segundo.
+  */
+  runtimeClockTimer = setInterval(() => {
+    updateLiveClocks();
+  }, 1000);
+}
 
       function getInventoryConfig() {
-        const start = localStorage.getItem('realstock_hora_inicio') || '08:00';
-        const target = localStorage.getItem('realstock_hora_meta') || '18:00';
-        return { start, target };
-      }
+  const start =
+    localStorage.getItem('realstock_hora_inicio') || '';
+
+  const target =
+    localStorage.getItem('realstock_hora_meta') || '';
+
+  return {
+    start,
+    target,
+  };
+}
+
+      function getInicioOperacionalEfetivo(startDate) {
+  const resetTimestamp = Number(
+    localStorage.getItem('realstock_relogio_inicio_ts') || 0
+  );
+
+  if (
+    resetTimestamp > 0 &&
+    Number.isFinite(resetTimestamp)
+  ) {
+    const resetDate = new Date(resetTimestamp);
+
+    /*
+      O reset só vale para a operação/data atual.
+      Isso evita reaproveitar acidentalmente um relógio
+      antigo em outro dia.
+    */
+    const agora = new Date();
+
+    const mesmaData =
+      resetDate.getFullYear() === agora.getFullYear() &&
+      resetDate.getMonth() === agora.getMonth() &&
+      resetDate.getDate() === agora.getDate();
+
+    if (mesmaData) {
+      return resetDate;
+    }
+  }
+
+  return startDate;
+}
 
       function hasInventoryBaseLoaded() {
         return Number(inventoryRuntimeState.totalProdutos || 0) > 0;
       }
 
       function loadInventoryConfigInputs() {
-        const cfg = getInventoryConfig();
-        const startInput = document.getElementById('horaInicioInventario');
-        const targetInput = document.getElementById('horaMetaEncerramento');
-        if (startInput) startInput.value = cfg.start;
-        if (targetInput) targetInput.value = cfg.target;
+  const cfg = getInventoryConfig();
 
-        document.getElementById('hora-inicio-view').textContent =
-          cfg.start || '--:--';
-        document.getElementById('meta-encerramento-view').textContent =
-          cfg.target || '--:--';
-      }
+  const startInput =
+    document.getElementById('horaInicioInventario');
 
-      function salvarConfiguracaoInventario() {
-        const startInput = document.getElementById('horaInicioInventario');
-        const targetInput = document.getElementById('horaMetaEncerramento');
+  const targetInput =
+    document.getElementById('horaMetaEncerramento');
 
-        const start = startInput?.value || '08:00';
-        const target = targetInput?.value || '18:00';
+  if (startInput) {
+    startInput.value = cfg.start || '';
+  }
 
-        localStorage.setItem('realstock_hora_inicio', start);
-        localStorage.setItem('realstock_hora_meta', target);
+  if (targetInput) {
+    targetInput.value = cfg.target || '';
+  }
 
-        document.getElementById('hora-inicio-view').textContent = start;
-        document.getElementById('meta-encerramento-view').textContent = target;
+  const horaInicioView =
+    document.getElementById('hora-inicio-view');
 
-        startLiveClocks();
-        refreshOperationalPanelsOnly();
+  const metaView =
+    document.getElementById('meta-encerramento-view');
 
-        showToast('Configuração operacional salva.');
-      }
+  if (horaInicioView) {
+    horaInicioView.textContent =
+      cfg.start || '--:--';
+  }
+
+  if (metaView) {
+    metaView.textContent =
+      cfg.target || '--:--';
+  }
+}
+
+function zerarRelogioOperacional() {
+  /*
+    PARA completamente o relógio operacional.
+  */
+  if (runtimeClockTimer) {
+    clearInterval(runtimeClockTimer);
+    runtimeClockTimer = null;
+  }
+
+  /*
+    Remove toda configuração de horário.
+  */
+  localStorage.removeItem(
+    'realstock_hora_inicio'
+  );
+
+  localStorage.removeItem(
+    'realstock_hora_meta'
+  );
+
+  localStorage.removeItem(
+    'realstock_relogio_inicio_ts'
+  );
+
+  /*
+    Limpa os campos da Configuração Operacional.
+  */
+  const startInput =
+    document.getElementById(
+      'horaInicioInventario'
+    );
+
+  const targetInput =
+    document.getElementById(
+      'horaMetaEncerramento'
+    );
+
+  if (startInput) {
+    startInput.value = '';
+  }
+
+  if (targetInput) {
+    targetInput.value = '';
+  }
+
+  /*
+    Limpa visualmente os horários.
+  */
+  const horaInicioView =
+    document.getElementById(
+      'hora-inicio-view'
+    );
+
+  const metaView =
+    document.getElementById(
+      'meta-encerramento-view'
+    );
+
+  if (horaInicioView) {
+    horaInicioView.textContent = '--:--';
+  }
+
+  if (metaView) {
+    metaView.textContent = '--:--';
+  }
+
+  /*
+    Zera o relógio.
+  */
+  const tempoDecorrido =
+    document.getElementById(
+      'tempo-decorrido-view'
+    );
+
+  const tempoMeta =
+    document.getElementById(
+      'tempo-ate-meta-view'
+    );
+
+  if (tempoDecorrido) {
+    tempoDecorrido.textContent =
+      '00:00:00';
+
+    tempoDecorrido.style.color =
+      '#0b1220';
+  }
+
+  if (tempoMeta) {
+    tempoMeta.textContent =
+      '00:00:00';
+
+    tempoMeta.style.color =
+      '#0b1220';
+  }
+
+  /*
+    Limpa PREVISÃO DE ENCERRAMENTO.
+  */
+  const previsao =
+    document.getElementById(
+      'previsao-encerramento-view'
+    );
+
+  if (previsao) {
+    previsao.textContent =
+      'Aguardando configuração';
+  }
+
+  /*
+    Limpa TEMPO RESTANTE ESTIMADO.
+  */
+  const restante =
+    document.getElementById(
+      'tempo-restante-view'
+    );
+
+  if (restante) {
+    restante.textContent =
+      'Aguardando configuração';
+  }
+
+  /*
+    Limpa STATUS DO PRAZO.
+  */
+  const statusPrazo =
+    document.getElementById(
+      'status-prazo-view'
+    );
+
+  if (statusPrazo) {
+    statusPrazo.textContent = '--';
+    statusPrazo.style.color =
+      '#0b1220';
+  }
+
+  /*
+    Limpa o indicador de ritmo.
+  */
+  const ritmo =
+    document.getElementById(
+      'ritmo-atual'
+    );
+
+  if (ritmo) {
+    ritmo.textContent = '--';
+  }
+
+  /*
+    Se existirem os elementos principais
+    da previsão inferior, também limpamos.
+  */
+  const forecastTimeMain =
+    document.getElementById(
+      'forecast-time-main'
+    );
+
+  const forecastSubMain =
+    document.getElementById(
+      'forecast-sub-main'
+    );
+
+  const forecastBadgeMain =
+    document.getElementById(
+      'forecast-badge-main'
+    );
+
+  if (forecastTimeMain) {
+    forecastTimeMain.textContent =
+      '--:--';
+  }
+
+  if (forecastSubMain) {
+    forecastSubMain.textContent =
+      'Aguardando configuração operacional';
+  }
+
+  if (forecastBadgeMain) {
+    forecastBadgeMain.textContent =
+      'Aguardando';
+  }
+
+  /*
+    NÃO chamamos:
+      updateLiveClocks()
+      startLiveClocks()
+      refreshOperationalPanelsOnly()
+
+    porque isso faria o relógio voltar
+    a calcular imediatamente.
+  */
+
+  mostrarToast(
+    'Relógio operacional zerado. Informe novos horários e clique em Salvar.',
+    'sucesso'
+  );
+}
+
+function salvarConfiguracaoInventario() {
+  const startInput =
+    document.getElementById(
+      'horaInicioInventario'
+    );
+
+  const targetInput =
+    document.getElementById(
+      'horaMetaEncerramento'
+    );
+
+  const start =
+    String(
+      startInput?.value || ''
+    ).trim();
+
+  const target =
+    String(
+      targetInput?.value || ''
+    ).trim();
+
+  /*
+    Os dois horários agora são obrigatórios.
+  */
+  if (!start) {
+    mostrarToast(
+      'Informe a hora de início.',
+      'aviso'
+    );
+
+    startInput?.focus();
+    return;
+  }
+
+  if (!target) {
+    mostrarToast(
+      'Informe a meta de encerramento.',
+      'aviso'
+    );
+
+    targetInput?.focus();
+    return;
+  }
+
+  /*
+    Salva a nova configuração.
+  */
+  localStorage.setItem(
+    'realstock_hora_inicio',
+    start
+  );
+
+  localStorage.setItem(
+    'realstock_hora_meta',
+    target
+  );
+
+  /*
+    Qualquer reset antigo deixa de valer.
+  */
+  localStorage.removeItem(
+    'realstock_relogio_inicio_ts'
+  );
+
+  const horaInicioView =
+    document.getElementById(
+      'hora-inicio-view'
+    );
+
+  const metaView =
+    document.getElementById(
+      'meta-encerramento-view'
+    );
+
+  if (horaInicioView) {
+    horaInicioView.textContent = start;
+  }
+
+  if (metaView) {
+    metaView.textContent = target;
+  }
+
+  /*
+    Só AQUI o relógio volta a funcionar.
+  */
+  startLiveClocks();
+
+  refreshOperationalPanelsOnly();
+
+  mostrarToast(
+    'Configuração operacional salva. Relógio iniciado.',
+    'sucesso'
+  );
+}
 
       function calculateOperationalMetrics(totalProdutos, itensContados) {
   const cfg = getInventoryConfig();
   const now = new Date();
+  if (!cfg.start || !cfg.target) {
+  return {
+    now,
+
+    startTime: '',
+    targetTime: '',
+
+    startDate: null,
+    targetDate: null,
+
+    elapsedHours: 0,
+    elapsedSeconds: 0,
+    timeUntilTargetSeconds: 0,
+
+    pacePerHour: 0,
+
+    remainingItems:
+      Math.max(
+        0,
+        totalProdutos - itensContados
+      ),
+
+    estimatedFinish: null,
+    remainingHours: null,
+
+    delayed: false,
+    targetPacePerHour: 0,
+
+    noProgressYet: true,
+
+    noBase:
+      totalProdutos <= 0,
+
+    semConfiguracaoOperacional: true,
+  };
+}
   const { startDate, targetDate } = getOperationalDates(
     cfg.start,
     cfg.target
@@ -17300,9 +17751,11 @@ pie.style.background = `conic-gradient(
   }
 
   if (startDate && targetDate) {
-    const nowMs = now.getTime();
-    const startMs = startDate.getTime();
-    const targetMs = targetDate.getTime();
+  const inicioOperacional = getInicioOperacionalEfetivo(startDate);
+
+  const nowMs = now.getTime();
+  const startMs = inicioOperacional.getTime();
+  const targetMs = targetDate.getTime();
 
     if (nowMs < startMs) {
       result.elapsedSeconds = 0;
@@ -17330,7 +17783,7 @@ pie.style.background = `conic-gradient(
       );
     }
 
-    const totalWindow = diffHours(startDate, targetDate);
+    const totalWindow = diffHours(inicioOperacional, targetDate);
     if (isFinite(totalWindow) && totalWindow > 0 && totalProdutos > 0) {
       result.targetPacePerHour = totalProdutos / totalWindow;
     }
@@ -17788,8 +18241,23 @@ function renderizarUltimasLeituras(lista = []) {
 
               <div class="operacional-live-item-meta">
                 <strong>
-                  ${Number(item.quantidade || 0).toLocaleString("pt-BR")} un.
-                </strong>
+  ${
+    item.ehKg ||
+    String(item.unidade || '').toLowerCase() === 'kg'
+      ? `${Number(
+          item.quantidade || 0
+        ).toLocaleString(
+          'pt-BR',
+          {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3
+          }
+        )} kg`
+      : `${Number(
+          item.quantidade || 0
+        ).toLocaleString('pt-BR')} un.`
+  }
+</strong>
 
                 <span>
                   ${item.usuario || "--"}
@@ -17846,8 +18314,44 @@ function renderizarUltimasFinalizacoes(
 
               <div class="operacional-live-item-meta">
                 <strong>
-                  ${Number(item.totalVolume || 0).toLocaleString("pt-BR")} un.
-                </strong>
+  ${
+    Number(item.totalVolumeUn || 0) > 0
+      ? `${Number(
+          item.totalVolumeUn
+        ).toLocaleString(
+          'pt-BR'
+        )} un.`
+      : ''
+  }
+
+  ${
+    Number(item.totalVolumeUn || 0) > 0 &&
+    Number(item.totalVolumeKg || 0) > 0
+      ? ' / '
+      : ''
+  }
+
+  ${
+    Number(item.totalVolumeKg || 0) > 0
+      ? `${Number(
+          item.totalVolumeKg
+        ).toLocaleString(
+          'pt-BR',
+          {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3
+          }
+        )} kg`
+      : ''
+  }
+
+  ${
+    Number(item.totalVolumeUn || 0) <= 0 &&
+    Number(item.totalVolumeKg || 0) <= 0
+      ? '0 un.'
+      : ''
+  }
+</strong>
 
                 <span>
                   ${formatarHoraResumoOperacional(item.data)}
@@ -18650,9 +19154,36 @@ if (boxContados) {
                 </div>
               </div>
 
-              <div class="ranking-total">${Number(
-                item.totalContado || 0
-              ).toLocaleString('pt-BR')} un.</div>
+              <div class="ranking-total">
+  ${
+    Number(item.totalContadoUn || 0) > 0
+      ? `${Number(
+          item.totalContadoUn
+        ).toLocaleString('pt-BR')} un.`
+      : ''
+  }
+
+  ${
+    Number(item.totalContadoUn || 0) > 0 &&
+    Number(item.totalContadoKg || 0) > 0
+      ? ' / '
+      : ''
+  }
+
+  ${
+    Number(item.totalContadoKg || 0) > 0
+      ? `${Number(
+          item.totalContadoKg
+        ).toLocaleString(
+          'pt-BR',
+          {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3
+          }
+        )} kg`
+      : ''
+  }
+</div>
             </div>
 
             <div class="ranking-meta">
@@ -24797,18 +25328,67 @@ function imprimirPosicoesPendentes() {
         }
       }
       function converterTextoNumero(valor) {
-        const texto = String(valor || '').trim();
+  let texto = String(valor ?? '')
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/[^\d,.\-]/g, '');
 
-        if (!texto) return 0;
+  if (!texto) {
+    return 0;
+  }
 
-        const normalizado = texto
-          .replace(/\./g, '')
-          .replace(',', '.')
-          .replace(/[^\d.-]/g, '');
+  const possuiVirgula =
+    texto.includes(',');
 
-        const numero = Number(normalizado);
-        return Number.isFinite(numero) ? numero : 0;
-      }
+  const possuiPonto =
+    texto.includes('.');
+
+  /*
+    Exemplos aceitos:
+
+    16,088     -> 16.088
+    16.088     -> 16.088
+    16088      -> 16088
+    1.234,567  -> 1234.567
+    1,234.567  -> 1234.567
+  */
+
+  if (possuiVirgula && possuiPonto) {
+    const ultimaVirgula =
+      texto.lastIndexOf(',');
+
+    const ultimoPonto =
+      texto.lastIndexOf('.');
+
+    if (ultimaVirgula > ultimoPonto) {
+      /*
+        Formato brasileiro:
+        1.234,567
+      */
+      texto = texto
+        .replace(/\./g, '')
+        .replace(',', '.');
+    } else {
+      /*
+        Formato internacional:
+        1,234.567
+      */
+      texto = texto
+        .replace(/,/g, '');
+    }
+  } else if (possuiVirgula) {
+    /*
+      16,088 -> 16.088
+    */
+    texto = texto.replace(',', '.');
+  }
+
+  const numero = Number(texto);
+
+  return Number.isFinite(numero)
+    ? numero
+    : 0;
+}
 
       function formatarNumeroBR(valor, casas = 3) {
         const numero = Number(valor || 0);

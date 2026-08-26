@@ -5284,51 +5284,159 @@ function gerarRankingUsuarios() {
 
   const mapa = {};
 
+  /*
+    Mapa rápido para descobrir se cada produto
+    deve ser tratado como KG ou UN.
+  */
+  const mapaProdutos = new Map();
+
+  inventario.forEach((produto) => {
+    const codigoBarras = String(
+      produto?.codigoBarras || ''
+    ).trim();
+
+    if (codigoBarras) {
+      mapaProdutos.set(
+        codigoBarras,
+        produto
+      );
+    }
+  });
+
+  function produtoEhKg(codigoBarras) {
+    const produto =
+      mapaProdutos.get(
+        String(codigoBarras || '').trim()
+      );
+
+    if (!produto) {
+      return false;
+    }
+
+    const texto = `
+      ${produto.descricao || ''}
+      ${produto.categoria || ''}
+      ${produto.tipo || ''}
+    `.toLowerCase();
+
+    return (
+      texto.includes('kg') ||
+      texto.includes('quilo')
+    );
+  }
+
   contagens
-    .filter((registro) => registro && registro.ativo !== false)
+    .filter(
+      (registro) =>
+        registro &&
+        registro.ativo !== false
+    )
     .forEach((registro) => {
-      const usuario = registro.usuario || "desconhecido";
+      const usuario =
+        registro.usuario ||
+        'desconhecido';
 
       if (!mapa[usuario]) {
         mapa[usuario] = {
           usuario,
-          matricula: registro.matricula || "SEM-MATRICULA",
-          totalContado: 0,
+          matricula:
+            registro.matricula ||
+            'SEM-MATRICULA',
+
+          /*
+            Mantemos separado:
+            unidades físicas e peso.
+          */
+          totalContadoUn: 0,
+          totalContadoKg: 0,
+
           movimentacoes: 0,
           itensUnicos: new Set(),
-          ultimaAtualizacao: registro.data || null,
+          ultimaAtualizacao:
+            registro.data || null,
         };
       }
 
-      mapa[usuario].totalContado += Number(registro.quantidade) || 0;
+      const quantidade =
+        Number(registro.quantidade) || 0;
+
+      if (
+        produtoEhKg(
+          registro.codigoBarras
+        )
+      ) {
+        mapa[usuario].totalContadoKg +=
+          quantidade;
+      } else {
+        mapa[usuario].totalContadoUn +=
+          quantidade;
+      }
+
       mapa[usuario].movimentacoes += 1;
 
       if (registro.codigoBarras) {
-        mapa[usuario].itensUnicos.add(String(registro.codigoBarras).trim());
+        mapa[usuario].itensUnicos.add(
+          String(
+            registro.codigoBarras
+          ).trim()
+        );
       }
 
       if (registro.data) {
-        mapa[usuario].ultimaAtualizacao = registro.data;
+        mapa[usuario].ultimaAtualizacao =
+          registro.data;
       }
     });
 
-  const ranking = Object.values(mapa).map((item) => ({
-    usuario: item.usuario,
-    matricula: item.matricula,
-    totalContado: item.totalContado,
-    movimentacoes: item.movimentacoes,
-    itensUnicos: item.itensUnicos.size,
-    ultimaAtualizacao: item.ultimaAtualizacao,
-  }));
+  const ranking =
+    Object.values(mapa).map(
+      (item) => ({
+        usuario: item.usuario,
+        matricula: item.matricula,
 
-  ranking.sort((a, b) => b.totalContado - a.totalContado);
+        totalContadoUn:
+          item.totalContadoUn,
 
-  const totalGeral = ranking.reduce((acc, item) => acc + item.totalContado, 0);
+        totalContadoKg:
+          item.totalContadoKg,
 
-  return ranking.map((item) => ({
-    ...item,
-    percentual: totalGeral > 0 ? (item.totalContado / totalGeral) * 100 : 0,
-  }));
+        /*
+          Mantido por compatibilidade com
+          partes antigas do sistema.
+
+          Não deve ser usado para exibição
+          de UN + KG.
+        */
+        totalContado:
+          item.totalContadoUn,
+
+        movimentacoes:
+          item.movimentacoes,
+
+        itensUnicos:
+          item.itensUnicos.size,
+
+        ultimaAtualizacao:
+          item.ultimaAtualizacao,
+      })
+    );
+
+  /*
+    Como participação atualmente é calculada
+    por endereços concluídos na rota
+    /ranking-usuarios, não precisamos misturar
+    KG e UN para determinar participação.
+  */
+
+  ranking.sort(
+    (a, b) =>
+      b.movimentacoes -
+        a.movimentacoes ||
+      b.itensUnicos -
+        a.itensUnicos
+  );
+
+  return ranking;
 }
 
 function parseMoeda(valor) {
@@ -7127,7 +7235,74 @@ function localizarProdutoResumoOperacional(codigoBarras) {
     );
   });
 }
+function produtoResumoEhKg(
+  codigoBarras = '',
+  itemReferencia = null
+) {
+  const produto =
+    localizarProdutoResumoOperacional(
+      codigoBarras
+    );
 
+  const texto = [
+    produto?.descricao,
+    produto?.categoria,
+    produto?.tipo,
+
+    itemReferencia?.descricao,
+    itemReferencia?.categoria,
+    itemReferencia?.tipo,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    texto.includes('kg') ||
+    texto.includes('quilo')
+  );
+}
+function calcularVolumesFinalizacao(
+  itens = []
+) {
+  let totalUn = 0;
+  let totalKg = 0;
+
+  (
+    Array.isArray(itens)
+      ? itens
+      : []
+  ).forEach((item) => {
+    const codigoBarras =
+      String(
+        item?.codigoBarras ||
+        item?.ean ||
+        ''
+      ).trim();
+
+    const quantidade =
+      Number(
+        item?.quantidade
+      ) || 0;
+
+    const ehKg =
+      produtoResumoEhKg(
+        codigoBarras,
+        item
+      );
+
+    if (ehKg) {
+      totalKg += quantidade;
+    } else {
+      totalUn += quantidade;
+    }
+  });
+
+  return {
+    totalUn,
+    totalKg,
+  };
+}
 function montarUltimasLeiturasDashboard(
   limite = 10
 ) {
@@ -7230,35 +7405,56 @@ function montarUltimasLeiturasDashboard(
           item.codigoBarras
         );
 
+        const ehKg =
+        produtoResumoEhKg(
+          item.codigoBarras,
+          produto
+        );
+      
       return {
-        id: item.id || "",
-
+        id:
+          item.id || '',
+      
         codigoBarras:
-          item.codigoBarras || "",
-
+          item.codigoBarras || '',
+      
         codigo:
           produto?.codigo ||
           produto?.codigoInterno ||
-          "",
-
+          '',
+      
         descricao:
           produto?.descricao ||
-          "Sem descrição",
-
+          'Sem descrição',
+      
+        categoria:
+          produto?.categoria || '',
+      
+        tipo:
+          produto?.tipo || '',
+      
         quantidade:
           Number(
             item.quantidade
           ) || 0,
-
+      
+        unidade:
+          ehKg
+            ? 'kg'
+            : 'un',
+      
+        ehKg,
+      
         usuario:
           item.usuario ||
-          "Não informado",
-
+          'Não informado',
+      
         enderecoNumero:
           item.enderecoNumero ??
           null,
-
-        data: item.data,
+      
+        data:
+          item.data,
       };
     });
 }
@@ -7322,6 +7518,11 @@ function montarUltimasFinalizacoesDashboard(
               .filter(Boolean)
           );
 
+          const volumes =
+  calcularVolumesFinalizacao(
+    itens
+  );
+
         return {
           id:
             finalizacao.id || "",
@@ -7344,18 +7545,11 @@ function montarUltimasFinalizacoesDashboard(
           totalItensUnicos:
             codigosUnicos.size,
 
-          totalVolume:
-            itens.reduce(
-              (total, item) =>
-                total +
-                (
-                  Number(
-                    item.quantidade
-                  ) || 0
-                ),
-              0
-            ),
-
+            totalVolumeUn:
+            volumes.totalUn,
+          
+          totalVolumeKg:
+            volumes.totalKg,
           data:
             finalizacao.data,
         };
@@ -7416,6 +7610,11 @@ function montarUltimasFinalizacoesDashboard(
               ? finalizacao.itens
               : [];
 
+              const volumes =
+              calcularVolumesFinalizacao(
+                itens
+              );
+
 
           lista.push({
             id:
@@ -7459,18 +7658,11 @@ function montarUltimasFinalizacoesDashboard(
                   .filter(Boolean)
               ).size,
 
-            totalVolume:
-              itens.reduce(
-                (total, item) =>
-                  total +
-                  (
-                    Number(
-                      item.quantidade
-                    ) || 0
-                  ),
-                0
-              ),
-
+              totalVolumeUn:
+              volumes.totalUn,
+            
+            totalVolumeKg:
+              volumes.totalKg,
             data:
               finalizacao.data,
           });
@@ -12576,9 +12768,19 @@ app.post("/restaurar-ultimo-encerramento", autenticar, async (req, res) => {
     });
   }
 });
-app.get("/exportar-checklist-encerramento-pdf-auto", autenticar, (req, res) => {
-  try {
-    const printer = new PdfPrinter(fonts);
+app.get(
+  "/exportar-checklist-encerramento-pdf-auto",
+  autenticar,
+  (req, res) => {
+    try {
+      /*
+        Tamanho da fonte utilizado exclusivamente
+        nas tabelas do checklist de encerramento.
+      */
+      const fonteTabelaPdf = 9;
+
+      const printer =
+        new PdfPrinter(fonts);
 
     const cliente = req.query.cliente || "Cliente não informado";
     const loja = req.query.loja || "Loja não informada";
