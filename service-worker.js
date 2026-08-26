@@ -1,5 +1,4 @@
-const CACHE_NAME =
-  'realstock-mobile-v9';
+const CACHE_NAME = 'realstock-mobile-v10';
 
 const URLS_MOBILE_CACHE = [
   '/contagem-mobile',

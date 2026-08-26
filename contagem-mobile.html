@@ -1866,10 +1866,9 @@ body.sem-endereco-aberto #cardItensEndereco {
     <div class="splash-logo-wrap">
 
       <img
-        src="/icones/icone-512.png"
-        alt="RealStock"
-      />
-
+      src="/icone-512.png"
+      alt="RealStock"
+    />
       <div
         class="splash-logo-brilho"
         aria-hidden="true"
@@ -1892,6 +1891,77 @@ body.sem-endereco-aberto #cardItensEndereco {
 
   </div>
 </div>
+
+
+<script>
+  (function () {
+    const splash =
+      document.getElementById('splashScreen');
+  
+    if (!splash) return;
+  
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+  
+    const forcarSplash =
+      params.get('splash') === '1';
+  
+    const estaEmPwa =
+      window.matchMedia(
+        '(display-mode: standalone)'
+      ).matches ||
+      window.navigator.standalone === true;
+  
+    /*
+      Durante o teste com ?splash=1,
+      mostra sempre.
+  
+      Fora do teste, mostra somente
+      quando aberto como PWA.
+    */
+    if (
+      !forcarSplash &&
+      !estaEmPwa
+    ) {
+      splash.remove();
+      return;
+    }
+  
+    splash.classList.add(
+      'splash-ativa'
+    );
+  
+    splash.setAttribute(
+      'aria-hidden',
+      'false'
+    );
+  
+    /*
+      Força a animação a começar
+      depois que a splash já estiver visível.
+    */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        splash.classList.add(
+          'splash-iniciada'
+        );
+      });
+    });
+  
+    setTimeout(() => {
+      splash.classList.add(
+        'splash-hide'
+      );
+  
+      setTimeout(() => {
+        splash.remove();
+      }, 450);
+  
+    }, 2200);
+  })();
+  </script>
   
   <header class="mobile-header">
   <button
@@ -4188,7 +4258,7 @@ if (
           await navigator
             .serviceWorker
             .register(
-              '/service-worker.js?v=9',
+              '/service-worker.js?v=10',
               {
                 scope:
                   '/coleta-mobile',
@@ -4208,98 +4278,7 @@ if (
     }
   );
 }
-function iniciarSplashPwaRealStock() {
-  const splash =
-    document.getElementById(
-      'splashScreen'
-    );
 
-  if (!splash) {
-    return;
-  }
-
-  /*
-    Detecta se realmente estamos dentro
-    do PWA instalado.
-  */
-  const estaEmPwa =
-    window.matchMedia(
-      '(display-mode: standalone)'
-    ).matches ||
-    window.navigator.standalone === true;
-
-  /*
-    sessionStorage dura somente durante
-    esta execução/sessão do aplicativo.
-
-    Portanto:
-    - abriu PWA -> mostra
-    - navegou dentro -> não mostra
-    - atualizou tela -> não mostra novamente
-  */
-  const splashJaExibida =
-    sessionStorage.getItem(
-      'realstock_splash_exibida'
-    ) === '1';
-
-  /*
-    Se abriu pelo navegador comum,
-    ou se a splash já apareceu nesta
-    abertura do PWA, removemos imediatamente.
-  */
-  if (
-    !estaEmPwa ||
-    splashJaExibida
-  ) {
-    splash.remove();
-    return;
-  }
-
-  /*
-    Marca imediatamente para evitar
-    uma segunda execução.
-  */
-  sessionStorage.setItem(
-    'realstock_splash_exibida',
-    '1'
-  );
-
-  splash.classList.add(
-    'splash-ativa'
-  );
-
-  splash.setAttribute(
-    'aria-hidden',
-    'false'
-  );
-
-  /*
-    Tempo total da animação.
-    Curto o suficiente para não
-    atrasar o conferente.
-  */
-  setTimeout(() => {
-
-    splash.classList.add(
-      'splash-hide'
-    );
-
-    setTimeout(() => {
-      splash.remove();
-    }, 450);
-
-  }, 1650);
-}
-
-
-/*
-  Executa assim que a página terminar
-  de carregar.
-*/
-window.addEventListener(
-  'load',
-  iniciarSplashPwaRealStock
-);
 </script>
 </body>
 </html>
