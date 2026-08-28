@@ -16945,8 +16945,10 @@ if (typeof atualizarDashboardCompleto === "function") {
   await obterDadosInventarioStorage();
         const cliente = dadosInventario.cliente || '';
         const loja = dadosInventario.loja || '';
-        const data = dadosInventario.dataInventario || '';
-
+        const data =
+  formatarDataBR(
+    dadosInventario.dataInventario
+  );
         let ordem = '';
         if (ordenacaoFrontEnd === 'menor-divergencia')
           ordem = 'divergencia_asc';
@@ -20959,6 +20961,28 @@ renderizarTransformacoesUniversais();
 
       let dadosInventarioCache = {};
 
+      function formatarDataBR(data) {
+  if (!data) return '';
+
+  const valor = String(data).trim();
+
+  // Se já estiver no formato DD/MM/AAAA, mantém
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {
+    return valor;
+  }
+
+  // Converte AAAA-MM-DD para DD/MM/AAAA
+  const match = valor.match(
+    /^(\d{4})-(\d{2})-(\d{2})$/
+  );
+
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+
+  return valor;
+}
+
 async function obterDadosInventarioStorage() {
   try {
     const res = await fetch('/dados-inventario', {
@@ -21704,19 +21728,23 @@ function gerarDocumentoAvancadoSelecionado() {
       );
   }
 }
-      function exportarCurvaABCPdf() {
+async function exportarCurvaABCPdf() {
         const categoria =
           document.getElementById('campoFiltroCategoria')?.value || '';
         const busca = document.getElementById('buscaGeral')?.value || '';
         const ordenacaoFrontEnd =
           document.getElementById('ordenarDivergencia')?.value || '';
 
-        const dadosInventario = obterDadosInventarioStorage();
+          const dadosInventario =
+  await obterDadosInventarioStorage();
 
         const cliente = dadosInventario.cliente || '';
         const loja = dadosInventario.loja || '';
         const codigoLoja = dadosInventario.codigoLoja || '';
-        const data = dadosInventario.dataInventario || '';
+        const data =
+  formatarDataBR(
+    dadosInventario.dataInventario
+  );
         const cidade = dadosInventario.cidade || '';
         const uf = dadosInventario.uf || '';
         const responsavelCliente = dadosInventario.responsavelCliente || '';
@@ -21753,13 +21781,18 @@ function gerarDocumentoAvancadoSelecionado() {
 
         window.open(url, '_blank');
       }
-      function exportarChecklistEncerramentoPdfAuto() {
-        const dadosInventario = obterDadosInventarioStorage();
+      async function exportarChecklistEncerramentoPdfAuto() {
+        
+        const dadosInventario =
+  await obterDadosInventarioStorage();
 
         const cliente = dadosInventario.cliente || '';
         const loja = dadosInventario.loja || '';
         const codigoLoja = dadosInventario.codigoLoja || '';
-        const dataInventario = dadosInventario.dataInventario || '';
+        const data =
+  formatarDataBR(
+    dadosInventario.dataInventario
+  );
         const cidade = dadosInventario.cidade || '';
         const uf = dadosInventario.uf || '';
         const responsavelCliente = dadosInventario.responsavelCliente || '';
@@ -21830,13 +21863,17 @@ function gerarDocumentoAvancadoSelecionado() {
           `&data=${encodeURIComponent(data)}`;
       }
 
-      function exportarAvaliacaoInventarioPdf() {
-        const dadosInventario = obterDadosInventarioStorage();
+      async function exportarAvaliacaoInventarioPdf() {
+        const dadosInventario =
+  await obterDadosInventarioStorage();
 
         const cliente = dadosInventario.cliente || '';
         const loja = dadosInventario.loja || '';
         const codigoLoja = dadosInventario.codigoLoja || '';
-        const dataInventario = dadosInventario.dataInventario || '';
+        const data =
+  formatarDataBR(
+    dadosInventario.dataInventario
+  );
         const cidade = dadosInventario.cidade || '';
         const uf = dadosInventario.uf || '';
         const responsavelCliente = dadosInventario.responsavelCliente || '';
