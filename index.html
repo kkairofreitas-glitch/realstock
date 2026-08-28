@@ -16934,14 +16934,15 @@ if (typeof atualizarDashboardCompleto === "function") {
           if (filtroBar) filtroBar.style.display = '';
         }
       }
-      function gerarPDF() {
+      async function gerarPDF() {
         const categoria =
           document.getElementById('campoFiltroCategoria')?.value || '';
         const busca = document.getElementById('buscaGeral')?.value || '';
         const ordenacaoFrontEnd =
           document.getElementById('ordenarDivergencia')?.value || '';
 
-        const dadosInventario = obterDadosInventarioStorage();
+          const dadosInventario =
+  await obterDadosInventarioStorage();
         const cliente = dadosInventario.cliente || '';
         const loja = dadosInventario.loja || '';
         const data = dadosInventario.dataInventario || '';
