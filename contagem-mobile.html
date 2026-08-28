@@ -367,9 +367,9 @@
    #splashScreen {
   position: fixed;
   inset: 0;
-  z-index: 9999999;
+  z-index: 99999;
 
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
 
@@ -391,8 +391,13 @@
     visibility 0.4s ease;
 }
 
-
-/* CONTEÚDO */
+/*
+  Só mostramos a splash quando o JS
+  confirmar que é uma abertura do PWA.
+*/
+#splashScreen.splash-ativa {
+  display: flex;
+}
 
 .splash-realstock-content {
   position: relative;
@@ -405,20 +410,14 @@
   width: min(82vw, 330px);
 
   text-align: center;
-}
 
-#splashScreen.splash-iniciada
-.splash-realstock-content {
   animation:
-    splashConteudoEntrada
-    0.65s
+    splashConteudoEntrada 0.65s
     cubic-bezier(.2,.8,.2,1)
     both;
 }
 
-
-/* HALO EXTERNO */
-
+/* Halo externo */
 .splash-logo-wrap {
   position: relative;
 
@@ -432,9 +431,7 @@
   margin-bottom: 22px;
 }
 
-
-/* CÍRCULO LUMINOSO */
-
+/* Círculo luminoso atrás da logo */
 .splash-logo-wrap::before {
   content: "";
 
@@ -451,15 +448,10 @@
     inset 0 0 22px rgba(0, 210, 220, 0.08);
 
   animation:
-    splashPulso
-    1.5s
-    ease-in-out
-    infinite;
+    splashPulso 1.5s ease-in-out infinite;
 }
 
-
-/* ARCO GIRATÓRIO */
-
+/* Arco giratório em torno da logo */
 .splash-logo-wrap::after {
   content: "";
 
@@ -478,15 +470,10 @@
     rgba(18, 212, 216, 0.24);
 
   animation:
-    splashArco
-    1.15s
-    linear
-    infinite;
+    splashArco 1.15s linear infinite;
 }
 
-
-/* LOGO */
-
+/* Logo */
 #splashScreen img {
   position: relative;
   z-index: 2;
@@ -505,19 +492,16 @@
       rgba(0, 0, 0, 0.42),
     0 0 28px
       rgba(0, 201, 207, 0.14);
-}
 
-#splashScreen.splash-iniciada img {
   animation:
-    splashLogoEntrada
-    0.75s
+    splashLogoEntrada 0.75s
     cubic-bezier(.16,1,.3,1)
     both;
 }
 
-
-/* BRILHO SOBRE A LOGO */
-
+/*
+  Brilho que atravessa a logo.
+*/
 .splash-logo-brilho {
   position: absolute;
 
@@ -554,21 +538,13 @@
       rgba(255,255,255,0.30),
       transparent
     );
-}
 
-#splashScreen.splash-iniciada
-.splash-logo-brilho::after {
   animation:
-    splashBrilho
-    1.25s
-    0.35s
-    ease-in-out
-    forwards;
+    splashBrilho 1.25s
+    0.35s ease-in-out forwards;
 }
 
-
-/* NOME REALSTOCK */
-
+/* Nome */
 #splashScreen h1 {
   margin: 0;
 
@@ -583,25 +559,18 @@
 
   text-shadow:
     0 5px 18px
-    rgba(0,0,0,0.32);
+      rgba(0,0,0,0.32);
+
+  animation:
+    splashTextoEntrada
+    0.55s 0.28s ease both;
 }
 
 #splashScreen h1 span {
   color: #10cbd0;
 }
 
-#splashScreen.splash-iniciada h1 {
-  animation:
-    splashTextoEntrada
-    0.55s
-    0.28s
-    ease
-    both;
-}
-
-
-/* SUBTÍTULO */
-
+/* Subtítulo */
 #splashScreen p {
   margin:
     9px 0 0;
@@ -616,20 +585,13 @@
   letter-spacing: 0.18em;
 
   text-transform: uppercase;
-}
 
-#splashScreen.splash-iniciada p {
   animation:
     splashTextoEntrada
-    0.55s
-    0.42s
-    ease
-    both;
+    0.55s 0.42s ease both;
 }
 
-
-/* BARRA INFERIOR */
-
+/* Pequena barra inferior */
 .splash-progress {
   position: relative;
 
@@ -664,30 +626,19 @@
       #10d9da,
       #ffffff
     );
-}
 
-#splashScreen.splash-iniciada
-.splash-progress::after {
   animation:
-    splashProgresso
-    1.25s
-    0.25s
-    ease-out
-    forwards;
+    splashProgresso 1.25s
+    0.25s ease-out forwards;
 }
 
-
-/* SAÍDA */
-
+/* Saída */
 #splashScreen.splash-hide {
   opacity: 0;
   visibility: hidden;
 }
 
-
-/* ======================================
-   ANIMAÇÕES
-   ====================================== */
+/* ================= ANIMAÇÕES ================= */
 
 @keyframes splashConteudoEntrada {
   from {
@@ -702,7 +653,6 @@
       translateY(0);
   }
 }
-
 
 @keyframes splashLogoEntrada {
   0% {
@@ -724,7 +674,6 @@
   }
 }
 
-
 @keyframes splashTextoEntrada {
   from {
     opacity: 0;
@@ -739,14 +688,12 @@
   }
 }
 
-
 @keyframes splashArco {
   to {
     transform:
       rotate(360deg);
   }
 }
-
 
 @keyframes splashPulso {
   0%,
@@ -765,7 +712,6 @@
   }
 }
 
-
 @keyframes splashBrilho {
   from {
     left: -80%;
@@ -775,7 +721,6 @@
     left: 145%;
   }
 }
-
 
 @keyframes splashProgresso {
   from {
@@ -1949,64 +1894,75 @@ body.sem-endereco-aberto #cardItensEndereco {
 
 
 <script>
-(function () {
-  const splash =
-    document.getElementById('splashScreen');
-
-  if (!splash) return;
-
-  const params =
-    new URLSearchParams(
-      window.location.search
-    );
-
-  const forcarSplash =
-    params.get('splash') === '1';
-
-  const estaEmPwa =
-    window.matchMedia(
-      '(display-mode: standalone)'
-    ).matches ||
-    window.navigator.standalone === true;
-
-  /*
-    Navegador comum sem ?splash=1:
-    não mostra a abertura.
-  */
-  if (
-    !forcarSplash &&
-    !estaEmPwa
-  ) {
-    splash.remove();
-    return;
-  }
-
-  /*
-    Agora a splash JÁ está visível.
-    Só iniciamos/garantimos as animações.
-  */
-  splash.classList.add(
-    'splash-iniciada'
-  );
-
-  /*
-    Mantém na tela por 2,4 segundos
-    para conseguirmos enxergar claramente
-    durante o teste.
-  */
-  setTimeout(() => {
-    splash.classList.add(
-      'splash-hide'
-    );
-
-    setTimeout(() => {
+  (function () {
+    const splash =
+      document.getElementById('splashScreen');
+  
+    if (!splash) return;
+  
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+  
+    const forcarSplash =
+      params.get('splash') === '1';
+  
+    const estaEmPwa =
+      window.matchMedia(
+        '(display-mode: standalone)'
+      ).matches ||
+      window.navigator.standalone === true;
+  
+    /*
+      Durante o teste com ?splash=1,
+      mostra sempre.
+  
+      Fora do teste, mostra somente
+      quando aberto como PWA.
+    */
+    if (
+      !forcarSplash &&
+      !estaEmPwa
+    ) {
       splash.remove();
-    }, 500);
-
-  }, 2400);
-})();
-</script>
-
+      return;
+    }
+  
+    splash.classList.add(
+      'splash-ativa'
+    );
+  
+    splash.setAttribute(
+      'aria-hidden',
+      'false'
+    );
+  
+    /*
+      Força a animação a começar
+      depois que a splash já estiver visível.
+    */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        splash.classList.add(
+          'splash-iniciada'
+        );
+      });
+    });
+  
+    setTimeout(() => {
+      splash.classList.add(
+        'splash-hide'
+      );
+  
+      setTimeout(() => {
+        splash.remove();
+      }, 450);
+  
+    }, 2200);
+  })();
+  </script>
+  
   <header class="mobile-header">
   <button
     type="button"
