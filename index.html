@@ -21500,9 +21500,11 @@ function desmarcarTodasColunasPdf() {
   const loja =
     dadosInventario.loja || "";
 
-  const data =
-    dadosInventario.dataInventario || "";
-
+    const data =
+  formatarDataBR(
+    dadosInventario.dataInventario
+  );
+  
   let ordem = "";
 
   if (
@@ -21789,7 +21791,7 @@ async function exportarCurvaABCPdf() {
         const cliente = dadosInventario.cliente || '';
         const loja = dadosInventario.loja || '';
         const codigoLoja = dadosInventario.codigoLoja || '';
-        const data =
+        const dataInventario =
   formatarDataBR(
     dadosInventario.dataInventario
   );
@@ -21800,12 +21802,19 @@ async function exportarCurvaABCPdf() {
 
         const agora = new Date();
 
-        const dataEncerramento = agora.toISOString().slice(0, 10);
-        const horaEncerramento = agora.toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        const dataEncerramento =
+    formatarDataBR(
+      agora.toISOString().slice(0, 10)
+    );
 
+  const horaEncerramento =
+    agora.toLocaleTimeString(
+      'pt-BR',
+      {
+        hour: '2-digit',
+        minute: '2-digit',
+      }
+    );
         registrarStatusExportacao(
           'CHECKLIST ENCERRAMENTO PDF',
           'Exportação iniciada',
@@ -21870,7 +21879,7 @@ async function exportarCurvaABCPdf() {
         const cliente = dadosInventario.cliente || '';
         const loja = dadosInventario.loja || '';
         const codigoLoja = dadosInventario.codigoLoja || '';
-        const data =
+        const dataInventario =
   formatarDataBR(
     dadosInventario.dataInventario
   );
