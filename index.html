@@ -21436,7 +21436,7 @@ function desmarcarTodasColunasPdf() {
         document.getElementById('modal-pdf-colunas').style.display = 'none';
       }
 
-      function exportarPDFSelecionado() {
+      async function exportarPDFSelecionado() {
   const selecionadas =
     colunasPdfConfiguradas.filter(
       (coluna) => coluna.incluida
@@ -21467,8 +21467,8 @@ function desmarcarTodasColunasPdf() {
       "ordenarDivergencia"
     )?.value || "";
 
-  const dadosInventario =
-    obterDadosInventarioStorage();
+    const dadosInventario =
+  await obterDadosInventarioStorage();
 
   const cliente =
     dadosInventario.cliente || "";
