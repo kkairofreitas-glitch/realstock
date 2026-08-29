@@ -9697,10 +9697,22 @@ app.post("/transmissoes-consolidacao/:id/consolidar", autenticar, async (req, re
       consolidadoEm: agoraIso,
       consolidadoPor: usuarioConsolidacao,
     });
-
-    registrarEventoEndereco(Number(enderecoNumero), "finalizacao", usuarioConsolidacao);
-
-    endereco.atualizadoEm = agoraIso;
+    
+    /*
+      Consolidação NÃO é finalização.
+    
+      A finalização verdadeira já foi registrada
+      pelo operador que concluiu o endereço no mobile.
+    
+      Aqui registramos apenas o evento administrativo
+      de consolidação, preservando o conferente real.
+    */
+    await registrarEventoEndereco(
+      Number(enderecoNumero),
+      "consolidacao",
+      usuarioConsolidacao
+    );
+    
     salvarEnderecamentos();
 
     recalcularInventarioComBaseNasContagens();
@@ -9911,9 +9923,17 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
         consolidadoEm: agoraIso,
         consolidadoPor: usuarioConsolidacao,
       });
-
-      registrarEventoEndereco(Number(enderecoNumero), "finalizacao", usuarioConsolidacao);
-
+      
+      /*
+        IMPORTANTE:
+        consolidar não cria uma nova finalização.
+      */
+      await registrarEventoEndereco(
+        Number(enderecoNumero),
+        "consolidacao",
+        usuarioConsolidacao
+      );
+      
       endereco.atualizadoEm = agoraIso;
       totalConsolidadas += 1;
     });
