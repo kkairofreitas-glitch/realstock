@@ -9738,13 +9738,13 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
     let totalConsolidadas = 0;
     let totalErros = 0;
 
-    fila.forEach((itemFila) => {
+    for (const itemFila of fila) {
       const idParam = String(itemFila.id || "");
       const match = idParam.match(/^END-(\d+)-(\d+)$/);
 
       if (!match) {
         totalErros += 1;
-        return;
+        continue;
       }
 
       const enderecoId = Number(match[1]);
@@ -9753,7 +9753,7 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
       const endereco = enderecamentos.find((item) => Number(item.id) === enderecoId);
       if (!endereco) {
         totalErros += 1;
-        return;
+        continue;
       }
 
       const transmissaoPendente = [...(endereco.transmissoes || [])]
@@ -9764,10 +9764,10 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
           Number(t.enderecoNumero) === Number(enderecoNumero)
         );
 
-      if (!transmissaoPendente) {
-        totalErros += 1;
-        return;
-      }
+        if (!transmissaoPendente) {
+          totalErros += 1;
+          continue;
+        }
 
       if (!Array.isArray(endereco.consolidacoesPorNumero)) {
         endereco.consolidacoesPorNumero = [];
@@ -9777,7 +9777,9 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
         (c) => Number(c.enderecoNumero) === enderecoNumero && c.consolidado
       );
 
-      if (jaConsolidado) return;
+      if (jaConsolidado) {
+        continue;
+      }
 
       const agoraIso = new Date().toISOString();
       const usuarioConsolidacao =
@@ -9936,7 +9938,7 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
       
       endereco.atualizadoEm = agoraIso;
       totalConsolidadas += 1;
-    });
+}
 
     salvarEnderecamentos();
 
