@@ -3274,48 +3274,154 @@ const msgAlvo = lendoEndereco
 
     msgAlvo.className = 'mensagem info';
 
-    if (!leitorCameraHtml5) {
-      leitorCameraHtml5 = new Html5Qrcode('html5QrCodeReader');
+    /*
+  Define formatos diferentes conforme
+  o que está sendo lido.
+*/
+const formatosPermitidosCamera =
+  destinoCamera === 'produto'
+    ? [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.ITF
+      ]
+    : [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ];
+
+
+/*
+  Recria o leitor para garantir que
+  os formatos realmente sejam aplicados.
+*/
+if (leitorCameraHtml5) {
+  try {
+    await leitorCameraHtml5.clear();
+  } catch (erro) {
+    console.warn(
+      'Não foi possível limpar o leitor anterior:',
+      erro
+    );
+  }
+}
+
+leitorCameraHtml5 =
+  new Html5Qrcode(
+    'html5QrCodeReader',
+    {
+      formatsToSupport:
+        formatosPermitidosCamera
     }
+  );
 
     cameraAtiva = true;
 
     await leitorCameraHtml5.start(
-      { facingMode: 'environment' },
-      {
-        fps: 18,
-        qrbox: { width: 220, height: 120 },
-        aspectRatio: 1.7778,
-        disableFlip: true,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.QR_CODE
-        ]
-      },
-      async (codigoLido) => {
-        if (!cameraAtiva) return;
+  { facingMode: 'environment' },
+  {
+    fps: 18,
+    qrbox: {
+      width: 220,
+      height: 120
+    },
+    aspectRatio: 1.7778,
+    disableFlip: true
+  },
+  async (codigoLido) => {
+  if (!cameraAtiva) {
+    return;
+  }
 
-        cameraAtiva = false;
-        await pararLeituraCamera();
+  const valorOriginal =
+    String(codigoLido || '').trim();
 
-        preencherCodigoLidoPelaCamera(codigoLido);
 
-        msgAlvo.textContent =
-          destinoCamera === 'endereco'
-            ? `Endereço lido: ${codigoLido}`
-            : `Código lido: ${codigoLido}`;
+  /*
+    ENDEREÇO / WMS:
+    não aplicar regra de GTIN.
+  */
+  if (
+    destinoCamera === 'endereco' ||
+    destinoCamera === 'endereco-wms'
+  ) {
+    cameraAtiva = false;
 
-        msgAlvo.className = 'mensagem sucesso';
+    await pararLeituraCamera();
 
-        if (navigator.vibrate) {
-          navigator.vibrate(80);
-        }
-      }
+    preencherCodigoLidoPelaCamera(
+      valorOriginal
+    );
+
+    msgAlvo.textContent =
+      destinoCamera === 'endereco'
+        ? `Endereço lido: ${valorOriginal}`
+        : `Endereço WMS lido: ${valorOriginal}`;
+
+    msgAlvo.className =
+      'mensagem sucesso';
+
+    if (navigator.vibrate) {
+      navigator.vibrate(80);
+    }
+
+    return;
+  }
+
+
+  /*
+    ================================
+    PRODUTO
+    ================================
+  */
+
+  const codigo =
+    somenteDigitosCodigo(
+      valorOriginal
+    );
+
+
+  /*
+    Se a câmera devolver código
+    cortado, incompleto ou fora
+    dos tamanhos aceitos, IGNORA.
+
+    A câmera permanece aberta.
+  */
+  if (
+    !tamanhoCodigoBarrasValido(
+      codigo
+    )
+  ) {
+    return;
+  }
+
+
+  /*
+    Somente agora consideramos
+    a leitura como produto válido.
+  */
+  cameraAtiva = false;
+
+  await pararLeituraCamera();
+
+  preencherCodigoLidoPelaCamera(
+    codigo
+  );
+
+  msgAlvo.textContent =
+    `Código lido: ${codigo}`;
+
+  msgAlvo.className =
+    'mensagem sucesso';
+
+  if (navigator.vibrate) {
+    navigator.vibrate(80);
+  }
+}
     );
   } catch (erro) {
     console.error('Erro ao abrir câmera:', erro);
