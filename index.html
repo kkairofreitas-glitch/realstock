@@ -18591,16 +18591,41 @@ function montarMapaEnderecosNoFrontend(
         status = "em-contagem";
       }
 
-      const ultimoEvento = [
-        ...finalizacoesNumero,
-        ...transmissoesNumero,
-      ]
-        .filter((item) => item?.data)
-        .sort(
-          (a, b) =>
-            new Date(b.data).getTime() -
-            new Date(a.data).getTime()
-        )[0];
+      const ultimaFinalizacao =
+  [...finalizacoesNumero]
+    .filter((item) => item?.data)
+    .sort(
+      (a, b) =>
+        new Date(b.data).getTime() -
+        new Date(a.data).getTime()
+    )[0] || null;
+
+
+const ultimaTransmissao =
+  [...transmissoesNumero]
+    .filter((item) => item?.data)
+    .sort(
+      (a, b) =>
+        new Date(b.data).getTime() -
+        new Date(a.data).getTime()
+    )[0] || null;
+
+
+let eventoResponsavel = null;
+
+if (
+  status === "concluido" ||
+  status === "duplicado"
+) {
+  eventoResponsavel =
+    ultimaFinalizacao;
+}
+else if (
+  status === "em-contagem"
+) {
+  eventoResponsavel =
+    ultimaTransmissao;
+}
 
       mapa.push({
         enderecoId: Number(endereco.id) || 0,
@@ -18611,10 +18636,12 @@ function montarMapaEnderecosNoFrontend(
           "Endereço",
         status,
         usuario:
-          ultimoEvento?.usuario ||
-          "Não informado",
-        ultimaAtividade:
-          ultimoEvento?.data || null,
+  eventoResponsavel?.usuario ||
+  "Não informado",
+
+ultimaAtividade:
+  eventoResponsavel?.data ||
+  null,
       });
     }
   });

@@ -7760,41 +7760,93 @@ function montarMapaEnderecosDashboard() {
             item.tipo === "transmissao"
         );
 
-      let status = "pendente";
+        let status = "pendente";
 
-      if (finalizacoesNumero.length > 1) {
-        status = "duplicado";
-      } else if (finalizacoesNumero.length === 1) {
-        status = "concluido";
-      } else if (transmissoesNumero.length > 0) {
-        status = "em-contagem";
-      }
+        if (finalizacoesNumero.length > 1) {
+          status = "duplicado";
+        } else if (finalizacoesNumero.length === 1) {
+          status = "concluido";
+        } else if (transmissoesNumero.length > 0) {
+          status = "em-contagem";
+        }
+        
+        
+        /*
+          =====================================================
+          OPERADOR RESPONSÁVEL PELO ENDEREÇO
+          =====================================================
+        
+          CONCLUÍDO:
+          deve mostrar quem FINALIZOU a contagem.
+        
+          EM CONTAGEM:
+          mostra quem realizou a transmissão mais recente.
+        
+          DUPLICADO:
+          usa a finalização mais recente.
+        
+          Nunca usar uma consolidação posterior feita
+          pelo admin para substituir o conferente real.
+        */
+        
+        const ultimaFinalizacao =
+          [...finalizacoesNumero]
+            .filter((item) => item?.data)
+            .sort(
+              (a, b) =>
+                new Date(b.data).getTime() -
+                new Date(a.data).getTime()
+            )[0] || null;
+        
+        
+        const ultimaTransmissao =
+          [...transmissoesNumero]
+            .filter((item) => item?.data)
+            .sort(
+              (a, b) =>
+                new Date(b.data).getTime() -
+                new Date(a.data).getTime()
+            )[0] || null;
+        
+        
+        let eventoResponsavel = null;
+        
+        if (
+          status === "concluido" ||
+          status === "duplicado"
+        ) {
+          eventoResponsavel =
+            ultimaFinalizacao;
+        }
+        else if (
+          status === "em-contagem"
+        ) {
+          eventoResponsavel =
+            ultimaTransmissao;
+        }
 
-      const ultimoEvento = [
-        ...finalizacoesNumero,
-        ...transmissoesNumero,
-      ]
-        .filter((item) => item.data)
-        .sort(
-          (a, b) =>
-            new Date(b.data).getTime() -
-            new Date(a.data).getTime()
-        )[0];
-
-      resultado.push({
-        enderecoId: Number(endereco.id) || 0,
-        enderecoNumero: numero,
-        setor:
-          endereco.nome ||
-          endereco.tipo ||
-          "Endereço",
-        status,
-        usuario:
-          ultimoEvento?.usuario ||
-          "Não informado",
-        ultimaAtividade:
-          ultimoEvento?.data || null,
-      });
+        resultado.push({
+          enderecoId:
+            Number(endereco.id) || 0,
+        
+          enderecoNumero:
+            numero,
+        
+          setor:
+            endereco.nome ||
+            endereco.tipo ||
+            "Endereço",
+        
+          status,
+        
+          usuario:
+            eventoResponsavel?.usuario ||
+            "Não informado",
+        
+          ultimaAtividade:
+            eventoResponsavel?.data ||
+            null,
+        });
     }
   });
 
