@@ -9698,15 +9698,33 @@ app.post("/transmissoes-consolidacao/:id/consolidar", autenticar, async (req, re
       consolidadoPor: usuarioConsolidacao,
     });
     
-    /*
-      Consolidação NÃO é finalização.
     
-      A finalização verdadeira já foi registrada
-      pelo operador que concluiu o endereço no mobile.
+    const usuarioFinalizacao =
+      transmissaoPendente.usuario ||
+      novosRegistros[0]?.usuario ||
+      "Não informado";
     
-      Aqui registramos apenas o evento administrativo
-      de consolidação, preservando o conferente real.
-    */
+    
+    const jaExisteFinalizacao =
+      Array.isArray(endereco.finalizacoes) &&
+      endereco.finalizacoes.some(
+        (finalizacao) =>
+          !finalizacao?.excluida &&
+          Number(finalizacao.enderecoNumero) ===
+            Number(enderecoNumero)
+      );
+    
+    
+    if (!jaExisteFinalizacao) {
+      await registrarEventoEndereco(
+        Number(enderecoNumero),
+        "finalizacao",
+        usuarioFinalizacao,
+        transmissaoPendente.itens || []
+      );
+    }
+    
+    
     await registrarEventoEndereco(
       Number(enderecoNumero),
       "consolidacao",
@@ -9926,15 +9944,55 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
         consolidadoPor: usuarioConsolidacao,
       });
       
+      
       /*
-        IMPORTANTE:
-        consolidar não cria uma nova finalização.
+        =====================================================
+        FINALIZAÇÃO OPERACIONAL
+        =====================================================
+      
+        A consolidação confirma no sistema a finalização
+        realizada pelo operador no mobile.
+      
+        O responsável deve ser quem contou/transmitiu,
+        nunca quem apenas consolidou.
+      */
+      
+      const usuarioFinalizacao =
+        transmissaoPendente.usuario ||
+        novosRegistros[0]?.usuario ||
+        "Não informado";
+      
+      
+      const jaExisteFinalizacao =
+        Array.isArray(endereco.finalizacoes) &&
+        endereco.finalizacoes.some(
+          (finalizacao) =>
+            !finalizacao?.excluida &&
+            Number(finalizacao.enderecoNumero) ===
+              Number(enderecoNumero)
+        );
+      
+      
+      if (!jaExisteFinalizacao) {
+        await registrarEventoEndereco(
+          Number(enderecoNumero),
+          "finalizacao",
+          usuarioFinalizacao,
+          transmissaoPendente.itens || []
+        );
+      }
+      
+      
+      /*
+        Registra separadamente quem fez a consolidação.
+        Isso NÃO altera o responsável pela contagem.
       */
       await registrarEventoEndereco(
         Number(enderecoNumero),
         "consolidacao",
         usuarioConsolidacao
       );
+      
       
       endereco.atualizadoEm = agoraIso;
       totalConsolidadas += 1;
