@@ -6569,27 +6569,43 @@ body[data-modo-operacao="wms"] #areaFinalizacoesWms {
 }
 /* ===== ITENS DOS PAINÉIS DE PRODUTOS ===== */
 
+/* ===== ITENS DOS PAINÉIS DE PRODUTOS ===== */
+
 .painel-produto-item {
   display: grid;
-  grid-template-columns: minmax(72px, 100px) minmax(0, 1fr);
-  column-gap: 10px;
-  row-gap: 5px;
+
+  grid-template-columns:
+    minmax(125px, 145px)
+    minmax(0, 1fr);
+
+  column-gap: 16px;
+  row-gap: 6px;
+
   align-items: center;
 }
 
 .painel-produto-item strong {
   color: #0f172a;
-  font-size: 0.86rem;
+
+  font-size: 0.84rem;
   font-weight: 900;
+
   white-space: nowrap;
+
+  font-variant-numeric:
+    tabular-nums;
 }
 
 .painel-produto-item span {
   min-width: 0;
+
   color: #475569;
+
   font-size: 0.76rem;
   font-weight: 700;
-  line-height: 1.25;
+
+  line-height: 1.3;
+
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -6598,9 +6614,11 @@ body[data-modo-operacao="wms"] #areaFinalizacoesWms {
   grid-column: 1 / -1;
 
   color: #0f766e;
+
   font-size: 0.7rem;
   font-weight: 900;
-  margin-top: 1px;
+
+  margin-top: 2px;
 }
 .progress-top-actions {
   display: flex;

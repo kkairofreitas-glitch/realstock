@@ -1849,6 +1849,77 @@ body.sem-endereco-aberto #cardItensEndereco {
 .menu-dropdown {
   top: 66px !important;
 }
+.feedback-codigo-lido {
+  margin:
+    12px 0 8px;
+
+  padding:
+    14px 16px;
+
+  border:
+    2px solid #13c6c9;
+
+  border-radius:
+    14px;
+
+  background:
+    #062b46;
+
+  color:
+    #ffffff;
+
+  text-align:
+    center;
+
+  box-shadow:
+    0 8px 24px
+    rgba(0, 0, 0, 0.18);
+
+  animation:
+    feedbackCodigoEntrada
+    0.18s ease-out;
+}
+
+
+.feedback-codigo-lido strong {
+  display: block;
+
+  margin-top: 4px;
+
+  color:
+    #18d9d7;
+
+  font-size:
+    1.45rem;
+
+  font-weight: 900;
+
+  letter-spacing:
+    0.04em;
+
+  word-break:
+    break-all;
+}
+
+
+.feedback-codigo-lido.hidden {
+  display: none;
+}
+
+
+@keyframes feedbackCodigoEntrada {
+  from {
+    opacity: 0;
+    transform:
+      scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      scale(1);
+  }
+}
   </style>
   <link
   rel="stylesheet"
@@ -2112,7 +2183,12 @@ disabled
   </button>
 </div>
 
-
+<div
+  id="feedbackCodigoLido"
+  class="feedback-codigo-lido hidden"
+  aria-live="polite"
+>
+</div>
 
       <div id="descricaoProduto" class="produto-encontrado">Nenhum produto localizado.</div>
 
@@ -2352,6 +2428,12 @@ let destinoCamera = 'produto';
   const mensagemEndereco = document.getElementById('mensagemEndereco');
   const enderecoResumoColeta = document.getElementById('enderecoResumoColeta');
   const codigoBusca = document.getElementById('codigoBusca');
+  const feedbackCodigoLido =
+  document.getElementById(
+    'feedbackCodigoLido'
+  );
+
+let timerFeedbackCodigoLido = null;
 const btnLerCamera = document.getElementById('btnLerCamera');
 const leitorCameraBox = document.getElementById('leitorCameraBox');
 const videoLeitorCamera = document.getElementById('videoLeitorCamera');
@@ -3074,6 +3156,38 @@ if (enderecoWmsInput) {
 function limparEstadoColetaMobile() {
   localStorage.removeItem('realstockEstadoColetaMobile');
 }
+function mostrarCodigoLido(
+  codigo
+) {
+  if (!feedbackCodigoLido) {
+    return;
+  }
+
+  clearTimeout(
+    timerFeedbackCodigoLido
+  );
+
+  feedbackCodigoLido.innerHTML = `
+    <span>✓ CÓDIGO LIDO</span>
+    <strong>${String(codigo)}</strong>
+  `;
+
+  feedbackCodigoLido.classList.remove(
+    'hidden'
+  );
+
+  timerFeedbackCodigoLido =
+    setTimeout(() => {
+
+      feedbackCodigoLido.classList.add(
+        'hidden'
+      );
+
+      feedbackCodigoLido.innerHTML =
+        '';
+
+    }, 1200);
+}
 function preencherCodigoLidoPelaCamera(codigo) {
   const valor = String(codigo || '').trim();
   if (!valor) return;
@@ -3478,9 +3592,40 @@ async function abrirEndereco() {
     enderecoAtualInput.focus();
   }
 }
+function somenteDigitosCodigo(valor) {
+  return String(valor || "")
+    .replace(/\D/g, "")
+    .trim();
+}
 
+
+function tamanhoCodigoBarrasValido(valor) {
+  const codigo =
+    somenteDigitosCodigo(valor);
+
+  return (
+    codigo.length === 8 ||
+    codigo.length === 12 ||
+    codigo.length === 13 ||
+    codigo.length === 14
+  );
+}
 async function registrarLeituraSemBaseAutomatica(valorInformado) {
   const valor = String(valorInformado || '').trim();
+
+
+  const modoEntrada =
+  String(
+    modoEntradaSemBase?.value ||
+    "scanner"
+  );
+
+if (
+  modoEntrada === "scanner" &&
+  !tamanhoCodigoBarrasValido(valor)
+) {
+  return;
+}
 
   if (!enderecoAberto) {
     mensagem.textContent = 'Abra um endereço antes de coletar.';
@@ -3497,7 +3642,8 @@ async function registrarLeituraSemBaseAutomatica(valorInformado) {
   const quantidadeMultiplicada =
     Math.max(1, Number(multiplicadorSemBase?.value) || 1);
 
-  const pareceEan = /^\d{8,14}$/.test(valor);
+    const pareceEan =
+  tamanhoCodigoBarrasValido(valor);
 
   itensEnderecoAtual.unshift({
     eanOuCodigo: valor,
@@ -3513,6 +3659,7 @@ async function registrarLeituraSemBaseAutomatica(valorInformado) {
 
   renderItensEnderecoAtual();
   salvarEstadoColetaMobile();
+  mostrarCodigoLido(valor);
 
   codigoBusca.value = '';
   descricaoProduto.textContent = 'Leia um próximo EAN ou código interno.';
@@ -4138,12 +4285,31 @@ if (btnFecharCamera) {
       return;
     }
 
-    leituraSemBaseTimer = setTimeout(async () => {
-      const valor = String(codigoBusca.value || '').trim();
-      if (!valor) return;
+    leituraSemBaseTimer =
+  setTimeout(async () => {
 
-      await registrarLeituraSemBaseAutomatica(valor);
-    }, 120);
+    const valor =
+      somenteDigitosCodigo(
+        codigoBusca.value
+      );
+
+    /*
+      Não transmite enquanto
+      o código ainda estiver incompleto.
+    */
+    if (
+      !tamanhoCodigoBarrasValido(
+        valor
+      )
+    ) {
+      return;
+    }
+
+    await registrarLeituraSemBaseAutomatica(
+      valor
+    );
+
+  }, 350);
   });
 
   codigoBusca.addEventListener('keydown', async (e) => {

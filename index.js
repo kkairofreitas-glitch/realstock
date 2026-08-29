@@ -4257,20 +4257,28 @@ duplicidadeResolvida: !duplicadoOperacional,
     return auditoriaPorNumero;
   });
 }
-function formatarDataHoraTransmissao(valor) {
-  if (!valor) return "--";
-
-  const d = new Date(valor);
-  if (isNaN(d.getTime())) return "--";
-
-  return d.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const FUSO_HORARIO_REALSTOCK =
+  process.env.APP_TIMEZONE ||
+  "America/Manaus";
+  function formatarDataHoraTransmissao(valor) {
+    if (!valor) return "--";
+  
+    const d = new Date(valor);
+  
+    if (isNaN(d.getTime())) {
+      return "--";
+    }
+  
+    return d.toLocaleString("pt-BR", {
+      timeZone: FUSO_HORARIO_REALSTOCK,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
 
 function contarItensDoEndereco(
   endereco,
