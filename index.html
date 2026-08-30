@@ -24525,15 +24525,40 @@ async function carregarItensEndereco() {
             <td>${item.origem || '--'}</td>
             <td>${item.usuario || '--'}</td>
             <td>
-  <button
-    type="button"
-    class="save-btn"
-    style="height: 34px; padding: 0 10px;"
-    data-item='${JSON.stringify(item).replace(/'/g, "&apos;")}'
-    onclick="abrirModalEditarItemEnderecoPorBotao(this)"
+  <div
+    style="
+      display:flex;
+      align-items:center;
+      gap:6px;
+    "
   >
-    Editar
-  </button>
+    <button
+      type="button"
+      class="save-btn"
+      style="
+        height:34px;
+        padding:0 10px;
+      "
+      data-item='${JSON.stringify(item).replace(/'/g, "&apos;")}'
+      onclick="abrirModalEditarItemEnderecoPorBotao(this)"
+    >
+      Editar
+    </button>
+
+    <button
+      type="button"
+      class="save-btn"
+      style="
+        height:34px;
+        padding:0 10px;
+        background:#b91c1c;
+      "
+      data-item='${JSON.stringify(item).replace(/'/g, "&apos;")}'
+      onclick="excluirItemEnderecoPorBotao(this)"
+    >
+      Excluir
+    </button>
+  </div>
 </td>
           </tr>
         `
@@ -24649,6 +24674,175 @@ async function salvarEdicaoItemEndereco() {
     showToast?.(erro.message || 'Erro ao editar item do endereço.');
   }
 }
+async function excluirItemEnderecoPorBotao(
+  botao
+) {
+  let item = null;
+
+  try {
+    const bruto =
+      botao?.getAttribute(
+        'data-item'
+      ) || '{}';
+
+    item =
+      JSON.parse(
+        bruto.replace(
+          /&apos;/g,
+          "'"
+        )
+      );
+  }
+  catch (erro) {
+    console.error(
+      erro
+    );
+
+    showToast?.(
+      'Não foi possível identificar a contagem.'
+    );
+
+    return;
+  }
+
+
+  if (
+    !item?.id
+  ) {
+    showToast?.(
+      'Contagem inválida.'
+    );
+
+    return;
+  }
+
+
+  const codigo =
+    item.codigoBarras ||
+    item.codigoInterno ||
+    '--';
+
+  const endereco =
+    `${item.enderecoNome || 'ENDEREÇO'} • ${item.enderecoNumero || '--'}`;
+
+
+  const confirmar =
+    window.confirm(
+      `Excluir esta contagem?\n\n` +
+      `Código: ${codigo}\n` +
+      `Endereço: ${endereco}\n` +
+      `Quantidade: ${Number(
+        item.quantidadeContadaNoEndereco || 0
+      ).toLocaleString('pt-BR')}\n\n` +
+      `A contagem será removida também dos painéis associados.`
+    );
+
+
+  if (
+    !confirmar
+  ) {
+    return;
+  }
+
+
+  try {
+    botao.disabled = true;
+
+
+    const res =
+      await fetch(
+        '/enderecos-itens-contados/excluir',
+        {
+          method:
+            'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+
+          credentials:
+            'same-origin',
+
+          body:
+            JSON.stringify({
+              id:
+                item.id,
+            }),
+        }
+      );
+
+
+    const dados =
+      await res.json();
+
+
+    if (
+      !res.ok
+    ) {
+      throw new Error(
+        dados?.erro ||
+        'Falha ao excluir a contagem.'
+      );
+    }
+
+
+    showToast?.(
+      dados?.mensagem ||
+      'Contagem excluída com sucesso.'
+    );
+
+
+    /*
+      Recarrega a própria tabela.
+    */
+    await carregarItensEndereco();
+
+
+    /*
+      Atualiza:
+      - cards superiores
+      - progresso
+      - mapa
+    */
+    await atualizarDashboardComEnderecamento();
+
+
+    /*
+      Força atualização dos componentes
+      operacionais do dashboard.
+    */
+    if (
+      typeof carregarDashboardOperacional ===
+      'function'
+    ) {
+      await carregarDashboardOperacional();
+    }
+
+
+    if (
+      typeof carregarResumoDashboard ===
+      'function'
+    ) {
+      await carregarResumoDashboard();
+    }
+
+  }
+  catch (erro) {
+    console.error(
+      erro
+    );
+
+    showToast?.(
+      erro.message ||
+      'Erro ao excluir contagem.'
+    );
+
+    botao.disabled =
+      false;
+  }
+}
+
 function imprimirItensEnderecoPdf() {
   const termo =
     document.getElementById('filtroItensEnderecoTermo')?.value?.trim() || '';

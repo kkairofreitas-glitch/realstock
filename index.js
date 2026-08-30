@@ -15100,6 +15100,1007 @@ app.post('/enderecos-itens-contados/editar', autenticar, (req, res) => {
   }
 });
 
+app.post(
+  '/enderecos-itens-contados/excluir',
+  autenticar,
+  async (req, res) => {
+    try {
+      const id =
+        String(
+          req.body?.id || ''
+        ).trim();
+
+      if (!id) {
+        return res.status(400).json({
+          erro:
+            'ID da contagem não informado.',
+        });
+      }
+
+      const usuarioExclusao =
+        req.session?.usuario?.usuario ||
+        req.session?.usuario?.nome ||
+        'sistema';
+
+      const agoraIso =
+        new Date().toISOString();
+
+
+      /*
+        =====================================================
+        SEM BASE
+        =====================================================
+      */
+      if (
+        id.startsWith(
+          'SEMBASE|'
+        )
+      ) {
+        const partes =
+          id.split('|');
+
+        if (
+          partes.length !== 3
+        ) {
+          return res.status(400).json({
+            erro:
+              'Identificador da contagem sem base inválido.',
+          });
+        }
+
+        const chaveItem =
+          decodeURIComponent(
+            partes[1] || ''
+          ).trim();
+
+        const enderecoNumero =
+          decodeURIComponent(
+            partes[2] || ''
+          ).trim();
+
+        if (
+          !chaveItem ||
+          !enderecoNumero
+        ) {
+          return res.status(400).json({
+            erro:
+              'Contagem sem base inválida.',
+          });
+        }
+
+
+        /*
+          -------------------------------------------------
+          1. REMOVE DA CONTAGEM SEM BASE
+          -------------------------------------------------
+        */
+        const indiceItem =
+          (
+            Array.isArray(
+              contagemSemBase
+            )
+              ? contagemSemBase
+              : []
+          ).findIndex(
+            (item) =>
+              String(
+                item?.ean ||
+                item?.codigo ||
+                ''
+              ).trim() ===
+              chaveItem
+          );
+
+        if (
+          indiceItem === -1
+        ) {
+          return res.status(404).json({
+            erro:
+              'Contagem sem base não encontrada.',
+          });
+        }
+
+
+        const itemAtual =
+          contagemSemBase[
+            indiceItem
+          ];
+
+        const enderecosItem =
+          Array.isArray(
+            itemAtual?.enderecos
+          )
+            ? itemAtual.enderecos
+            : [];
+
+
+        const registrosRemovidos =
+          enderecosItem.filter(
+            (registro) =>
+              String(
+                registro
+                  ?.enderecoNumero ||
+                ''
+              ).trim() ===
+              enderecoNumero
+          );
+
+
+        if (
+          !registrosRemovidos.length
+        ) {
+          return res.status(404).json({
+            erro:
+              'Contagem não encontrada neste endereço.',
+          });
+        }
+
+
+        const quantidadeRemovida =
+          registrosRemovidos.reduce(
+            (
+              total,
+              registro
+            ) =>
+              total +
+              (
+                Number(
+                  registro
+                    ?.quantidade
+                ) || 0
+              ),
+            0
+          );
+
+
+        const enderecosRestantes =
+          enderecosItem.filter(
+            (registro) =>
+              String(
+                registro
+                  ?.enderecoNumero ||
+                ''
+              ).trim() !==
+              enderecoNumero
+          );
+
+
+        const quantidadeRestante =
+          enderecosRestantes.reduce(
+            (
+              total,
+              registro
+            ) =>
+              total +
+              (
+                Number(
+                  registro
+                    ?.quantidade
+                ) || 0
+              ),
+            0
+          );
+
+
+        if (
+          !enderecosRestantes.length ||
+          quantidadeRestante <= 0
+        ) {
+          contagemSemBase.splice(
+            indiceItem,
+            1
+          );
+        }
+        else {
+          contagemSemBase[
+            indiceItem
+          ] = {
+            ...itemAtual,
+
+            quantidade:
+              quantidadeRestante,
+
+            enderecos:
+              enderecosRestantes,
+
+            ultimaLeituraEm:
+              [
+                ...enderecosRestantes,
+              ]
+                .filter(
+                  (registro) =>
+                    registro?.data
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(
+                      b.data
+                    ).getTime() -
+                    new Date(
+                      a.data
+                    ).getTime()
+                )[0]?.data ||
+              null,
+          };
+        }
+
+
+        /*
+          -------------------------------------------------
+          2. REMOVE O PRODUTO DAS FINALIZAÇÕES SEM BASE
+          -------------------------------------------------
+        */
+        finalizacoesSemBase =
+          (
+            Array.isArray(
+              finalizacoesSemBase
+            )
+              ? finalizacoesSemBase
+              : []
+          ).flatMap(
+            (finalizacao) => {
+
+              if (
+                String(
+                  finalizacao
+                    ?.enderecoNumero ||
+                  ''
+                ).trim() !==
+                enderecoNumero
+              ) {
+                return [
+                  finalizacao,
+                ];
+              }
+
+
+              const itensRestantes =
+                (
+                  Array.isArray(
+                    finalizacao?.itens
+                  )
+                    ? finalizacao.itens
+                    : []
+                ).filter(
+                  (item) => {
+
+                    const chave =
+                      String(
+                        item?.ean ||
+                        item
+                          ?.codigoBarras ||
+                        item?.codigo ||
+                        ''
+                      ).trim();
+
+                    return (
+                      chave !==
+                      chaveItem
+                    );
+                  }
+                );
+
+
+              /*
+                Se acabou todo o conteúdo
+                daquela finalização,
+                a finalização também some.
+              */
+              if (
+                !itensRestantes.length
+              ) {
+                return [];
+              }
+
+
+              return [
+                {
+                  ...finalizacao,
+
+                  itens:
+                    itensRestantes,
+
+                  totalItensUnicos:
+                    new Set(
+                      itensRestantes
+                        .map(
+                          (item) =>
+                            String(
+                              item?.ean ||
+                              item
+                                ?.codigoBarras ||
+                              item?.codigo ||
+                              ''
+                            ).trim()
+                        )
+                        .filter(
+                          Boolean
+                        )
+                    ).size,
+
+                  totalVolume:
+                    itensRestantes.reduce(
+                      (
+                        total,
+                        item
+                      ) =>
+                        total +
+                        (
+                          Number(
+                            item
+                              ?.quantidade
+                          ) || 0
+                        ),
+                      0
+                    ),
+
+                  atualizadoEm:
+                    agoraIso,
+                },
+              ];
+            }
+          );
+
+
+        /*
+          Verifica se ainda existe ALGUMA
+          contagem no endereço.
+        */
+        const aindaHaContagemNoEndereco =
+          (
+            Array.isArray(
+              contagemSemBase
+            )
+              ? contagemSemBase
+              : []
+          ).some(
+            (item) =>
+              (
+                Array.isArray(
+                  item?.enderecos
+                )
+                  ? item.enderecos
+                  : []
+              ).some(
+                (registro) =>
+                  String(
+                    registro
+                      ?.enderecoNumero ||
+                    ''
+                  ).trim() ===
+                    enderecoNumero &&
+                  Number(
+                    registro
+                      ?.quantidade
+                  ) > 0
+              )
+          );
+
+
+        /*
+          -------------------------------------------------
+          3. ATUALIZA ENDEREÇAMENTO / MAPA / EVENTOS
+          -------------------------------------------------
+        */
+        const endereco =
+          buscarEnderecoPorNumero(
+            Number(
+              enderecoNumero
+            ),
+            'sem-base'
+          );
+
+
+        if (endereco) {
+
+          const limparItensDoEvento =
+            (evento) => {
+
+              const itensOriginais =
+                Array.isArray(
+                  evento?.itens
+                )
+                  ? evento.itens
+                  : [];
+
+
+              const itensRestantes =
+                itensOriginais.filter(
+                  (item) => {
+
+                    const chave =
+                      String(
+                        item
+                          ?.codigoBarras ||
+                        item
+                          ?.eanOuCodigo ||
+                        item?.ean ||
+                        item?.codigo ||
+                        ''
+                      ).trim();
+
+                    return (
+                      chave !==
+                      chaveItem
+                    );
+                  }
+                );
+
+
+              return {
+                ...evento,
+                itens:
+                  itensRestantes,
+              };
+            };
+
+
+          /*
+            TRANSMISSÕES / EVENTOS
+          */
+          endereco.transmissoes =
+            (
+              Array.isArray(
+                endereco.transmissoes
+              )
+                ? endereco.transmissoes
+                : []
+            ).flatMap(
+              (evento) => {
+
+                if (
+                  String(
+                    evento
+                      ?.enderecoNumero ||
+                    ''
+                  ).trim() !==
+                    enderecoNumero ||
+                  !eventoPertenceAoModo(
+                    evento,
+                    'sem-base'
+                  )
+                ) {
+                  return [
+                    evento,
+                  ];
+                }
+
+
+                if (
+                  evento?.tipo !==
+                    'transmissao' &&
+                  evento?.tipo !==
+                    'finalizacao'
+                ) {
+                  return [
+                    evento,
+                  ];
+                }
+
+
+                const eventoAtualizado =
+                  limparItensDoEvento(
+                    evento
+                  );
+
+
+                /*
+                  Transmissão que ficou sem
+                  nenhum item não pode virar
+                  transmissão fantasma.
+                */
+                if (
+                  evento?.tipo ===
+                    'transmissao' &&
+                  !eventoAtualizado
+                    .itens.length
+                ) {
+                  return [];
+                }
+
+
+                /*
+                  Se não existe mais nenhuma
+                  contagem no endereço,
+                  remove o evento finalização.
+                */
+                if (
+                  evento?.tipo ===
+                    'finalizacao' &&
+                  !aindaHaContagemNoEndereco
+                ) {
+                  return [];
+                }
+
+
+                return [
+                  eventoAtualizado,
+                ];
+              }
+            );
+
+
+          /*
+            FINALIZAÇÕES DO ENDEREÇAMENTO
+          */
+          endereco.finalizacoes =
+            (
+              Array.isArray(
+                endereco.finalizacoes
+              )
+                ? endereco.finalizacoes
+                : []
+            ).flatMap(
+              (finalizacao) => {
+
+                if (
+                  String(
+                    finalizacao
+                      ?.enderecoNumero ||
+                    ''
+                  ).trim() !==
+                    enderecoNumero ||
+                  !eventoPertenceAoModo(
+                    finalizacao,
+                    'sem-base'
+                  )
+                ) {
+                  return [
+                    finalizacao,
+                  ];
+                }
+
+
+                const finalizacaoAtualizada =
+                  limparItensDoEvento(
+                    finalizacao
+                  );
+
+
+                if (
+                  !aindaHaContagemNoEndereco
+                ) {
+                  return [];
+                }
+
+
+                return [
+                  finalizacaoAtualizada,
+                ];
+              }
+            );
+
+
+          /*
+            Se o endereço ficou completamente
+            sem contagens, remove também a
+            marca de consolidação.
+          */
+          if (
+            !aindaHaContagemNoEndereco
+          ) {
+            endereco
+              .consolidacoesPorNumero =
+              (
+                Array.isArray(
+                  endereco
+                    .consolidacoesPorNumero
+                )
+                  ? endereco
+                      .consolidacoesPorNumero
+                  : []
+              ).filter(
+                (item) =>
+                  String(
+                    item
+                      ?.enderecoNumero ||
+                    ''
+                  ).trim() !==
+                  enderecoNumero
+              );
+          }
+
+
+          /*
+            Recalcula mapa/progresso.
+          */
+          const resumoFaixa =
+            recalcularStatusFaixa(
+              endereco
+            );
+
+
+          endereco.status =
+            resumoFaixa.status;
+
+          endereco.totalPosicoes =
+            resumoFaixa
+              .totalPosicoes;
+
+          endereco
+            .posicoesConcluidas =
+            resumoFaixa.concluidos;
+
+          endereco
+            .posicoesPendentes =
+            resumoFaixa.pendentes;
+
+          endereco
+            .posicoesEmContagem =
+            resumoFaixa.emContagem;
+
+          endereco
+            .posicoesDuplicadas =
+            resumoFaixa.duplicados;
+
+
+          endereco.finalizadoViaColetor =
+            (
+              Array.isArray(
+                endereco.finalizacoes
+              )
+                ? endereco.finalizacoes
+                : []
+            ).some(
+              (finalizacao) =>
+                !finalizacao
+                  ?.excluida &&
+                eventoPertenceAoModo(
+                  finalizacao,
+                  'sem-base'
+                )
+            );
+
+
+          endereco.finalizadoEm =
+            endereco
+              .finalizadoViaColetor
+              ? (
+                  Array.isArray(
+                    endereco
+                      .finalizacoes
+                  )
+                    ? endereco
+                        .finalizacoes
+                    : []
+                )
+                  .filter(
+                    (finalizacao) =>
+                      !finalizacao
+                        ?.excluida &&
+                      eventoPertenceAoModo(
+                        finalizacao,
+                        'sem-base'
+                      ) &&
+                      finalizacao?.data
+                  )
+                  .sort(
+                    (a, b) =>
+                      new Date(
+                        b.data
+                      ).getTime() -
+                      new Date(
+                        a.data
+                      ).getTime()
+                  )[0]?.data ||
+                null
+              : null;
+
+
+          endereco.contagensRecebidas =
+            (
+              Array.isArray(
+                endereco.transmissoes
+              )
+                ? endereco.transmissoes
+                : []
+            ).filter(
+              (evento) =>
+                !evento?.excluida &&
+                evento?.tipo ===
+                  'transmissao' &&
+                eventoPertenceAoModo(
+                  evento,
+                  'sem-base'
+                )
+            ).length;
+
+
+          endereco.atualizadoEm =
+            agoraIso;
+        }
+
+
+        /*
+          -------------------------------------------------
+          4. PERSISTÊNCIA
+          -------------------------------------------------
+        */
+        await salvarContagemSemBase();
+
+        await salvarFinalizacoesSemBase();
+
+        await salvarEnderecamentos();
+
+
+        /*
+          Auditoria da exclusão.
+        */
+        historicoAuditoriaItens.push({
+          tipo:
+            'exclusao-endereco-sem-base',
+
+          contagemId:
+            id,
+
+          codigoBarras:
+            chaveItem,
+
+          enderecoNumero,
+
+          quantidadeAnterior:
+            quantidadeRemovida,
+
+          novaQuantidade:
+            0,
+
+          usuario:
+            usuarioExclusao,
+
+          data:
+            agoraIso,
+        });
+
+
+        broadcastInventario();
+
+
+        return res.json({
+          ok: true,
+
+          mensagem:
+            'Contagem excluída do endereço e removida dos painéis associados.',
+        });
+      }
+
+
+      /*
+        =====================================================
+        COM BASE / DEMAIS MODOS
+        =====================================================
+      */
+      const indice =
+        (
+          Array.isArray(
+            contagens
+          )
+            ? contagens
+            : []
+        ).findIndex(
+          (item) =>
+            String(
+              item?.id || ''
+            ) === id
+        );
+
+
+      if (
+        indice === -1
+      ) {
+        return res.status(404).json({
+          erro:
+            'Contagem não encontrada.',
+        });
+      }
+
+
+      const contagemExcluida =
+        contagens[indice];
+
+      const enderecoNumero =
+        Number(
+          contagemExcluida
+            ?.enderecoNumero
+        ) || 0;
+
+      const codigoBarras =
+        String(
+          contagemExcluida
+            ?.codigoBarras ||
+          ''
+        ).trim();
+
+      const quantidadeAnterior =
+        Number(
+          contagemExcluida
+            ?.quantidade
+        ) || 0;
+
+
+      /*
+        Remove da fonte principal.
+      */
+      contagens.splice(
+        indice,
+        1
+      );
+
+
+      const endereco =
+        enderecoNumero
+          ? buscarEnderecoPorNumero(
+              enderecoNumero
+            )
+          : null;
+
+
+      if (endereco) {
+
+        /*
+          Remove a referência exata da
+          finalização quando existir.
+        */
+        endereco.finalizacoes =
+          (
+            Array.isArray(
+              endereco.finalizacoes
+            )
+              ? endereco.finalizacoes
+              : []
+          ).flatMap(
+            (finalizacao) => {
+
+              if (
+                Number(
+                  finalizacao
+                    ?.enderecoNumero
+                ) !==
+                enderecoNumero
+              ) {
+                return [
+                  finalizacao,
+                ];
+              }
+
+
+              const itensRestantes =
+                (
+                  Array.isArray(
+                    finalizacao
+                      ?.itens
+                  )
+                    ? finalizacao.itens
+                    : []
+                ).filter(
+                  (item) =>
+                    String(
+                      item
+                        ?.contagemId ||
+                      ''
+                    ) !== id
+                );
+
+
+              if (
+                !itensRestantes.length
+              ) {
+                return [];
+              }
+
+
+              return [
+                {
+                  ...finalizacao,
+                  itens:
+                    itensRestantes,
+                },
+              ];
+            }
+          );
+
+
+        const resumoFaixa =
+          recalcularStatusFaixa(
+            endereco
+          );
+
+
+        endereco.status =
+          resumoFaixa.status;
+
+        endereco.totalPosicoes =
+          resumoFaixa
+            .totalPosicoes;
+
+        endereco
+          .posicoesConcluidas =
+          resumoFaixa.concluidos;
+
+        endereco
+          .posicoesPendentes =
+          resumoFaixa.pendentes;
+
+        endereco
+          .posicoesEmContagem =
+          resumoFaixa.emContagem;
+
+        endereco
+          .posicoesDuplicadas =
+          resumoFaixa.duplicados;
+
+        endereco
+          .finalizadoViaColetor =
+          (
+            Array.isArray(
+              endereco.finalizacoes
+            )
+              ? endereco.finalizacoes
+              : []
+          ).some(
+            (finalizacao) =>
+              !finalizacao
+                ?.excluida
+          );
+
+        endereco.atualizadoEm =
+          agoraIso;
+      }
+
+
+      await salvarContagens();
+
+      await salvarEnderecamentos();
+
+
+      historicoAuditoriaItens.push({
+        tipo:
+          'exclusao-endereco',
+
+        contagemId:
+          id,
+
+        codigoBarras,
+
+        enderecoNumero:
+          enderecoNumero ||
+          null,
+
+        quantidadeAnterior,
+
+        novaQuantidade:
+          0,
+
+        usuario:
+          usuarioExclusao,
+
+        data:
+          agoraIso,
+      });
+
+
+      broadcastInventario();
+
+
+      return res.json({
+        ok: true,
+        mensagem:
+          'Contagem excluída com sucesso.',
+      });
+
+    } catch (erro) {
+      console.error(
+        'Erro ao excluir item contado por endereço:',
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          'Falha ao excluir item contado por endereço.',
+      });
+    }
+  }
+);
+
 function formatarDataHoraManaus(
   valor = new Date()
 ) {
