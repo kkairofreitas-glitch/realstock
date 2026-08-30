@@ -14208,6 +14208,136 @@ aria-hidden="true"
     </div>
   </div>
 </div>
+<div
+  class="modal-overlay"
+  id="modalExcluirItemEndereco"
+  aria-hidden="true"
+  onclick="fecharModalExcluirItemEndereco(event)"
+>
+  <div
+    class="modal-box"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalExcluirItemEnderecoTitulo"
+    onclick="event.stopPropagation()"
+    style="max-width: 520px"
+  >
+    <div class="modal-head">
+      <div class="modal-head-left">
+        <h3 id="modalExcluirItemEnderecoTitulo">
+          Excluir contagem
+        </h3>
+
+        <p>
+          Confirme a exclusão desta contagem.
+        </p>
+      </div>
+
+      <button
+        class="modal-close"
+        type="button"
+        onclick="fecharModalExcluirItemEndereco()"
+        aria-label="Fechar modal"
+      >
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div
+      class="modal-content"
+      style="padding: 18px"
+    >
+      <div
+        class="inventory-summary-grid"
+        style="margin-bottom: 14px"
+      >
+        <div class="inventory-summary-item">
+          <span>Código</span>
+          <strong id="excluirItemEnderecoCodigo">
+            --
+          </strong>
+        </div>
+
+        <div class="inventory-summary-item">
+          <span>Endereço</span>
+          <strong id="excluirItemEnderecoEndereco">
+            --
+          </strong>
+        </div>
+      </div>
+
+      <div
+        class="inventory-summary-item"
+        style="margin-bottom: 16px"
+      >
+        <span>Quantidade contada</span>
+
+        <strong id="excluirItemEnderecoQuantidade">
+          0
+        </strong>
+      </div>
+
+      <div
+        style="
+          background: #fff7ed;
+          border: 1px solid #fdba74;
+          border-radius: 12px;
+          padding: 12px 14px;
+          margin-bottom: 18px;
+          color: #9a3412;
+          font-size: 0.9rem;
+          font-weight: 700;
+          line-height: 1.4;
+        "
+      >
+        <i
+          class="fa-solid fa-triangle-exclamation"
+          style="margin-right: 6px"
+        ></i>
+
+        A contagem será removida também dos painéis
+        e registros associados a este endereço.
+      </div>
+
+      <div
+        style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 16px;
+        "
+      >
+        <button
+          type="button"
+          class="save-btn"
+          style="
+            background: #64748b;
+          "
+          onclick="fecharModalExcluirItemEndereco()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="save-btn"
+          id="btnConfirmarExcluirItemEndereco"
+          style="
+            background: #b91c1c;
+          "
+          onclick="confirmarExclusaoItemEndereco()"
+        >
+          <i
+            class="fa-solid fa-trash"
+            style="margin-right: 6px"
+          ></i>
+
+          Excluir contagem
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
     <div
       id="modalDivergenciasAuditorias"
       class="modal-overlay"
@@ -24674,7 +24804,10 @@ async function salvarEdicaoItemEndereco() {
     showToast?.(erro.message || 'Erro ao editar item do endereço.');
   }
 }
-async function excluirItemEnderecoPorBotao(
+
+let itemEnderecoEmExclusao = null;
+let botaoItemEnderecoEmExclusao = null;
+function excluirItemEnderecoPorBotao(
   botao
 ) {
   let item = null;
@@ -24717,36 +24850,175 @@ async function excluirItemEnderecoPorBotao(
   }
 
 
+  itemEnderecoEmExclusao =
+    item;
+
+  botaoItemEnderecoEmExclusao =
+    botao;
+
+
+  const modal =
+    document.getElementById(
+      'modalExcluirItemEndereco'
+    );
+
+
+  if (
+    !modal
+  ) {
+    showToast?.(
+      'Modal de exclusão não encontrado.'
+    );
+
+    return;
+  }
+
+
   const codigo =
     item.codigoBarras ||
     item.codigoInterno ||
     '--';
 
+
   const endereco =
     `${item.enderecoNome || 'ENDEREÇO'} • ${item.enderecoNumero || '--'}`;
 
 
-  const confirmar =
-    window.confirm(
-      `Excluir esta contagem?\n\n` +
-      `Código: ${codigo}\n` +
-      `Endereço: ${endereco}\n` +
-      `Quantidade: ${Number(
-        item.quantidadeContadaNoEndereco || 0
-      ).toLocaleString('pt-BR')}\n\n` +
-      `A contagem será removida também dos painéis associados.`
+  document.getElementById(
+    'excluirItemEnderecoCodigo'
+  ).textContent =
+    codigo;
+
+
+  document.getElementById(
+    'excluirItemEnderecoEndereco'
+  ).textContent =
+    endereco;
+
+
+  document.getElementById(
+    'excluirItemEnderecoQuantidade'
+  ).textContent =
+    Number(
+      item.quantidadeContadaNoEndereco ||
+      0
+    ).toLocaleString(
+      'pt-BR'
     );
 
 
+  modal.style.display =
+    'flex';
+
+  modal.classList.add(
+    'show'
+  );
+
+  modal.setAttribute(
+    'aria-hidden',
+    'false'
+  );
+}
+
+function fecharModalExcluirItemEndereco(
+  event
+) {
   if (
-    !confirmar
+    event &&
+    event.target &&
+    event.target.id !==
+      'modalExcluirItemEndereco'
   ) {
     return;
   }
 
 
+  const modal =
+    document.getElementById(
+      'modalExcluirItemEndereco'
+    );
+
+
+  if (
+    !modal
+  ) {
+    return;
+  }
+
+
+  modal.style.display =
+    'none';
+
+  modal.classList.remove(
+    'show'
+  );
+
+  modal.setAttribute(
+    'aria-hidden',
+    'true'
+  );
+
+
+  itemEnderecoEmExclusao =
+    null;
+
+  botaoItemEnderecoEmExclusao =
+    null;
+}
+
+
+async function confirmarExclusaoItemEndereco() {
+
+  if (
+    !itemEnderecoEmExclusao?.id
+  ) {
+    showToast?.(
+      'Nenhuma contagem selecionada para exclusão.'
+    );
+
+    return;
+  }
+
+
+  const item =
+    itemEnderecoEmExclusao;
+
+
+  const botaoOriginal =
+    botaoItemEnderecoEmExclusao;
+
+
+  const btnConfirmar =
+    document.getElementById(
+      'btnConfirmarExcluirItemEndereco'
+    );
+
+
   try {
-    botao.disabled = true;
+
+    if (
+      btnConfirmar
+    ) {
+      btnConfirmar.disabled =
+        true;
+
+      btnConfirmar.innerHTML =
+        `
+          <i
+            class="fa-solid fa-spinner fa-spin"
+            style="margin-right:6px"
+          ></i>
+          Excluindo...
+        `;
+    }
+
+
+    if (
+      botaoOriginal
+    ) {
+      botaoOriginal.disabled =
+        true;
+    }
 
 
     const res =
@@ -24787,6 +25059,13 @@ async function excluirItemEnderecoPorBotao(
     }
 
 
+    /*
+      Fecha o modal somente
+      depois da exclusão confirmada.
+    */
+    fecharModalExcluirItemEndereco();
+
+
     showToast?.(
       dados?.mensagem ||
       'Contagem excluída com sucesso.'
@@ -24809,7 +25088,7 @@ async function excluirItemEnderecoPorBotao(
 
 
     /*
-      Força atualização dos componentes
+      Atualiza componentes
       operacionais do dashboard.
     */
     if (
@@ -24829,17 +25108,43 @@ async function excluirItemEnderecoPorBotao(
 
   }
   catch (erro) {
+
     console.error(
       erro
     );
+
 
     showToast?.(
       erro.message ||
       'Erro ao excluir contagem.'
     );
 
-    botao.disabled =
-      false;
+
+    if (
+      botaoOriginal
+    ) {
+      botaoOriginal.disabled =
+        false;
+    }
+
+  }
+  finally {
+
+    if (
+      btnConfirmar
+    ) {
+      btnConfirmar.disabled =
+        false;
+
+      btnConfirmar.innerHTML =
+        `
+          <i
+            class="fa-solid fa-trash"
+            style="margin-right:6px"
+          ></i>
+          Excluir contagem
+        `;
+    }
   }
 }
 
