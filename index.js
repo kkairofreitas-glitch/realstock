@@ -9810,136 +9810,570 @@ app.get("/transmissoes-consolidacao", autenticar, (req, res) => {
 });
 
 
-app.post("/transmissoes-consolidacao/:id/consolidar", autenticar, async (req, res) => {
-  try {
-    const idParam = String(req.params.id || "");
-    const match = idParam.match(/^END-(\d+)-(\d+)$/);
+app.post(
+  "/transmissoes-consolidacao/:id/consolidar",
+  autenticar,
+  async (req, res) => {
+    try {
+      const idParam =
+        String(req.params.id || "");
 
-    if (!match) {
-      return res.status(400).json({ erro: "Identificador de transmissão inválido." });
-    }
+      const match =
+        idParam.match(
+          /^END-(\d+)-(\d+)$/
+        );
 
-    const enderecoId = Number(match[1]);
-    const enderecoNumero = Number(match[2]);
 
-    const endereco = enderecamentos.find((item) => Number(item.id) === enderecoId);
+      if (!match) {
+        return res.status(400).json({
+          erro:
+            "Identificador de transmissão inválido.",
+        });
+      }
 
-    if (!endereco) {
-      return res.status(404).json({ erro: "Transmissão/endereço não encontrado." });
-    }
 
-    const transmissaoPendente = [...(endereco.transmissoes || [])]
-      .reverse()
-      .find((t) =>
-        t.tipo === "transmissao" &&
-        t.statusConsolidacao === "pendente" &&
-        Number(t.enderecoNumero) === Number(enderecoNumero)
+      const enderecoId =
+        Number(match[1]);
+
+      const enderecoNumero =
+        Number(match[2]);
+
+
+      const endereco =
+        enderecamentos.find(
+          (item) =>
+            Number(item.id) ===
+            enderecoId
+        );
+
+
+      if (!endereco) {
+        return res.status(404).json({
+          erro:
+            "Transmissão/endereço não encontrado.",
+        });
+      }
+
+
+      const transmissaoPendente =
+        [
+          ...(endereco.transmissoes || []),
+        ]
+          .reverse()
+          .find(
+            (t) =>
+              t.tipo ===
+                "transmissao" &&
+              t.statusConsolidacao ===
+                "pendente" &&
+              Number(
+                t.enderecoNumero
+              ) === enderecoNumero
+          );
+
+
+      if (!transmissaoPendente) {
+        return res.status(400).json({
+          erro:
+            "Nenhuma transmissão pendente encontrada para consolidar.",
+        });
+      }
+
+
+      if (
+        !Array.isArray(
+          endereco
+            .consolidacoesPorNumero
+        )
+      ) {
+        endereco.consolidacoesPorNumero =
+          [];
+      }
+
+
+      const jaConsolidado =
+        endereco
+          .consolidacoesPorNumero
+          .some(
+            (item) =>
+              Number(
+                item.enderecoNumero
+              ) === enderecoNumero &&
+              item.consolidado
+          );
+
+
+      if (jaConsolidado) {
+        return res.status(400).json({
+          erro:
+            "Esta transmissão já foi consolidada.",
+        });
+      }
+
+
+      const agoraIso =
+        new Date().toISOString();
+
+
+      const usuarioConsolidacao =
+        req.session?.usuario?.usuario ||
+        req.session?.usuario?.nome ||
+        "sistema";
+
+
+      /*
+        =====================================================
+        CONVERTE OS ITENS DA TRANSMISSÃO
+        =====================================================
+
+        Importante no SEM BASE:
+
+        O mobile pode enviar:
+        - codigoBarras
+        - eanOuCodigo
+        - ean
+        - codigo
+
+        Não podemos aceitar somente codigoBarras.
+      */
+      const novosRegistros =
+        (
+          transmissaoPendente.itens ||
+          []
+        )
+          .map(
+            (item, index) => {
+
+              const codigoBarras =
+                String(
+                  item.codigoBarras ||
+                  item.eanOuCodigo ||
+                  item.ean ||
+                  ""
+                ).trim();
+
+
+              const codigo =
+                String(
+                  item.codigo || ""
+                ).trim();
+
+
+              return {
+                id:
+                  `CONT-${Date.now()}-${index}-${Math.floor(
+                    Math.random() *
+                      1000
+                  )}`,
+
+                usuario:
+                  transmissaoPendente
+                    .usuario ||
+                  usuarioConsolidacao,
+
+                matricula:
+                  "SEM-MATRICULA",
+
+                codigoBarras,
+
+                codigo,
+
+                quantidade:
+                  Number(
+                    item.quantidade
+                  ) || 0,
+
+                enderecoId:
+                  Number(
+                    endereco.id
+                  ),
+
+                enderecoNumero,
+
+                ativo: true,
+
+                statusConsolidacao:
+                  "consolidado",
+
+                consolidadoEm:
+                  agoraIso,
+
+                consolidadoPor:
+                  usuarioConsolidacao,
+
+                data:
+                  transmissaoPendente
+                    .data ||
+                  agoraIso,
+              };
+            }
+          )
+          .filter(
+            (item) =>
+              (
+                item.codigoBarras ||
+                item.codigo
+              ) &&
+              item.quantidade > 0
+          );
+
+
+      if (
+        !novosRegistros.length
+      ) {
+        return res.status(400).json({
+          erro:
+            "A transmissão não possui itens válidos para consolidar.",
+        });
+      }
+
+
+      /*
+        =====================================================
+        SEM BASE
+        =====================================================
+      */
+      if (
+        modoOperacao ===
+        "sem-base"
+      ) {
+
+        novosRegistros.forEach(
+          (registro) => {
+
+            const chaveNova =
+              String(
+                registro.codigoBarras ||
+                registro.codigo ||
+                ""
+              ).trim();
+
+
+            const existente =
+              contagemSemBase.find(
+                (item) => {
+
+                  const chaveAtual =
+                    String(
+                      item.ean ||
+                      item.codigo ||
+                      ""
+                    ).trim();
+
+                  return (
+                    chaveAtual ===
+                    chaveNova
+                  );
+                }
+              );
+
+
+            if (existente) {
+
+              existente.quantidade =
+                (
+                  Number(
+                    existente.quantidade
+                  ) || 0
+                ) +
+                Number(
+                  registro.quantidade ||
+                    0
+                );
+
+
+              if (
+                !Array.isArray(
+                  existente.enderecos
+                )
+              ) {
+                existente.enderecos =
+                  [];
+              }
+
+
+              existente.enderecos.push(
+                {
+                  enderecoNumero,
+
+                  quantidade:
+                    Number(
+                      registro.quantidade
+                    ) || 0,
+
+                  usuario:
+                    registro.usuario ||
+                    transmissaoPendente
+                      .usuario ||
+                    usuarioConsolidacao,
+
+                  data:
+                    registro.data ||
+                    agoraIso,
+                }
+              );
+
+
+              existente.ultimoUsuario =
+                registro.usuario;
+
+              existente.ultimaLeituraEm =
+                registro.data;
+
+            } else {
+
+              contagemSemBase.push({
+                ean:
+                  registro.codigoBarras,
+
+                codigo:
+                  registro.codigo,
+
+                quantidade:
+                  Number(
+                    registro.quantidade
+                  ) || 0,
+
+                ultimoUsuario:
+                  registro.usuario ||
+                  transmissaoPendente
+                    .usuario ||
+                  usuarioConsolidacao,
+
+                ultimaLeituraEm:
+                  registro.data ||
+                  agoraIso,
+
+                enderecos: [
+                  {
+                    enderecoNumero,
+
+                    quantidade:
+                      Number(
+                        registro.quantidade
+                      ) || 0,
+
+                    usuario:
+                      registro.usuario ||
+                      transmissaoPendente
+                        .usuario ||
+                      usuarioConsolidacao,
+
+                    data:
+                      registro.data ||
+                      agoraIso,
+                  },
+                ],
+              });
+            }
+          }
+        );
+
+
+        /*
+          Alimenta:
+          - Últimas finalizações
+          - Itens contados por endereço
+          - Detalhamento do progresso
+        */
+        finalizacoesSemBase.push({
+          id:
+            `SBF-${Date.now()}-${Math.floor(
+              Math.random() * 1000
+            )}`,
+
+          enderecoNumero,
+
+          usuario:
+            transmissaoPendente
+              .usuario ||
+            usuarioConsolidacao,
+
+          data:
+            agoraIso,
+
+          itens:
+            novosRegistros.map(
+              (item) => ({
+                ean:
+                  item.codigoBarras,
+
+                codigo:
+                  item.codigo,
+
+                quantidade:
+                  item.quantidade,
+              })
+            ),
+
+          totalItensUnicos:
+            novosRegistros.length,
+
+          totalVolume:
+            novosRegistros.reduce(
+              (acc, item) =>
+                acc +
+                Number(
+                  item.quantidade ||
+                    0
+                ),
+              0
+            ),
+        });
+
+      } else {
+
+        /*
+          COM BASE / OUTROS MODOS
+        */
+        contagens.push(
+          ...novosRegistros
+        );
+      }
+
+
+      /*
+        =====================================================
+        MARCA A TRANSMISSÃO CONSOLIDADA
+        =====================================================
+      */
+      transmissaoPendente
+        .statusConsolidacao =
+        "consolidado";
+
+      transmissaoPendente
+        .consolidadoEm =
+        agoraIso;
+
+      transmissaoPendente
+        .consolidadoPor =
+        usuarioConsolidacao;
+
+
+      endereco
+        .consolidacoesPorNumero
+        .push({
+          enderecoNumero,
+
+          consolidado: true,
+
+          consolidadoEm:
+            agoraIso,
+
+          consolidadoPor:
+            usuarioConsolidacao,
+        });
+
+
+      /*
+        =====================================================
+        OPERADOR QUE REALMENTE CONTOU
+        =====================================================
+      */
+      const usuarioFinalizacao =
+        transmissaoPendente.usuario ||
+        novosRegistros[0]?.usuario ||
+        "Não informado";
+
+
+      const jaExisteFinalizacao =
+        Array.isArray(
+          endereco.finalizacoes
+        ) &&
+        endereco.finalizacoes.some(
+          (finalizacao) =>
+            !finalizacao?.excluida &&
+            Number(
+              finalizacao
+                .enderecoNumero
+            ) === enderecoNumero
+        );
+
+
+      if (
+        !jaExisteFinalizacao
+      ) {
+        await registrarEventoEndereco(
+          enderecoNumero,
+          "finalizacao",
+          usuarioFinalizacao,
+          transmissaoPendente.itens ||
+            []
+        );
+      }
+
+
+      /*
+        Admin que apenas consolidou.
+      */
+      await registrarEventoEndereco(
+        enderecoNumero,
+        "consolidacao",
+        usuarioConsolidacao
       );
 
-    if (!transmissaoPendente) {
-      return res.status(400).json({
-        erro: "Nenhuma transmissão pendente encontrada para consolidar."
+
+      endereco.atualizadoEm =
+        agoraIso;
+
+
+        await salvarEnderecamentos();
+
+
+      /*
+        =====================================================
+        PERSISTÊNCIA CORRETA POR MODO
+        =====================================================
+      */
+      if (
+        modoOperacao ===
+        "sem-base"
+      ) {
+
+        await salvarContagemSemBase();
+
+        await salvarFinalizacoesSemBase();
+
+      } else {
+
+        salvarContagens();
+
+        recalcularInventarioComBaseNasContagens();
+
+        await salvarProdutosNoBanco(
+          inventario
+        );
+      }
+
+
+      broadcastInventario();
+
+
+      return res.json({
+        sucesso: true,
+
+        mensagem:
+          `Transmissão ${idParam} consolidada com sucesso.`,
+
+        painel:
+          gerarPainelTransmissoesConsolidacao(),
+      });
+
+    } catch (erro) {
+
+      console.error(
+        "Erro ao consolidar transmissão:",
+        erro
+      );
+
+
+      return res.status(500).json({
+        erro:
+          "Falha ao consolidar transmissão.",
       });
     }
-
-    if (!Array.isArray(endereco.consolidacoesPorNumero)) {
-      endereco.consolidacoesPorNumero = [];
-    }
-
-    const jaConsolidado = endereco.consolidacoesPorNumero.some(
-      (item) => Number(item.enderecoNumero) === enderecoNumero && item.consolidado
-    );
-
-    if (jaConsolidado) {
-      return res.status(400).json({ erro: "Esta transmissão já foi consolidada." });
-    }
-
-    const agoraIso = new Date().toISOString();
-    const usuarioConsolidacao =
-      req.session?.usuario?.usuario ||
-      req.session?.usuario?.nome ||
-      "sistema";
-
-    const novosRegistros = (transmissaoPendente.itens || [])
-      .map((item, index) => ({
-        id: `CONT-${Date.now()}-${index}-${Math.floor(Math.random() * 1000)}`,
-        usuario: transmissaoPendente.usuario || usuarioConsolidacao,
-        matricula: "SEM-MATRICULA",
-        codigoBarras: String(item.codigoBarras || "").trim(),
-        quantidade: Number(item.quantidade) || 0,
-        enderecoId: Number(endereco.id),
-        enderecoNumero: Number(enderecoNumero),
-        ativo: true,
-        statusConsolidacao: "consolidado",
-        consolidadoEm: agoraIso,
-        consolidadoPor: usuarioConsolidacao,
-        data: transmissaoPendente.data || agoraIso,
-      }))
-      .filter((item) => item.codigoBarras && item.quantidade > 0);
-
-    contagens.push(...novosRegistros);
-    salvarContagens();
-
-    transmissaoPendente.statusConsolidacao = "consolidado";
-    transmissaoPendente.consolidadoEm = agoraIso;
-    transmissaoPendente.consolidadoPor = usuarioConsolidacao;
-
-    endereco.consolidacoesPorNumero.push({
-      enderecoNumero,
-      consolidado: true,
-      consolidadoEm: agoraIso,
-      consolidadoPor: usuarioConsolidacao,
-    });
-    
-    
-    const usuarioFinalizacao =
-      transmissaoPendente.usuario ||
-      novosRegistros[0]?.usuario ||
-      "Não informado";
-    
-    
-    const jaExisteFinalizacao =
-      Array.isArray(endereco.finalizacoes) &&
-      endereco.finalizacoes.some(
-        (finalizacao) =>
-          !finalizacao?.excluida &&
-          Number(finalizacao.enderecoNumero) ===
-            Number(enderecoNumero)
-      );
-    
-    
-    if (!jaExisteFinalizacao) {
-      await registrarEventoEndereco(
-        Number(enderecoNumero),
-        "finalizacao",
-        usuarioFinalizacao,
-        transmissaoPendente.itens || []
-      );
-    }
-    
-    
-    await registrarEventoEndereco(
-      Number(enderecoNumero),
-      "consolidacao",
-      usuarioConsolidacao
-    );
-    
-    salvarEnderecamentos();
-
-    recalcularInventarioComBaseNasContagens();
-    await salvarProdutosNoBanco(inventario);
-    broadcastInventario();
-
-    return res.json({
-      sucesso: true,
-      mensagem: `Transmissão ${idParam} consolidada com sucesso.`,
-      painel: gerarPainelTransmissoesConsolidacao(),
-    });
-  } catch (erro) {
-    console.error("Erro ao consolidar transmissão:", erro);
-    return res.status(500).json({ erro: "Falha ao consolidar transmissão." });
   }
-});
+);
 
 app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) => {
   try {

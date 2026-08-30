@@ -3276,49 +3276,20 @@ const msgAlvo = lendoEndereco
 
     msgAlvo.className = 'mensagem info';
 
-    /*
-  Define formatos diferentes conforme
-  o que está sendo lido.
-*/
-const formatosPermitidosCamera =
-  destinoCamera === 'produto'
-    ? [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-      ]
-    : [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ];
-
-
+ 
 /*
-  Recria o leitor para garantir que
-  os formatos realmente sejam aplicados.
+  Mantém o decodificador na configuração
+  original que já funcionava no aparelho.
+
+  A leitura somente será aceita depois
+  das validações abaixo.
 */
-if (leitorCameraHtml5) {
-  try {
-    await leitorCameraHtml5.clear();
-  } catch (erro) {
-    console.warn(
-      'Não foi possível limpar o leitor anterior:',
-      erro
+if (!leitorCameraHtml5) {
+  leitorCameraHtml5 =
+    new Html5Qrcode(
+      'html5QrCodeReader'
     );
-  }
 }
-
-leitorCameraHtml5 =
-  new Html5Qrcode(
-    'html5QrCodeReader',
-    {
-      formatsToSupport:
-        formatosPermitidosCamera
-    }
-  );
-
     cameraAtiva = true;
 
     await leitorCameraHtml5.start(
@@ -3911,9 +3882,7 @@ if (
     enderecoNumero: enderecoAberto.enderecoNumero,
   });
 
-  if (itensEnderecoAtual.length > 30) {
-    itensEnderecoAtual = itensEnderecoAtual.slice(0, 30);
-  }
+  
 
   renderItensEnderecoAtual();
   salvarEstadoColetaMobile();
