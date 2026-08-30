@@ -3453,18 +3453,106 @@ function normalizarTextoEndereco(valor) {
   return String(valor || "").trim();
 }
 function normalizarEnderecoSalvo(item) {
-  const transmissoes = Array.isArray(item?.transmissoes) ? item.transmissoes : [];
-  const finalizacoes = Array.isArray(item?.finalizacoes) ? item.finalizacoes : [];
 
-  const totalTransmissoes = transmissoes.filter((e) => e.tipo === "transmissao").length;
-  const totalFinalizacoesEventos = transmissoes.filter((e) => e.tipo === "finalizacao").length;
-  const totalFinalizacoes = finalizacoes.length || totalFinalizacoesEventos;
+  /*
+    ======================================================
+    LIMPEZA DE TRANSMISSÕES LEGADAS VAZIAS
+    ======================================================
+
+    Antigamente, apenas abrir um endereço podia gerar:
+
+    tipo: "transmissao"
+    itens: []
+
+    Esses registros não representam uma contagem real
+    e não podem aparecer em Recebimentos, Mapa ou
+    Consolidação.
+  */
+
+  const transmissoesOriginais =
+    Array.isArray(item?.transmissoes)
+      ? item.transmissoes
+      : [];
+
+
+  const transmissoes =
+    transmissoesOriginais.filter(
+      (evento) => {
+
+        if (!evento) {
+          return false;
+        }
+
+
+        /*
+          Outros eventos continuam normalmente.
+          Ex.: consolidação.
+        */
+        if (
+          evento.tipo !== "transmissao"
+        ) {
+          return true;
+        }
+
+
+        /*
+          Uma transmissão real obrigatoriamente
+          precisa possuir pelo menos 1 item.
+        */
+        const itens =
+          Array.isArray(evento.itens)
+            ? evento.itens
+            : [];
+
+
+        return itens.some(
+          (item) =>
+            String(
+              item?.codigoBarras ||
+              item?.ean ||
+              item?.codigo ||
+              ""
+            ).trim() !== "" &&
+            Number(item?.quantidade) > 0
+        );
+      }
+    );
+
+
+  const finalizacoes =
+    Array.isArray(item?.finalizacoes)
+      ? item.finalizacoes
+      : [];
+
+
+  const totalTransmissoes =
+    transmissoes.filter(
+      (e) =>
+        e.tipo === "transmissao"
+    ).length;
+
+
+  const totalFinalizacoesEventos =
+    transmissoes.filter(
+      (e) =>
+        e.tipo === "finalizacao"
+    ).length;
+
+
+  const totalFinalizacoes =
+    finalizacoes.length ||
+    totalFinalizacoesEventos;
+
 
   const ultimoEvento =
     transmissoes.length > 0
-      ? [...transmissoes].sort((a, b) => new Date(b.data) - new Date(a.data))[0]
+      ? [...transmissoes].sort(
+          (a, b) =>
+            new Date(b.data) -
+            new Date(a.data)
+        )[0]
       : null;
-
+ 
   return {
     ...item,
 
@@ -3483,20 +3571,25 @@ function normalizarEnderecoSalvo(item) {
     observacoes: item?.observacoes || "",
     totalPosicoes:
       Number(item?.totalPosicoes) || calcularTotalPosicoesEndereco(item?.inicio, item?.fim),
+      
     transmissoes,
     finalizacoes,
+    
     posicoesConcluidas: Number(item?.posicoesConcluidas) || 0,
 posicoesPendentes: Number(item?.posicoesPendentes) || 0,
 posicoesEmContagem: Number(item?.posicoesEmContagem) || 0,
 posicoesDuplicadas: Number(item?.posicoesDuplicadas) || 0,
     consolidacoesPorNumero: Array.isArray(item?.consolidacoesPorNumero) ? item.consolidacoesPorNumero : [],
-    contagensRecebidas: Number(item?.contagensRecebidas) || totalTransmissoes,
+    contagensRecebidas:
+  totalTransmissoes,
     finalizadoViaColetor:
   typeof item?.finalizadoViaColetor === "boolean"
     ? item.finalizadoViaColetor
     : (totalFinalizacoes > 0),
     consolidadoNoSistema: !!item?.consolidadoNoSistema,
-    ultimaContagemEm: item?.ultimaContagemEm || ultimoEvento?.data || null,
+    ultimaContagemEm:
+  ultimoEvento?.data ||
+  null,
     finalizadoEm: item?.finalizadoEm || null,
     criadoEm: item?.criadoEm || new Date().toISOString(),
     atualizadoEm: item?.atualizadoEm || new Date().toISOString(),
@@ -3530,6 +3623,22 @@ async function carregarEnderecamentos() {
           JSON.stringify(enderecamentos, null, 2),
           "utf8"
         );
+
+/*
+  ======================================================
+  SINCRONIZA LIMPEZA DE REGISTROS LEGADOS
+  ======================================================
+
+  normalizarEnderecoSalvo() remove transmissões
+  antigas sem itens.
+
+  Gravamos novamente no PostgreSQL para que elas
+  não retornem no próximo restart/deploy do Render.
+*/
+await salvarEnderecamentosPostgres(
+  enderecamentos
+);
+
 
         console.log(`✅ Endereçamentos carregados do PostgreSQL: ${enderecamentos.length}`);
         return;
@@ -4092,7 +4201,54 @@ endereco.posicoesDuplicadas = resumoFaixa.duplicados;
 
 function gerarAuditoriaDuplicidadeEnderecos() {
   return enderecamentos.flatMap((item) => {
-    const eventos = Array.isArray(item.transmissoes) ? item.transmissoes : [];
+
+    const eventos =
+      (
+        Array.isArray(item.transmissoes)
+          ? item.transmissoes
+          : []
+      ).filter(
+        (evento) => {
+  
+          if (!evento || evento.excluida) {
+            return false;
+          }
+  
+  
+          /*
+            Eventos que não são transmissão
+            continuam normalmente.
+          */
+          if (
+            evento.tipo !== "transmissao"
+          ) {
+            return true;
+          }
+  
+  
+          /*
+            Transmissão real precisa ter item válido.
+          */
+          const itens =
+            Array.isArray(evento.itens)
+              ? evento.itens
+              : [];
+  
+  
+          return itens.some(
+            (itemEvento) =>
+              String(
+                itemEvento?.codigoBarras ||
+                itemEvento?.ean ||
+                itemEvento?.codigo ||
+                ""
+              ).trim() !== "" &&
+              Number(
+                itemEvento?.quantidade
+              ) > 0
+          );
+        }
+      );
     const finalizacoes = Array.isArray(item.finalizacoes)
       ? item.finalizacoes.filter((f) => !f.excluida)
       : [];
