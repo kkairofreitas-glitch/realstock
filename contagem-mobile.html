@@ -3323,35 +3323,15 @@ leitorCameraHtml5 =
 
     await leitorCameraHtml5.start(
   {
-    facingMode: {
-      ideal: 'environment'
-    }
+    facingMode: 'environment'
   },
 
   {
     fps: 18,
 
-    qrbox: function(
-      viewfinderWidth,
-      viewfinderHeight
-    ) {
-      const largura =
-        Math.floor(
-          viewfinderWidth * 0.90
-        );
-
-      const altura =
-        Math.min(
-          150,
-          Math.floor(
-            viewfinderHeight * 0.32
-          )
-        );
-
-      return {
-        width: largura,
-        height: altura
-      };
+    qrbox: {
+      width: 220,
+      height: 120
     },
 
     aspectRatio: 1.7778,
