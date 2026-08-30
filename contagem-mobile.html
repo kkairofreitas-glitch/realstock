@@ -3324,15 +3324,7 @@ leitorCameraHtml5 =
     await leitorCameraHtml5.start(
   {
     facingMode: {
-      exact: 'environment'
-    },
-
-    width: {
-      ideal: 1920
-    },
-
-    height: {
-      ideal: 1080
+      ideal: 'environment'
     }
   },
 
@@ -3502,11 +3494,53 @@ leitorCameraHtml5 =
 }
     );
   } catch (erro) {
-    console.error('Erro ao abrir câmera:', erro);
-    msgAlvo.textContent = 'Não foi possível abrir a câmera. Verifique a permissão do navegador.';
-    msgAlvo.className = 'mensagem erro';
-    await pararLeituraCamera();
+  console.error(
+    'Erro ao abrir câmera:',
+    erro?.name,
+    erro?.message,
+    erro
+  );
+
+  let textoErro =
+    'Não foi possível abrir a câmera.';
+
+  if (
+    erro?.name === 'NotAllowedError' ||
+    erro?.name === 'PermissionDeniedError'
+  ) {
+    textoErro =
+      'Permissão da câmera negada. Libere o acesso à câmera nas configurações do navegador.';
   }
+
+  else if (
+    erro?.name === 'NotFoundError' ||
+    erro?.name === 'DevicesNotFoundError'
+  ) {
+    textoErro =
+      'Nenhuma câmera compatível foi encontrada neste aparelho.';
+  }
+
+  else if (
+    erro?.name === 'NotReadableError' ||
+    erro?.name === 'TrackStartError'
+  ) {
+    textoErro =
+      'A câmera está sendo utilizada por outro aplicativo. Feche outros aplicativos que estejam usando a câmera e tente novamente.';
+  }
+
+  else if (
+    erro?.name === 'OverconstrainedError' ||
+    erro?.name === 'ConstraintNotSatisfiedError'
+  ) {
+    textoErro =
+      'Não foi possível iniciar a câmera traseira deste aparelho.';
+  }
+
+  msgAlvo.textContent = textoErro;
+  msgAlvo.className = 'mensagem erro';
+
+  await pararLeituraCamera();
+}
 }
 
 async function pararLeituraCamera() {
