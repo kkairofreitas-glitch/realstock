@@ -3883,11 +3883,16 @@ const finalizacoesAtivas = Array.isArray(
   }
 
   const mapaTransmissoes = new Map();
-  const mapaFinalizacoes = new Map();
+const mapaAberturas = new Map();
+const mapaFinalizacoes = new Map();
 
   for (let numero = inicio; numero <= fim; numero += 1) {
+
     mapaTransmissoes.set(numero, 0);
+    mapaAberturas.set(numero, 0);
     mapaFinalizacoes.set(numero, 0);
+
+
   }
 
   eventos
@@ -3898,6 +3903,26 @@ const finalizacoesAtivas = Array.isArray(
         mapaTransmissoes.set(numero, (mapaTransmissoes.get(numero) || 0) + 1);
       }
     });
+
+    eventos
+    .filter(
+      (e) =>
+        e.tipo === "abertura"
+    )
+    .forEach((e) => {
+      const numero =
+        Number(e.enderecoNumero) || 0;
+  
+      if (
+        mapaAberturas.has(numero)
+      ) {
+        mapaAberturas.set(
+          numero,
+          (mapaAberturas.get(numero) || 0) + 1
+        );
+      }
+    });
+
 
   finalizacoesAtivas.forEach((f) => {
     const numero = Number(f.enderecoNumero) || 0;
@@ -3912,8 +3937,15 @@ const finalizacoesAtivas = Array.isArray(
   let duplicados = 0;
 
   for (let numero = inicio; numero <= fim; numero += 1) {
-    const qtdTrans = mapaTransmissoes.get(numero) || 0;
-    const qtdFin = mapaFinalizacoes.get(numero) || 0;
+    
+    const qtdTrans =
+    mapaTransmissoes.get(numero) || 0;
+  
+  const qtdAberturas =
+    mapaAberturas.get(numero) || 0;
+  
+  const qtdFin =
+    mapaFinalizacoes.get(numero) || 0;
 
     if (qtdFin > 1) {
       duplicados += 1;
@@ -3925,7 +3957,10 @@ const finalizacoesAtivas = Array.isArray(
       continue;
     }
 
-    if (qtdTrans > 0) {
+    if (
+      qtdTrans > 0 ||
+      qtdAberturas > 0
+    ) {
       emContagem += 1;
       continue;
     }
@@ -6569,20 +6604,38 @@ app.post(
         req.session?.usuario?.nome ||
         "sistema";
 
-      const endereco =
+        const endereco =
         buscarEnderecoPorNumero(
           enderecoNumero
         );
-
+      
       if (!endereco) {
         return res.status(404).json({
           erro:
             "Endereço não encontrado no cadastro.",
         });
       }
-
       
-
+      
+      /*
+        Registra somente a ABERTURA.
+      
+        Não é transmissão.
+        Não entra em Recebimentos.
+        Não entra em Consolidação.
+        Serve para mostrar o endereço
+        imediatamente como EM CONTAGEM.
+      */
+      await registrarEventoEndereco(
+        enderecoNumero,
+        "abertura",
+        usuario,
+        []
+      );
+      
+      await salvarEnderecamentos();
+      
+      
       return res.json({
         sucesso: true,
         mensagem:
@@ -7875,13 +7928,24 @@ function montarMapaEnderecosDashboard() {
             item.tipo === "transmissao"
         );
 
+        const aberturasNumero =
+        transmissoes.filter(
+          (item) =>
+            Number(item.enderecoNumero) === numero &&
+            item.tipo === "abertura"
+        );
+
+
         let status = "pendente";
 
         if (finalizacoesNumero.length > 1) {
           status = "duplicado";
         } else if (finalizacoesNumero.length === 1) {
           status = "concluido";
-        } else if (transmissoesNumero.length > 0) {
+        } else if (
+          transmissoesNumero.length > 0 ||
+          aberturasNumero.length > 0
+        ) {
           status = "em-contagem";
         }
         
@@ -7924,6 +7988,19 @@ function montarMapaEnderecosDashboard() {
             )[0] || null;
         
         
+            const ultimaAbertura =
+            [...aberturasNumero]
+              .filter(
+                (item) =>
+                  item?.data
+              )
+              .sort(
+                (a, b) =>
+                  new Date(b.data).getTime() -
+                  new Date(a.data).getTime()
+              )[0] || null;
+
+
         let eventoResponsavel = null;
         
         if (
@@ -7931,7 +8008,8 @@ function montarMapaEnderecosDashboard() {
           status === "duplicado"
         ) {
           eventoResponsavel =
-            ultimaFinalizacao;
+  ultimaTransmissao ||
+  ultimaAbertura;
         }
         else if (
           status === "em-contagem"
