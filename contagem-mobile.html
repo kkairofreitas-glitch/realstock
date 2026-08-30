@@ -1925,7 +1925,9 @@ body.sem-endereco-aberto #cardItensEndereco {
   rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
 />
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script
+  src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
+</script>
 </head>
 <body>
   <div
@@ -2170,11 +2172,11 @@ body.sem-endereco-aberto #cardItensEndereco {
 
 <div class="linha-leitura-camera">
 <input
-type="number"
+type="text"
 inputmode="numeric"
 pattern="[0-9]*"
 id="codigoBusca"
-placeholder="Escaneie ou digite o EAN / código interno"
+placeholder="Escaneie ou digite o código"
 disabled
 >
 
@@ -3285,7 +3287,6 @@ const formatosPermitidosCamera =
         Html5QrcodeSupportedFormats.EAN_8,
         Html5QrcodeSupportedFormats.UPC_A,
         Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.ITF
       ]
     : [
         Html5QrcodeSupportedFormats.CODE_128,
@@ -3321,17 +3322,53 @@ leitorCameraHtml5 =
     cameraAtiva = true;
 
     await leitorCameraHtml5.start(
-  { facingMode: 'environment' },
+  {
+    facingMode: {
+      exact: 'environment'
+    },
+
+    width: {
+      ideal: 1920
+    },
+
+    height: {
+      ideal: 1080
+    }
+  },
+
   {
     fps: 18,
-    qrbox: {
-      width: 220,
-      height: 120
+
+    qrbox: function(
+      viewfinderWidth,
+      viewfinderHeight
+    ) {
+      const largura =
+        Math.floor(
+          viewfinderWidth * 0.90
+        );
+
+      const altura =
+        Math.min(
+          150,
+          Math.floor(
+            viewfinderHeight * 0.32
+          )
+        );
+
+      return {
+        width: largura,
+        height: altura
+      };
     },
+
     aspectRatio: 1.7778,
     disableFlip: true
   },
-  async (codigoLido) => {
+  async (
+  codigoLido,
+  resultadoLeitura
+) => {
   if (!cameraAtiva) {
     return;
   }
@@ -3341,8 +3378,11 @@ leitorCameraHtml5 =
 
 
   /*
-    ENDEREÇO / WMS:
-    não aplicar regra de GTIN.
+    =====================================
+    ENDEREÇO / ENDEREÇO WMS
+    =====================================
+
+    Não aplicar validação de GTIN.
   */
   if (
     destinoCamera === 'endereco' ||
@@ -3373,9 +3413,9 @@ leitorCameraHtml5 =
 
 
   /*
-    ================================
+    =====================================
     PRODUTO
-    ================================
+    =====================================
   */
 
   const codigo =
@@ -3384,15 +3424,53 @@ leitorCameraHtml5 =
     );
 
 
-  /*
-    Se a câmera devolver código
-    cortado, incompleto ou fora
-    dos tamanhos aceitos, IGNORA.
+  const formatoDetectado =
+    String(
+      resultadoLeitura
+        ?.result
+        ?.format
+        ?.formatName ||
+      ''
+    )
+    .toUpperCase();
 
-    A câmera permanece aberta.
+
+  /*
+    Valida se o formato detectado
+    corresponde ao tamanho recebido.
+  */
+  const combinacaoValida =
+    (
+      formatoDetectado === 'EAN_13' &&
+      codigo.length === 13
+    ) ||
+    (
+      formatoDetectado === 'EAN_8' &&
+      codigo.length === 8
+    ) ||
+    (
+      formatoDetectado === 'UPC_A' &&
+      codigo.length === 12
+    ) ||
+    (
+      formatoDetectado === 'UPC_E' &&
+      (
+        codigo.length === 6 ||
+        codigo.length === 8
+      )
+    );
+
+
+  if (!combinacaoValida) {
+    return;
+  }
+
+
+  /*
+    Confere o GTIN antes de aceitar.
   */
   if (
-    !tamanhoCodigoBarrasValido(
+    !codigoProdutoValido(
       codigo
     )
   ) {
@@ -3402,7 +3480,7 @@ leitorCameraHtml5 =
 
   /*
     Somente agora consideramos
-    a leitura como produto válido.
+    a leitura válida.
   */
   cameraAtiva = false;
 
@@ -3705,15 +3783,75 @@ function somenteDigitosCodigo(valor) {
 }
 
 
-function tamanhoCodigoBarrasValido(valor) {
+function codigoProdutoValido(valor) {
   const codigo =
     somenteDigitosCodigo(valor);
 
-  return (
+  const tamanhoValido =
     codigo.length === 8 ||
     codigo.length === 12 ||
     codigo.length === 13 ||
-    codigo.length === 14
+    codigo.length === 14;
+
+  if (!tamanhoValido) {
+    return false;
+  }
+
+  return validarDigitoVerificadorGtin(
+    codigo
+  );
+}
+function validarDigitoVerificadorGtin(valor) {
+  const codigo =
+    somenteDigitosCodigo(valor);
+
+  if (
+    ![
+      8,
+      12,
+      13,
+      14
+    ].includes(codigo.length)
+  ) {
+    return false;
+  }
+
+  const digitos =
+    codigo
+      .split('')
+      .map(Number);
+
+  const digitoInformado =
+    digitos.pop();
+
+  let soma = 0;
+
+  /*
+    Calcula da direita para a esquerda.
+    Pesos 3 e 1 alternados.
+  */
+  for (
+    let i = digitos.length - 1,
+        posicao = 0;
+    i >= 0;
+    i--,
+        posicao++
+  ) {
+    soma +=
+      digitos[i] *
+      (
+        posicao % 2 === 0
+          ? 3
+          : 1
+      );
+  }
+
+  const digitoCalculado =
+    (10 - (soma % 10)) % 10;
+
+  return (
+    digitoCalculado ===
+    digitoInformado
   );
 }
 async function registrarLeituraSemBaseAutomatica(valorInformado) {
@@ -3728,7 +3866,7 @@ async function registrarLeituraSemBaseAutomatica(valorInformado) {
 
 if (
   modoEntrada === "scanner" &&
-  !tamanhoCodigoBarrasValido(valor)
+  !codigoProdutoValido(valor)
 ) {
   return;
 }
@@ -3749,7 +3887,7 @@ if (
     Math.max(1, Number(multiplicadorSemBase?.value) || 1);
 
     const pareceEan =
-  tamanhoCodigoBarrasValido(valor);
+    codigoProdutoValido(valor);
 
   itensEnderecoAtual.unshift({
     eanOuCodigo: valor,
@@ -4404,12 +4542,12 @@ if (btnFecharCamera) {
       o código ainda estiver incompleto.
     */
     if (
-      !tamanhoCodigoBarrasValido(
-        valor
-      )
-    ) {
-      return;
-    }
+  !codigoProdutoValido(
+    valor
+  )
+) {
+  return;
+}
 
     await registrarLeituraSemBaseAutomatica(
       valor

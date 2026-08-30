@@ -6425,48 +6425,7 @@ app.post(
         });
       }
 
-      if (
-        !Array.isArray(
-          endereco.transmissoes
-        )
-      ) {
-        endereco.transmissoes = [];
-      }
-
-      const eventosDoEndereco =
-        endereco.transmissoes
-          .filter(
-            (evento) =>
-              !evento.excluida &&
-              Number(
-                evento.enderecoNumero
-              ) ===
-                Number(enderecoNumero)
-          )
-          .sort(
-            (a, b) =>
-              new Date(b.data) -
-              new Date(a.data)
-          );
-
-      const ultimoEvento =
-        eventosDoEndereco[0];
-
-      /*
-        Evita gerar várias transmissões
-        ao clicar repetidamente em abrir.
-      */
-      if (
-        ultimoEvento?.tipo !==
-        "transmissao"
-      ) {
-        await registrarEventoEndereco(
-          Number(enderecoNumero),
-          "transmissao",
-          usuario,
-          []
-        );
-      }
+      
 
       return res.json({
         sucesso: true,
