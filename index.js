@@ -5534,136 +5534,27 @@ function gerarRankingUsuarios() {
       mapaProdutos.get(
         String(codigoBarras || '').trim()
       );
-
+  
     if (!produto) {
       return false;
     }
-
-    const texto = `
-      ${produto.descricao || ''}
-      ${produto.categoria || ''}
-      ${produto.tipo || ''}
-    `.toLowerCase();
-
+  
+    const tipo =
+      String(
+        produto.tipo ?? ''
+      )
+        .trim()
+        .toLowerCase();
+  
     return (
-      texto.includes('kg') ||
-      texto.includes('quilo')
+      tipo === 'p' ||
+      tipo === 'kg' ||
+      tipo === 'quilo' ||
+      tipo === 'peso' ||
+      tipo === 'pesavel' ||
+      tipo === 'pesável'
     );
   }
-
-  contagens
-    .filter(
-      (registro) =>
-        registro &&
-        registro.ativo !== false
-    )
-    .forEach((registro) => {
-      const usuario =
-        registro.usuario ||
-        'desconhecido';
-
-      if (!mapa[usuario]) {
-        mapa[usuario] = {
-          usuario,
-          matricula:
-            registro.matricula ||
-            'SEM-MATRICULA',
-
-          /*
-            Mantemos separado:
-            unidades físicas e peso.
-          */
-          totalContadoUn: 0,
-          totalContadoKg: 0,
-
-          movimentacoes: 0,
-          itensUnicos: new Set(),
-          ultimaAtualizacao:
-            registro.data || null,
-        };
-      }
-
-      const quantidade =
-        Number(registro.quantidade) || 0;
-
-      if (
-        produtoEhKg(
-          registro.codigoBarras
-        )
-      ) {
-        mapa[usuario].totalContadoKg +=
-          quantidade;
-      } else {
-        mapa[usuario].totalContadoUn +=
-          quantidade;
-      }
-
-      mapa[usuario].movimentacoes += 1;
-
-      if (registro.codigoBarras) {
-        mapa[usuario].itensUnicos.add(
-          String(
-            registro.codigoBarras
-          ).trim()
-        );
-      }
-
-      if (registro.data) {
-        mapa[usuario].ultimaAtualizacao =
-          registro.data;
-      }
-    });
-
-  const ranking =
-    Object.values(mapa).map(
-      (item) => ({
-        usuario: item.usuario,
-        matricula: item.matricula,
-
-        totalContadoUn:
-          item.totalContadoUn,
-
-        totalContadoKg:
-          item.totalContadoKg,
-
-        /*
-          Mantido por compatibilidade com
-          partes antigas do sistema.
-
-          Não deve ser usado para exibição
-          de UN + KG.
-        */
-        totalContado:
-          item.totalContadoUn,
-
-        movimentacoes:
-          item.movimentacoes,
-
-        itensUnicos:
-          item.itensUnicos.size,
-
-        ultimaAtualizacao:
-          item.ultimaAtualizacao,
-      })
-    );
-
-  /*
-    Como participação atualmente é calculada
-    por endereços concluídos na rota
-    /ranking-usuarios, não precisamos misturar
-    KG e UN para determinar participação.
-  */
-
-  ranking.sort(
-    (a, b) =>
-      b.movimentacoes -
-        a.movimentacoes ||
-      b.itensUnicos -
-        a.itensUnicos
-  );
-
-  return ranking;
-}
 
 function parseMoeda(valor) {
   if (
@@ -7517,22 +7408,44 @@ function produtoResumoEhKg(
       codigoBarras
     );
 
-  const texto = [
-    produto?.descricao,
-    produto?.categoria,
-    produto?.tipo,
+  /*
+    REGRA OFICIAL:
 
-    itemReferencia?.descricao,
-    itemReferencia?.categoria,
-    itemReferencia?.tipo,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+    O PESO ESCRITO NA DESCRIÇÃO NÃO DEFINE
+    SE O PRODUTO É PESÁVEL.
+
+    Exemplo:
+    "ARROZ TIPO 1 5KG"
+
+    pode continuar sendo UN.
+
+    Quem define é o campo "tipo".
+  */
+
+  const tipo =
+    String(
+      produto?.tipo ??
+      itemReferencia?.tipo ??
+      ''
+    )
+      .trim()
+      .toLowerCase();
+
+  /*
+    P = produto pesável.
+
+    Também aceitamos descrições explícitas
+    no próprio campo tipo, caso a base utilize
+    "KG", "PESÁVEL", "PESO", etc.
+  */
 
   return (
-    texto.includes('kg') ||
-    texto.includes('quilo')
+    tipo === 'p' ||
+    tipo === 'kg' ||
+    tipo === 'quilo' ||
+    tipo === 'peso' ||
+    tipo === 'pesavel' ||
+    tipo === 'pesável'
   );
 }
 function calcularVolumesFinalizacao(

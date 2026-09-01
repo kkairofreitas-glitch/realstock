@@ -1383,7 +1383,13 @@ body {
   color: #0a1f3d !important;
   letter-spacing: 0.01em !important;
 }
-
+/* Produto localizado no mobile */
+#descricaoProduto.produto-localizado {
+  color: #16a34a !important;
+  font-size: 1.18rem !important;
+  font-weight: 900 !important;
+  line-height: 1.4 !important;
+}
 #btnFinalizarEndereco {
   position: static !important;
   margin-top: 8px !important;
@@ -2832,34 +2838,64 @@ function validarEnderecoLocal(valor) {
   }
 
   function atualizarDescricaoProduto() {
-    const valor = codigoBusca.value.trim();
+  const valor = codigoBusca.value.trim();
 
-    if (modoOperacaoAtual === 'sem-base') {
-      if (!valor) {
-        descricaoProduto.textContent = 'Nenhum código lido.';
-        return;
-      }
+  /*
+    Sempre começa removendo o destaque.
+    Assim uma leitura anterior encontrada
+    nunca "contamina" a próxima leitura.
+  */
+  descricaoProduto.classList.remove(
+    'produto-localizado'
+  );
 
-      descricaoProduto.textContent = `Leitura pronta: ${valor}`;
-      return;
-    }
-
+  if (modoOperacaoAtual === 'sem-base') {
     if (!valor) {
-      produtoAtual = null;
-      descricaoProduto.textContent = 'Nenhum produto localizado.';
+      descricaoProduto.textContent =
+        'Nenhum código lido.';
       return;
     }
 
-    const encontrado = localizarProduto(valor);
+    descricaoProduto.textContent =
+      `Leitura pronta: ${valor}`;
 
-    if (encontrado) {
-      produtoAtual = encontrado;
-      descricaoProduto.textContent = encontrado.descricao || 'Descrição não encontrada.';
-    } else {
-      produtoAtual = null;
-      descricaoProduto.textContent = 'Produto não encontrado no filtro.';
-    }
+    return;
   }
+
+  if (!valor) {
+    produtoAtual = null;
+
+    descricaoProduto.textContent =
+      'Nenhum produto localizado.';
+
+    return;
+  }
+
+  const encontrado =
+    localizarProduto(valor);
+
+  if (encontrado) {
+    produtoAtual = encontrado;
+
+    descricaoProduto.textContent =
+      encontrado.descricao ||
+      'Descrição não encontrada.';
+
+    /*
+      Produto realmente encontrado
+      na base: destaque visual.
+    */
+    descricaoProduto.classList.add(
+      'produto-localizado'
+    );
+
+  } else {
+    produtoAtual = null;
+
+    descricaoProduto.textContent =
+      'Produto não encontrado no filtro.';
+  }
+}
 
   function renderItensEnderecoAtual() {
     listaItensEndereco.innerHTML = '';
