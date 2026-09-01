@@ -5511,8 +5511,14 @@ function gerarRankingUsuarios() {
   const mapa = {};
 
   /*
-    Mapa rápido para descobrir se cada produto
-    deve ser tratado como KG ou UN.
+    Mapa rápido dos produtos da base.
+
+    IMPORTANTE:
+    O campo "tipo" é quem determina
+    se o produto é KG ou UN.
+
+    A descrição NÃO é utilizada para
+    descobrir se é pesável.
   */
   const mapaProdutos = new Map();
 
@@ -5528,6 +5534,213 @@ function gerarRankingUsuarios() {
       );
     }
   });
+
+  /*
+    Determina se o produto é pesável.
+
+    REGRA:
+    tipo = P / KG / QUILO / PESO / PESÁVEL
+    => KG
+
+    Qualquer outro tipo
+    => UN
+
+    O fato de a descrição conter
+    "1KG", "5KG", "10KG", etc.
+    NÃO transforma o produto em KG.
+  */
+  function produtoEhKg(codigoBarras) {
+    const produto =
+      mapaProdutos.get(
+        String(codigoBarras || '').trim()
+      );
+
+    if (!produto) {
+      return false;
+    }
+
+    const tipo = String(
+      produto?.tipo ?? ''
+    )
+      .trim()
+      .toLowerCase();
+
+    return (
+      tipo === 'p' ||
+      tipo === 'kg' ||
+      tipo === 'quilo' ||
+      tipo === 'peso' ||
+      tipo === 'pesavel' ||
+      tipo === 'pesável'
+    );
+  }
+
+  /*
+    Percorre somente as contagens ativas.
+  */
+  (Array.isArray(contagens) ? contagens : [])
+    .filter(
+      (registro) =>
+        registro &&
+        registro.ativo !== false
+    )
+    .forEach((registro) => {
+      const usuario =
+        registro.usuario ||
+        'desconhecido';
+
+      /*
+        Cria o participante do ranking.
+      */
+      if (!mapa[usuario]) {
+        mapa[usuario] = {
+          usuario,
+
+          matricula:
+            registro.matricula ||
+            'SEM-MATRICULA',
+
+          /*
+            Mantemos UN e KG separados.
+          */
+          totalContadoUn: 0,
+          totalContadoKg: 0,
+
+          movimentacoes: 0,
+
+          itensUnicos: new Set(),
+
+          ultimaAtualizacao:
+            registro.data || null,
+        };
+      }
+
+      const quantidade =
+        Number(
+          registro.quantidade
+        ) || 0;
+
+      /*
+        Classificação da quantidade.
+
+        KG somente quando o TIPO do produto
+        determinar que ele é pesável.
+      */
+      if (
+        produtoEhKg(
+          registro.codigoBarras
+        )
+      ) {
+        mapa[usuario]
+          .totalContadoKg += quantidade;
+      } else {
+        mapa[usuario]
+          .totalContadoUn += quantidade;
+      }
+
+      /*
+        Cada registro continua sendo
+        uma movimentação.
+      */
+      mapa[usuario]
+        .movimentacoes += 1;
+
+      /*
+        Mantém a quantidade de produtos
+        diferentes contados.
+      */
+      if (registro.codigoBarras) {
+        mapa[usuario]
+          .itensUnicos
+          .add(
+            String(
+              registro.codigoBarras
+            ).trim()
+          );
+      }
+
+      /*
+        Atualiza a última atividade.
+      */
+      if (registro.data) {
+        mapa[usuario]
+          .ultimaAtualizacao =
+          registro.data;
+      }
+    });
+
+  /*
+    Converte o mapa em array para
+    alimentar o ranking.
+  */
+  const ranking =
+    Object.values(mapa).map(
+      (item) => ({
+        usuario:
+          item.usuario,
+
+        matricula:
+          item.matricula,
+
+        totalContadoUn:
+          item.totalContadoUn,
+
+        totalContadoKg:
+          item.totalContadoKg,
+
+        movimentacoes:
+          item.movimentacoes,
+
+        itensUnicos:
+          item.itensUnicos.size,
+
+        ultimaAtualizacao:
+          item.ultimaAtualizacao,
+      })
+    );
+
+  /*
+    Ordenação principal:
+    maior quantidade de movimentações
+    primeiro.
+
+    Em caso de empate:
+    maior quantidade de itens únicos.
+  */
+  ranking.sort(
+    (a, b) =>
+      b.movimentacoes -
+        a.movimentacoes ||
+      b.itensUnicos -
+        a.itensUnicos
+  );
+
+  /*
+    Percentual de participação
+    baseado nas movimentações.
+  */
+  const totalGeral =
+    ranking.reduce(
+      (acc, item) =>
+        acc +
+        item.movimentacoes,
+      0
+    );
+
+  return ranking.map(
+    (item) => ({
+      ...item,
+
+      percentual:
+        totalGeral > 0
+          ? (
+              item.movimentacoes /
+              totalGeral
+            ) * 100
+          : 0,
+    })
+  );
+}
 
   function produtoEhKg(codigoBarras) {
     const produto =
