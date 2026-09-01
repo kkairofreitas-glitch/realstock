@@ -3883,16 +3883,17 @@ const finalizacoesAtivas = Array.isArray(
   }
 
   const mapaTransmissoes = new Map();
-const mapaAberturas = new Map();
-const mapaFinalizacoes = new Map();
+  const mapaAberturas = new Map();
+  const mapaFinalizacoes = new Map();
+  const mapaConsolidacoes = new Map();
 
   for (let numero = inicio; numero <= fim; numero += 1) {
 
     mapaTransmissoes.set(numero, 0);
     mapaAberturas.set(numero, 0);
     mapaFinalizacoes.set(numero, 0);
-
-
+    mapaConsolidacoes.set(numero, 0);
+  
   }
 
   eventos
@@ -3931,6 +3932,28 @@ const mapaFinalizacoes = new Map();
     }
   });
 
+  const consolidacoesAtivas = Array.isArray(
+    endereco?.consolidacoesPorNumero
+  )
+    ? endereco.consolidacoesPorNumero.filter(
+        (consolidacao) =>
+          consolidacao?.consolidado === true
+      )
+    : [];
+  
+  consolidacoesAtivas.forEach((c) => {
+    const numero =
+      Number(c.enderecoNumero) || 0;
+  
+    if (mapaConsolidacoes.has(numero)) {
+      mapaConsolidacoes.set(
+        numero,
+        (mapaConsolidacoes.get(numero) || 0) + 1
+      );
+    }
+  });
+
+
   let concluidos = 0;
   let pendentes = 0;
   let emContagem = 0;
@@ -3939,31 +3962,35 @@ const mapaFinalizacoes = new Map();
   for (let numero = inicio; numero <= fim; numero += 1) {
     
     const qtdTrans =
-    mapaTransmissoes.get(numero) || 0;
+  mapaTransmissoes.get(numero) || 0;
+
+const qtdAberturas =
+  mapaAberturas.get(numero) || 0;
+
+const qtdFin =
+  mapaFinalizacoes.get(numero) || 0;
+
+const qtdConsolidacoes =
+  mapaConsolidacoes.get(numero) || 0;
+
+  if (qtdFin > 1 && qtdConsolidacoes === 0) {
+    duplicados += 1;
+    continue;
+  }
   
-  const qtdAberturas =
-    mapaAberturas.get(numero) || 0;
+  if (qtdConsolidacoes > 0) {
+    concluidos += 1;
+    continue;
+  }
   
-  const qtdFin =
-    mapaFinalizacoes.get(numero) || 0;
-
-    if (qtdFin > 1) {
-      duplicados += 1;
-      continue;
-    }
-
-    if (qtdFin === 1) {
-      concluidos += 1;
-      continue;
-    }
-
-    if (
-      qtdTrans > 0 ||
-      qtdAberturas > 0
-    ) {
-      emContagem += 1;
-      continue;
-    }
+  if (
+    qtdTrans > 0 ||
+    qtdAberturas > 0 ||
+    qtdFin > 0
+  ) {
+    emContagem += 1;
+    continue;
+  }
 
     pendentes += 1;
   }
@@ -6655,6 +6682,76 @@ app.post(
   }
 );
 app.post(
+  "/abrir-endereco-operacional",
+  autenticar,
+  async (req, res) => {
+    try {
+      if (
+        modoOperacao !== "com-base" &&
+        modoOperacao !== "wms"
+      ) {
+        return res.status(400).json({
+          erro:
+            "Esta operação não está disponível neste modo.",
+        });
+      }
+
+      const enderecoNumero = String(
+        req.body?.enderecoNumero || ""
+      ).trim();
+
+      if (!enderecoNumero) {
+        return res.status(400).json({
+          erro: "Informe o endereço.",
+        });
+      }
+
+      const endereco =
+        buscarEnderecoPorNumero(
+          enderecoNumero
+        );
+
+      if (!endereco) {
+        return res.status(404).json({
+          erro:
+            "Endereço não encontrado no cadastro.",
+        });
+      }
+
+      const usuario =
+        req.session?.usuario?.usuario ||
+        req.session?.usuario?.nome ||
+        "sistema";
+
+      await registrarEventoEndereco(
+        enderecoNumero,
+        "abertura",
+        usuario,
+        []
+      );
+
+      await salvarEnderecamentos();
+
+      return res.json({
+        sucesso: true,
+        mensagem:
+          "Endereço aberto para contagem.",
+      });
+
+    } catch (erro) {
+      console.error(
+        "Erro ao abrir endereço operacional:",
+        erro
+      );
+
+      return res.status(500).json({
+        erro:
+          "Não foi possível abrir o endereço.",
+      });
+    }
+  }
+);
+app.post(
   "/sem-base/leitura",
   autenticar,
   async (req, res) => {
@@ -7910,6 +8007,15 @@ function montarMapaEnderecosDashboard() {
               )
           )
         : [];
+        const consolidacoes =
+  Array.isArray(
+    endereco.consolidacoesPorNumero
+  )
+    ? endereco.consolidacoesPorNumero.filter(
+        (item) =>
+          item?.consolidado === true
+      )
+    : [];
     for (
       let numero = inicio;
       numero <= fim;
@@ -7927,6 +8033,11 @@ function montarMapaEnderecosDashboard() {
             Number(item.enderecoNumero) === numero &&
             item.tipo === "transmissao"
         );
+        const consolidacoesNumero =
+  consolidacoes.filter(
+    (item) =>
+      Number(item.enderecoNumero) === numero
+  );
 
         const aberturasNumero =
         transmissoes.filter(
@@ -7938,16 +8049,22 @@ function montarMapaEnderecosDashboard() {
 
         let status = "pendente";
 
-        if (finalizacoesNumero.length > 1) {
-          status = "duplicado";
-        } else if (finalizacoesNumero.length === 1) {
-          status = "concluido";
-        } else if (
-          transmissoesNumero.length > 0 ||
-          aberturasNumero.length > 0
-        ) {
-          status = "em-contagem";
-        }
+if (
+  finalizacoesNumero.length > 1 &&
+  consolidacoesNumero.length === 0
+) {
+  status = "duplicado";
+} else if (
+  consolidacoesNumero.length > 0
+) {
+  status = "concluido";
+} else if (
+  transmissoesNumero.length > 0 ||
+  finalizacoesNumero.length > 0 ||
+  aberturasNumero.length > 0
+) {
+  status = "em-contagem";
+}
         
         
         /*
@@ -8015,7 +8132,8 @@ function montarMapaEnderecosDashboard() {
           status === "em-contagem"
         ) {
           eventoResponsavel =
-            ultimaTransmissao;
+            ultimaTransmissao ||
+            ultimaAbertura;
         }
 
         resultado.push({

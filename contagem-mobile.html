@@ -2209,7 +2209,7 @@ disabled
       id="qtdeContada"
       inputmode="decimal"
       autocomplete="off"
-      placeholder="Ex.: 16 ou 16,088"
+      placeholder=" "
       disabled
     >
       <label
@@ -3565,6 +3565,34 @@ async function abrirEndereco() {
         enderecoWmsAtual,
     };
 
+    const respostaAbertura =
+  await fetch(
+    '/abrir-endereco-operacional',
+    {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type':
+          'application/json',
+      },
+      body: JSON.stringify({
+        enderecoNumero:
+          enderecoInventarioWmsPendente,
+      }),
+    }
+  );
+
+const resultadoAbertura =
+  await respostaAbertura.json();
+
+if (!respostaAbertura.ok) {
+  throw new Error(
+    resultadoAbertura.erro ||
+    'Não foi possível abrir o endereço.'
+  );
+}
+
+
     itensEnderecoAtual = [];
     produtoAtual = null;
 
@@ -3700,6 +3728,38 @@ async function abrirEndereco() {
     );
   }
 }
+
+if (
+  modoOperacaoAtual ===
+  'com-base'
+) {
+  const respostaAbertura =
+    await fetch(
+      '/abrir-endereco-operacional',
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+        body: JSON.stringify({
+          enderecoNumero: valor,
+        }),
+      }
+    );
+
+  const resultadoAbertura =
+    await respostaAbertura.json();
+
+  if (!respostaAbertura.ok) {
+    throw new Error(
+      resultadoAbertura.erro ||
+      'Não foi possível abrir o endereço.'
+    );
+  }
+}
+
     itensEnderecoAtual = [];
     produtoAtual = null;
 
