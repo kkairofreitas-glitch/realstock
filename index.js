@@ -65,13 +65,29 @@ db.serialize(() => {
       codigo TEXT,
       descricao TEXT,
       categoria TEXT,
+      tipo TEXT,
       custoUnitario REAL,
       qtdeCongelada REAL,
       qtdeContada REAL
     )
   `);
 });
-
+db.run(
+  "ALTER TABLE produtos ADD COLUMN tipo TEXT",
+  (erro) => {
+    if (
+      erro &&
+      !String(erro.message || "")
+        .toLowerCase()
+        .includes("duplicate column name")
+    ) {
+      console.error(
+        "Erro ao adicionar coluna tipo no SQLite:",
+        erro.message
+      );
+    }
+  }
+);
 const fonts = {
   Helvetica: {
     normal: "Helvetica",
@@ -5875,15 +5891,16 @@ async function salvarProdutosNoBanco(listaProdutos) {
         }
 
         const stmt = db.prepare(`
-          INSERT INTO produtos (
-            codigoBarras,
-            codigo,
-            descricao,
-            categoria,
-            custoUnitario,
-            qtdeCongelada,
-            qtdeContada
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO produtos (
+          codigoBarras,
+          codigo,
+          descricao,
+          categoria,
+          tipo,
+          custoUnitario,
+          qtdeCongelada,
+          qtdeContada
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const item of lista) {
@@ -5892,6 +5909,7 @@ async function salvarProdutosNoBanco(listaProdutos) {
             item.codigo || item.codigoInterno || "",
             item.descricao || "",
             item.categoria || "",
+            item.tipo || "",
             Number(item.custoUnitario) || 0,
             Number(item.qtdeCongelada) || 0,
             Number(item.qtdeContada) || 0
@@ -5939,6 +5957,7 @@ async function carregarProdutosDoBanco(callback = null) {
       codigoInterno: item.codigo || "",
       descricao: item.descricao || "",
       categoria: item.categoria || "",
+      tipo: item.tipo || "",
       custoUnitario: Number(item.custoUnitario) || 0,
       qtdeCongelada: Number(item.qtdeCongelada) || 0,
       qtdeContada: Number(item.qtdeContada) || 0,

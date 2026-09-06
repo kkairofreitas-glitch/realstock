@@ -41,21 +41,25 @@ async function criarTabelas() {
     `);
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS produtos (
-        id SERIAL PRIMARY KEY,
-        codigo_barras TEXT,
-        codigo TEXT,
-        codigo_interno TEXT,
-        descricao TEXT,
-        categoria TEXT,
-        custo_unitario NUMERIC DEFAULT 0,
-        qtde_congelada NUMERIC DEFAULT 0,
-        qtde_contada NUMERIC DEFAULT 0,
-        criado_em TIMESTAMP DEFAULT NOW(),
-        atualizado_em TIMESTAMP DEFAULT NOW()
-      );
+    CREATE TABLE IF NOT EXISTS produtos (
+      id SERIAL PRIMARY KEY,
+      codigo_barras TEXT,
+      codigo TEXT,
+      codigo_interno TEXT,
+      descricao TEXT,
+      categoria TEXT,
+      tipo TEXT,
+      custo_unitario NUMERIC DEFAULT 0,
+      qtde_congelada NUMERIC DEFAULT 0,
+      qtde_contada NUMERIC DEFAULT 0,
+      criado_em TIMESTAMP DEFAULT NOW(),
+      atualizado_em TIMESTAMP DEFAULT NOW()
+    );
     `);
-
+    await pool.query(`
+    ALTER TABLE produtos
+    ADD COLUMN IF NOT EXISTS tipo TEXT;
+  `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS contagens (
         id TEXT PRIMARY KEY,
@@ -304,11 +308,12 @@ async function salvarProdutosPostgres(listaProdutos = []) {
         codigo_interno,
         descricao,
         categoria,
+        tipo,
         custo_unitario,
         qtde_congelada,
         qtde_contada
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       `,
       [
         item.codigoBarras || "",
@@ -316,9 +321,10 @@ async function salvarProdutosPostgres(listaProdutos = []) {
         item.codigoInterno || item.codigo || "",
         item.descricao || "",
         item.categoria || "",
-        Number(item.custoUnitario) || 0,
-        Number(item.qtdeCongelada) || 0,
-        Number(item.qtdeContada) || 0,
+item.tipo || "",
+Number(item.custoUnitario) || 0,
+Number(item.qtdeCongelada) || 0,
+Number(item.qtdeContada) || 0,
       ]
     );
   }
@@ -328,16 +334,17 @@ async function salvarProdutosPostgres(listaProdutos = []) {
 
 async function carregarProdutosPostgres() {
   const resultado = await pool.query(`
-    SELECT
-      codigo_barras,
-      codigo,
-      codigo_interno,
-      descricao,
-      categoria,
-      custo_unitario,
-      qtde_congelada,
-      qtde_contada
-    FROM produtos
+  SELECT
+  codigo_barras,
+  codigo,
+  codigo_interno,
+  descricao,
+  categoria,
+  tipo,
+  custo_unitario,
+  qtde_congelada,
+  qtde_contada
+FROM produtos
     ORDER BY id ASC
   `);
 
@@ -347,6 +354,7 @@ async function carregarProdutosPostgres() {
     codigoInterno: item.codigo_interno || item.codigo || "",
     descricao: item.descricao || "",
     categoria: item.categoria || "",
+    tipo: item.tipo || "",
     custoUnitario: Number(item.custo_unitario) || 0,
     qtdeCongelada: Number(item.qtde_congelada) || 0,
     qtdeContada: Number(item.qtde_contada) || 0,
