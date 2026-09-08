@@ -6920,11 +6920,16 @@ body[data-modo-operacao="wms"] #areaFinalizacoesWms {
 /* ===== RESUMO OPERACIONAL EM TEMPO REAL ===== */
 
 .operacional-live-grid {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+
   display: grid;
   grid-template-columns:
     minmax(280px, 0.9fr)
     minmax(280px, 0.9fr)
     minmax(420px, 1.4fr);
+
   gap: 14px;
   margin: 16px 0 22px;
   align-items: stretch;
@@ -10475,6 +10480,51 @@ body[data-modo-operacao="wms"]
   text-shadow:
     0 0 8px rgba(96, 165, 250, 0.20);
 }
+.paginacao-tabela-inventario {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 4px 4px;
+}
+
+.paginacao-inventario-info {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.paginacao-inventario-botoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-paginacao {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn-paginacao:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.btn-paginacao:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pagina-atual {
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
     </style>
   </head>
 
@@ -11321,24 +11371,29 @@ body[data-modo-operacao="wms"]
             </div>
 
             <div class="tabela-container">
-              <table>
-                <thead onclick="toggleTabelaBody(this)">
-                  <tr>
-                    <th>Código de Barras</th>
-                    <th>Código Interno</th>
-                    <th>Descrição</th>
-                    <th>Qtd. Congelada</th>
-                    <th>Qtd. Contada</th>
-                    <th>Divergência</th>
-                    <th>Valor Congelado</th>
-                    <th>Valor Contado</th>
-                    <th>Valor Divergente</th>
-                  </tr>
-                </thead>
-                <tbody id="tabela-corpo"></tbody>
-              </table>
-            </div>
+            <table>
+              <thead onclick="toggleTabelaBody(this)">
+                <tr>
+                  <th>Código de Barras</th>
+                  <th>Código Interno</th>
+                  <th>Descrição</th>
+                  <th>Qtd. Congelada</th>
+                  <th>Qtd. Contada</th>
+                  <th>Divergência</th>
+                  <th>Valor Congelado</th>
+                  <th>Valor Contado</th>
+                  <th>Valor Divergente</th>
+                </tr>
+              </thead>
+          
+              <tbody id="tabela-corpo"></tbody>
+            </table>
           </div>
+          
+          <div
+            id="paginacaoTabelaInventario"
+            class="paginacao-tabela-inventario"
+          ></div>
         </div>
 
         <section
@@ -18256,13 +18311,13 @@ function salvarConfiguracaoInventario() {
       }
 
       function refreshOperationalPanelsOnly() {
-        const operational = calculateOperationalMetrics(
-          inventoryRuntimeState.totalProdutos,
-          inventoryRuntimeState.itensContados
-        );
-        updateOperationalViews(operational);
-        carregarResumoOperacionalDashboard();
-      }
+  const operational = calculateOperationalMetrics(
+    inventoryRuntimeState.totalProdutos,
+    inventoryRuntimeState.itensContados
+  );
+
+  updateOperationalViews(operational);
+}
       function alternarPainelItensContados() {
   const painel = document.getElementById(
     "painelItensContadosDashboard"
@@ -18906,15 +18961,22 @@ async function carregarDados() {
     await carregarPainelWmsCompartilhado();
     return;
   }
+
   const busca = (
     document.getElementById('buscaGeral')?.value || ''
-  ).toLowerCase();
+  ).toLowerCase().trim();
 
   const categoria =
     document.getElementById('campoFiltroCategoria')?.value || '';
 
   const ordenacaoSelect =
     document.getElementById('ordenarDivergencia')?.value || '';
+
+  /*
+    Quando houver alteração nos filtros,
+    voltamos para a primeira página.
+  */
+  paginaTabelaInventario = 1;
 
   const qs = new URLSearchParams({
     categoria,
@@ -18925,273 +18987,684 @@ async function carregarDados() {
     qs.append('busca', busca);
   }
 
-  const res = await fetch(`/inventario?${qs.toString()}`);
+  const res = await fetch(`/inventario?${qs.toString()}`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+
   const dados = await res.json();
 
-  dadosInventarioAtual = Array.isArray(dados) ? dados : [];
+  dadosInventarioAtual =
+    Array.isArray(dados)
+      ? dados
+      : [];
 
-  const corpo = document.getElementById('tabela-corpo');
-if (!corpo) return;
+  const corpo =
+    document.getElementById('tabela-corpo');
 
-const fragmentoTabela =
-  document.createDocumentFragment();
+  if (!corpo) {
+    return;
+  }
 
-const fragmentoArquivoBase =
-  document.createDocumentFragment();
+  /*
+    ========================================================
+    DADOS GERAIS
+    ========================================================
+  */
 
-const fragmentoItensContados =
-  document.createDocumentFragment();
+  const categoriasUnicas = new Set();
 
-const categoriasUnicas = new Set();
-const dadosUnicos = [...dadosInventarioAtual];
+  let totalValorCongelado = 0;
+  let totalValorContado = 0;
+  let totalValorDivergencia = 0;
+  let itensComDivergencia = 0;
+  let itensContados = 0;
 
-const boxBase =
-  document.getElementById('arquivo-base-box');
+  const seenBase = new Set();
+  const seenContados = new Set();
 
-const boxContados =
-  document.getElementById('itens-contados-box');
+  /*
+    ========================================================
+    PAINÉIS LATERAIS
+    ========================================================
+    
+    Não criamos mais 10.000 elementos.
+    Mostramos somente os primeiros 100.
+  */
 
-const seenBase = new Set();
-const seenContados = new Set();
+  const boxBase =
+    document.getElementById('arquivo-base-box');
 
-  dadosUnicos.forEach((item) => {
-    const raw = String(
-      item.codigo || item.codigoInterno || item.codigoBarras || ''
+  const boxContados =
+    document.getElementById('itens-contados-box');
+
+  const fragmentoArquivoBase =
+    document.createDocumentFragment();
+
+  const fragmentoItensContados =
+    document.createDocumentFragment();
+
+  const LIMITE_CARDS_DASHBOARD = 100;
+
+  /*
+    ========================================================
+    PROCESSAMENTO DOS DADOS
+    ========================================================
+  */
+
+  dadosInventarioAtual.forEach((item) => {
+    const codigo = String(
+      item.codigo ||
+      item.codigoInterno ||
+      item.codigoBarras ||
+      ''
     ).trim();
 
-    const codigo = raw.replace(/^0+/, '');
-    if (!codigo) return;
+    const qtdCongelada =
+      Number(item.qtdeCongelada) || 0;
+
+    const qtdContada =
+      Number(item.qtdeContada) || 0;
+
+    const valorCongelado =
+      Number(item.valorCongelado) || 0;
+
+    const valorContado =
+      Number(item.valorContado) || 0;
+
+    const valorDivergencia =
+      Number(item.valorDivergencia) || 0;
+
+    totalValorCongelado += valorCongelado;
+    totalValorContado += valorContado;
+    totalValorDivergencia += valorDivergencia;
 
     if (
-  modoOperacaoAtual !==
-    'sem-base' &&
-  !seenBase.has(codigo)
-) {
+      qtdContada > 0 &&
+      codigo
+    ) {
+      itensContados++;
+    }
+
+    if (
+      Math.abs(
+        Number(item.divergencia) || 0
+      ) > 0
+    ) {
+      itensComDivergencia++;
+    }
+
+    if (item.categoria) {
+      categoriasUnicas.add(
+        item.categoria
+      );
+    }
+
+    /*
+      Painel arquivo-base:
+      somente os primeiros 100.
+    */
+    if (
+      modoOperacaoAtual !== 'sem-base' &&
+      codigo &&
+      !seenBase.has(codigo) &&
+      seenBase.size < LIMITE_CARDS_DASHBOARD
+    ) {
       seenBase.add(codigo);
 
       if (boxBase) {
-  const div = document.createElement('div');
-  div.className = 'painel-produto-item';
+        const div =
+          document.createElement('div');
 
-  div.innerHTML = `
-    <strong>${codigo}</strong>
-    <span>${item.descricao || 'Sem descrição'}</span>
-  `;
+        div.className =
+          'painel-produto-item';
 
-  fragmentoArquivoBase.appendChild(div);
-}
+        div.innerHTML = `
+          <strong>${codigo}</strong>
+          <span>
+            ${item.descricao || 'Sem descrição'}
+          </span>
+        `;
+
+        fragmentoArquivoBase.appendChild(div);
+      }
     }
 
-    const qtd = Number(item.qtdeContada);
-    if (!isNaN(qtd) && qtd > 0 && !seenContados.has(codigo)) {
+    /*
+      Painel itens contados:
+      somente os primeiros 100.
+    */
+    if (
+      qtdContada > 0 &&
+      codigo &&
+      !seenContados.has(codigo) &&
+      seenContados.size < LIMITE_CARDS_DASHBOARD
+    ) {
       seenContados.add(codigo);
 
       if (boxContados) {
-  const div = document.createElement('div');
-  div.className = 'painel-produto-item';
+        const div =
+          document.createElement('div');
 
-  div.innerHTML = `
-    <strong>${codigo}</strong>
-    <span>${item.descricao || 'Sem descrição'}</span>
-    <small>
-      Quantidade contada:
-      ${Number(item.qtdeContada || 0).toLocaleString('pt-BR')}
-    </small>
-  `;
-  
-  fragmentoItensContados.appendChild(div);
-}
+        div.className =
+          'painel-produto-item';
+
+        div.innerHTML = `
+          <strong>${codigo}</strong>
+          <span>
+            ${item.descricao || 'Sem descrição'}
+          </span>
+          <small>
+            Quantidade contada:
+            ${qtdContada.toLocaleString('pt-BR')}
+          </small>
+        `;
+
+        fragmentoItensContados.appendChild(div);
+      }
     }
   });
 
-  document.getElementById('count-base').textContent = String(
-    modoOperacaoAtual === 'sem-base' ? 0 : seenBase.size
-  );
+  /*
+    ========================================================
+    INDICADORES
+    ========================================================
+  */
 
-  document.getElementById('count-contados').textContent = String(
-    seenContados.size
-  );
-
-  const totalProdutos = dadosUnicos.length;
+  const totalProdutos =
+    dadosInventarioAtual.length;
 
   const totalProdutosCalculado =
     modoOperacaoAtual === 'sem-base'
       ? 0
       : totalProdutos;
 
-  const totalValorCongelado =
-    modoOperacaoAtual === 'sem-base'
-      ? 0
-      : dadosUnicos.reduce(
-          (sum, i) => sum + (Number(i.valorCongelado) || 0),
-          0
-        );
-
-  const totalValorContado =
-    modoOperacaoAtual === 'sem-base'
-      ? 0
-      : dadosUnicos.reduce(
-          (sum, i) => sum + (Number(i.valorContado) || 0),
-          0
-        );
-
-  const totalValorDivergencia =
-    modoOperacaoAtual === 'sem-base'
-      ? 0
-      : dadosUnicos.reduce(
-          (sum, i) => sum + (Number(i.valorDivergencia) || 0),
-          0
-        );
-
   const itensContadosCalculado =
     modoOperacaoAtual === 'sem-base'
-      ? dadosUnicos.length
-      : seenContados.size;
-
-  const itensComDivergencia =
-    modoOperacaoAtual === 'sem-base'
-      ? 0
-      : dadosUnicos.filter((i) => Number(i.divergencia) !== 0).length;
+      ? dadosInventarioAtual.length
+      : itensContados;
 
   inventoryRuntimeState = {
-    totalProdutos: totalProdutosCalculado,
-    itensContados: itensContadosCalculado,
-    itensComDivergencia,
-    valorDiv: totalValorDivergencia,
+    totalProdutos:
+      totalProdutosCalculado,
+
+    itensContados:
+      itensContadosCalculado,
+
+    itensComDivergencia:
+      modoOperacaoAtual === 'sem-base'
+        ? 0
+        : itensComDivergencia,
+
+    valorDiv:
+      totalValorDivergencia,
   };
 
-  document.getElementById('total-produtos').textContent =
-    totalProdutosCalculado;
+  const totalProdutosEl =
+    document.getElementById(
+      'total-produtos'
+    );
 
-  document.getElementById('valor-congelado-total').textContent =
-    moneyBR(totalValorCongelado);
-
-  document.getElementById('valor-contado-total').textContent =
-    moneyBR(totalValorContado);
-
-  document.getElementById('valor-divergencia-total').textContent =
-    moneyBR(Math.abs(totalValorDivergencia));
-
-  document.getElementById('itens-divergentes').textContent =
-    itensComDivergencia;
-
-  document.getElementById('itens-contados').textContent =
-    itensContadosCalculado;
-
-  await atualizarDashboardComEnderecamento();
-  refreshOperationalPanelsOnly();
-
-  dadosInventarioAtual.forEach((item) => {
-  const linha = document.createElement('tr');
-  const divergRaw =
-    Number(item.divergencia || 0);
-
-  linha.innerHTML = `
-    <td>${item.codigoBarras || ''}</td>
-
-    <td>${item.codigo || ''}</td>
-
-    <td class="col-desc">
-      ${item.descricao || ''}
-    </td>
-
-    <td>
-      ${formatarQuantidade(
-        item.qtdeCongelada,
-        item.descricao,
-        item.categoria
-      )}
-    </td>
-
-    <td>
-      ${
-        item.qtdeContada !== null &&
-        item.qtdeContada !== undefined
-          ? formatarQuantidade(
-              item.qtdeContada,
-              item.descricao,
-              item.categoria
-            )
-          : ''
-      }
-    </td>
-
-    <td>
-      ${chipDivergencia(divergRaw)}
-    </td>
-
-    <td>
-      ${moneyBR(item.valorCongelado || 0)}
-    </td>
-
-    <td>
-      ${moneyBR(item.valorContado || 0)}
-    </td>
-
-    <td>
-      ${moneyBR(item.valorDivergencia || 0)}
-    </td>
-  `;
-
-  fragmentoTabela.appendChild(linha);
-
-  if (item.categoria) {
-    categoriasUnicas.add(item.categoria);
+  if (totalProdutosEl) {
+    totalProdutosEl.textContent =
+      totalProdutosCalculado.toLocaleString(
+        'pt-BR'
+      );
   }
-});
 
-/*
-  Aplica os conteúdos somente depois que
-  todas as linhas e cards estiverem montados.
-*/
-corpo.replaceChildren(fragmentoTabela);
+  const valorCongeladoEl =
+    document.getElementById(
+      'valor-congelado-total'
+    );
 
-if (boxBase) {
-  if (
-    modoOperacaoAtual ===
-    'sem-base'
-  ) {
-    boxBase.innerHTML = `
-      <div class="painel-empty-state">
-        Modo sem base ativo.<br>
-        Nenhum arquivo base utilizado.
-      </div>
-    `;
-  } else {
-    boxBase.replaceChildren(
-      fragmentoArquivoBase
+  if (valorCongeladoEl) {
+    valorCongeladoEl.textContent =
+      moneyBR(totalValorCongelado);
+  }
+
+  const valorContadoEl =
+    document.getElementById(
+      'valor-contado-total'
+    );
+
+  if (valorContadoEl) {
+    valorContadoEl.textContent =
+      moneyBR(totalValorContado);
+  }
+
+  const valorDivergenciaEl =
+    document.getElementById(
+      'valor-divergencia-total'
+    );
+
+  if (valorDivergenciaEl) {
+    valorDivergenciaEl.textContent =
+      moneyBR(
+        Math.abs(
+          totalValorDivergencia
+        )
+      );
+  }
+
+  const itensDivergentesEl =
+    document.getElementById(
+      'itens-divergentes'
+    );
+
+  if (itensDivergentesEl) {
+    itensDivergentesEl.textContent =
+      modoOperacaoAtual === 'sem-base'
+        ? '0'
+        : itensComDivergencia.toLocaleString(
+            'pt-BR'
+          );
+  }
+
+  const itensContadosEl =
+    document.getElementById(
+      'itens-contados'
+    );
+
+  if (itensContadosEl) {
+    itensContadosEl.textContent =
+      itensContadosCalculado.toLocaleString(
+        'pt-BR'
+      );
+  }
+
+  /*
+    ========================================================
+    PAINEL ARQUIVO BASE
+    ========================================================
+  */
+
+  const countBase =
+    document.getElementById(
+      'count-base'
+    );
+
+  if (countBase) {
+    countBase.textContent =
+      modoOperacaoAtual === 'sem-base'
+        ? '0'
+        : totalProdutosCalculado.toLocaleString(
+            'pt-BR'
+          );
+  }
+
+  const countContados =
+    document.getElementById(
+      'count-contados'
+    );
+
+  if (countContados) {
+    countContados.textContent =
+      itensContadosCalculado.toLocaleString(
+        'pt-BR'
+      );
+  }
+
+  if (boxBase) {
+    if (
+      modoOperacaoAtual ===
+      'sem-base'
+    ) {
+      boxBase.innerHTML = `
+        <div class="painel-empty-state">
+          Modo sem base ativo.<br>
+          Nenhum arquivo base utilizado.
+        </div>
+      `;
+    } else {
+      boxBase.replaceChildren(
+        fragmentoArquivoBase
+      );
+    }
+  }
+
+  if (boxContados) {
+    boxContados.replaceChildren(
+      fragmentoItensContados
     );
   }
-}
 
-if (boxContados) {
-  boxContados.replaceChildren(
-    fragmentoItensContados
-  );
-}
-  const selectCategoria = document.getElementById('campoFiltroCategoria');
+  /*
+    ========================================================
+    CATEGORIAS
+    ========================================================
+  */
+
+  const selectCategoria =
+    document.getElementById(
+      'campoFiltroCategoria'
+    );
 
   if (selectCategoria) {
-    const current = selectCategoria.value || '';
+    const current =
+      selectCategoria.value || '';
+
     selectCategoria.innerHTML =
       '<option value="">Todas as Categorias</option>';
 
     Array.from(categoriasUnicas)
       .sort()
       .forEach((cat) => {
-        const option = document.createElement('option');
+        const option =
+          document.createElement(
+            'option'
+          );
+
         option.value = cat;
         option.textContent = cat;
-        selectCategoria.appendChild(option);
+
+        selectCategoria.appendChild(
+          option
+        );
       });
 
-    if ([...selectCategoria.options].some((o) => o.value === current)) {
-      selectCategoria.value = current;
+    if (
+      [
+        ...selectCategoria.options
+      ].some(
+        (o) =>
+          o.value === current
+      )
+    ) {
+      selectCategoria.value =
+        current;
     }
   }
 
-  carregarAuditoriaImportacao();
-  await atualizarDashboardComEnderecamento();
+  /*
+    ========================================================
+    TABELA PRINCIPAL
+    ========================================================
+    
+    Agora renderizamos somente a página atual.
+  */
+
+  renderizarPaginaTabelaInventario();
+
+  /*
+  Atualização dos indicadores locais.
+  
+  Os dados operacionais em tempo real
+  são atualizados separadamente pelo
+  ciclo de 5 segundos.
+*/
+
+refreshOperationalPanelsOnly();
+}
+
+function renderizarPaginaTabelaInventario() {
+  const corpo =
+    document.getElementById(
+      'tabela-corpo'
+    );
+
+  if (!corpo) {
+    return;
+  }
+
+  const lista =
+    Array.isArray(
+      dadosInventarioAtual
+    )
+      ? dadosInventarioAtual
+      : [];
+
+  const total =
+    lista.length;
+
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        total /
+          ITENS_POR_PAGINA_INVENTARIO
+      )
+    );
+
+  if (
+    paginaTabelaInventario >
+    totalPaginas
+  ) {
+    paginaTabelaInventario =
+      totalPaginas;
+  }
+
+  if (
+    paginaTabelaInventario < 1
+  ) {
+    paginaTabelaInventario = 1;
+  }
+
+  const inicio =
+    (
+      paginaTabelaInventario - 1
+    ) *
+    ITENS_POR_PAGINA_INVENTARIO;
+
+  const fim =
+    inicio +
+    ITENS_POR_PAGINA_INVENTARIO;
+
+  const pagina =
+    lista.slice(
+      inicio,
+      fim
+    );
+
+  const fragmento =
+    document.createDocumentFragment();
+
+  pagina.forEach((item) => {
+    const linha =
+      document.createElement(
+        'tr'
+      );
+
+    const divergRaw =
+      Number(
+        item.divergencia || 0
+      );
+
+    linha.innerHTML = `
+      <td>
+        ${item.codigoBarras || ''}
+      </td>
+
+      <td>
+        ${item.codigo || ''}
+      </td>
+
+      <td class="col-desc">
+        ${item.descricao || ''}
+      </td>
+
+      <td>
+        ${formatarQuantidade(
+          item.qtdeCongelada,
+          item.descricao,
+          item.categoria
+        )}
+      </td>
+
+      <td>
+        ${
+          item.qtdeContada !== null &&
+          item.qtdeContada !== undefined
+            ? formatarQuantidade(
+                item.qtdeContada,
+                item.descricao,
+                item.categoria
+              )
+            : ''
+        }
+      </td>
+
+      <td>
+        ${chipDivergencia(
+          divergRaw
+        )}
+      </td>
+
+      <td>
+        ${moneyBR(
+          item.valorCongelado || 0
+        )}
+      </td>
+
+      <td>
+        ${moneyBR(
+          item.valorContado || 0
+        )}
+      </td>
+
+      <td>
+        ${moneyBR(
+          item.valorDivergencia || 0
+        )}
+      </td>
+    `;
+
+    fragmento.appendChild(
+      linha
+    );
+  });
+
+  corpo.replaceChildren(
+    fragmento
+  );
+
+  atualizarPaginacaoTabelaInventario(
+    total,
+    inicio,
+    fim,
+    totalPaginas
+  );
+}
+
+function atualizarPaginacaoTabelaInventario(
+  total,
+  inicio,
+  fim,
+  totalPaginas
+) {
+  const area =
+    document.getElementById(
+      'paginacaoTabelaInventario'
+    );
+
+  if (!area) {
+    return;
+  }
+
+  if (total === 0) {
+    area.innerHTML = '';
+    return;
+  }
+
+  const primeiro =
+    inicio + 1;
+
+  const ultimo =
+    Math.min(
+      fim,
+      total
+    );
+
+  area.innerHTML = `
+    <div class="paginacao-inventario-info">
+      Mostrando
+      <strong>
+        ${primeiro.toLocaleString('pt-BR')}
+      </strong>
+      –
+      <strong>
+        ${ultimo.toLocaleString('pt-BR')}
+      </strong>
+      de
+      <strong>
+        ${total.toLocaleString('pt-BR')}
+      </strong>
+      produtos
+    </div>
+
+    <div class="paginacao-inventario-botoes">
+
+      <button
+        type="button"
+        class="btn-paginacao"
+        onclick="mudarPaginaTabelaInventario(-1)"
+        ${paginaTabelaInventario <= 1 ? 'disabled' : ''}
+      >
+        <i class="fa-solid fa-chevron-left"></i>
+        Anterior
+      </button>
+
+      <span class="pagina-atual">
+        Página
+        <strong>
+          ${paginaTabelaInventario}
+        </strong>
+        de
+        <strong>
+          ${totalPaginas}
+        </strong>
+      </span>
+
+      <button
+        type="button"
+        class="btn-paginacao"
+        onclick="mudarPaginaTabelaInventario(1)"
+        ${paginaTabelaInventario >= totalPaginas ? 'disabled' : ''}
+      >
+        Próxima
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+
+    </div>
+  `;
+}
+
+function mudarPaginaTabelaInventario(
+  direcao
+) {
+  const lista =
+    Array.isArray(
+      dadosInventarioAtual
+    )
+      ? dadosInventarioAtual
+      : [];
+
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        lista.length /
+          ITENS_POR_PAGINA_INVENTARIO
+      )
+    );
+
+  paginaTabelaInventario +=
+    Number(direcao) || 0;
+
+  if (
+    paginaTabelaInventario < 1
+  ) {
+    paginaTabelaInventario = 1;
+  }
+
+  if (
+    paginaTabelaInventario >
+    totalPaginas
+  ) {
+    paginaTabelaInventario =
+      totalPaginas;
+  }
+
+  renderizarPaginaTabelaInventario();
 }
 
       async function atualizarCampo(td, codigoBarras, campo) {
@@ -27054,8 +27527,6 @@ atualizarPainelExportacao();
 preencherFormularioDadosInventario();
 atualizarResumoDadosInventario();
 atualizarPainelOperacaoDashboard();
-let atualizacaoDashboardEmAndamento = false;
-
 async function atualizarDashboardCompleto() {
   if (atualizacaoDashboardEmAndamento) {
     return;
@@ -27064,9 +27535,22 @@ async function atualizarDashboardCompleto() {
   atualizacaoDashboardEmAndamento = true;
 
   try {
+    /*
+      ======================================================
+      NÍVEL 3 — CARGA COMPLETA
+      ======================================================
+      
+      Executada na inicialização e quando realmente
+      precisamos reconstruir os dados principais.
+    */
+
     if (typeof carregarDados === "function") {
       await carregarDados();
     }
+
+    /*
+      Auditorias e informações auxiliares
+    */
 
     if (
       typeof carregarAuditoriaImportacao ===
@@ -27088,18 +27572,24 @@ async function atualizarDashboardCompleto() {
     ) {
       await carregarEnderecamentosFrontend();
     }
+
     if (
-  typeof atualizarDashboardComEnderecamento ===
-  "function"
-) {
-  await atualizarDashboardComEnderecamento();
-}
+      typeof atualizarDashboardComEnderecamento ===
+      "function"
+    ) {
+      await atualizarDashboardComEnderecamento();
+    }
+
     if (
       typeof carregarAuditoriaEnderecosDuplicados ===
       "function"
     ) {
       await carregarAuditoriaEnderecosDuplicados();
     }
+
+    /*
+      Painéis auxiliares
+    */
 
     if (
       typeof atualizarPainelImportacao ===
@@ -27136,21 +27626,14 @@ async function atualizarDashboardCompleto() {
       await atualizarPainelOperacaoDashboard();
     }
 
-    if (
-      typeof refreshOperationalPanelsOnly ===
-      "function"
-    ) {
-      refreshOperationalPanelsOnly();
-    }
+  } catch (erro) {
+    console.error(
+      "Erro na atualização completa do dashboard:",
+      erro
+    );
   } finally {
     atualizacaoDashboardEmAndamento = false;
   }
-  if (
-  typeof carregarResumoOperacionalDashboard ===
-  "function"
-) {
-  await carregarResumoOperacionalDashboard();
-}
 }
 
 function formatarDuracaoProgresso(ms) {
@@ -32471,9 +32954,38 @@ window.addEventListener("pageshow", async () => {
   await inicializarPainelRealStock();
 });
 
-setInterval(async () => {
+/*
+===========================================================
+REALSTOCK — SISTEMA DE ATUALIZAÇÃO EM 3 NÍVEIS
+===========================================================
+
+NÍVEL 1 → 5 segundos
+Dados operacionais em tempo real.
+
+NÍVEL 2 → 30 segundos
+Dados operacionais secundários.
+
+NÍVEL 3 → 60 segundos
+Dados pesados / base de inventário.
+
+A base completa NÃO é mais carregada a cada 5 segundos.
+===========================================================
+*/
+
+let atualizacaoTempoRealEmAndamento = false;
+let atualizacaoMediaEmAndamento = false;
+let atualizacaoPesadaEmAndamento = false;
+
+
+/*
+===========================================================
+CONTROLE CENTRAL
+===========================================================
+*/
+
+function podeAtualizarDashboard() {
   if (document.hidden) {
-    return;
+    return false;
   }
 
   const algumModalAberto =
@@ -32482,11 +32994,268 @@ setInterval(async () => {
     );
 
   if (algumModalAberto) {
+    return false;
+  }
+
+  return true;
+}
+
+
+/*
+===========================================================
+NÍVEL 1 — TEMPO REAL
+===========================================================
+
+Executado a cada 5 segundos.
+
+IMPORTANTE:
+Não chama carregarDados().
+Não baixa a base de produtos.
+===========================================================
+*/
+
+async function atualizarNivelTempoReal() {
+
+  if (
+    atualizacaoTempoRealEmAndamento ||
+    !podeAtualizarDashboard()
+  ) {
     return;
   }
 
-  await atualizarDashboardCompleto();
-}, 10000);
+  atualizacaoTempoRealEmAndamento = true;
+
+  try {
+
+    /*
+      Atualiza indicadores calculados
+      com os dados já existentes no navegador.
+    */
+
+    if (
+      typeof refreshOperationalPanelsOnly ===
+      "function"
+    ) {
+      refreshOperationalPanelsOnly();
+    }
+
+    /*
+      Busca somente os dados operacionais.
+    */
+
+    if (
+      typeof carregarResumoOperacionalDashboard ===
+      "function"
+    ) {
+      await carregarResumoOperacionalDashboard();
+    }
+
+  } catch (erro) {
+
+    console.error(
+      "Erro no nível tempo real:",
+      erro
+    );
+
+  } finally {
+
+    atualizacaoTempoRealEmAndamento = false;
+
+  }
+}
+
+
+/*
+===========================================================
+NÍVEL 2 — OPERACIONAL
+===========================================================
+
+Executado a cada 30 segundos.
+
+Atualiza informações que não precisam ser
+recarregadas a cada poucos segundos.
+===========================================================
+*/
+
+async function atualizarNivelOperacional() {
+
+  if (
+    atualizacaoMediaEmAndamento ||
+    !podeAtualizarDashboard()
+  ) {
+    return;
+  }
+
+  atualizacaoMediaEmAndamento = true;
+
+  try {
+
+    /*
+      Ranking dos operadores
+    */
+
+    if (
+      typeof carregarRankingUsuarios ===
+      "function"
+    ) {
+      await carregarRankingUsuarios();
+    }
+
+
+    /*
+      Auditoria da importação
+    */
+
+    if (
+      typeof carregarAuditoriaImportacao ===
+      "function"
+    ) {
+      await carregarAuditoriaImportacao();
+    }
+
+
+    /*
+      Informações do inventário
+    */
+
+    if (
+      typeof atualizarResumoDadosInventario ===
+      "function"
+    ) {
+      await atualizarResumoDadosInventario();
+    }
+
+
+    /*
+      Painel operacional
+    */
+
+    if (
+      typeof atualizarPainelOperacaoDashboard ===
+      "function"
+    ) {
+      await atualizarPainelOperacaoDashboard();
+    }
+
+
+    /*
+      Painéis auxiliares
+    */
+
+    if (
+      typeof atualizarPainelImportacao ===
+      "function"
+    ) {
+      atualizarPainelImportacao();
+    }
+
+    if (
+      typeof atualizarTipoUltimaImportacaoResumo ===
+      "function"
+    ) {
+      atualizarTipoUltimaImportacaoResumo();
+    }
+
+    if (
+      typeof atualizarPainelExportacao ===
+      "function"
+    ) {
+      atualizarPainelExportacao();
+    }
+
+  } catch (erro) {
+
+    console.error(
+      "Erro no nível operacional:",
+      erro
+    );
+
+  } finally {
+
+    atualizacaoMediaEmAndamento = false;
+
+  }
+}
+
+
+/*
+===========================================================
+NÍVEL 3 — DADOS PESADOS
+===========================================================
+
+Executado a cada 60 segundos.
+
+Aqui pode ocorrer a leitura da base completa.
+
+Com 50.000 produtos, isso acontece somente
+uma vez por minuto.
+===========================================================
+*/
+
+async function atualizarNivelPesado() {
+
+  if (
+    atualizacaoPesadaEmAndamento ||
+    !podeAtualizarDashboard()
+  ) {
+    return;
+  }
+
+  atualizacaoPesadaEmAndamento = true;
+
+  try {
+
+    await atualizarDashboardCompleto();
+
+  } catch (erro) {
+
+    console.error(
+      "Erro no nível pesado:",
+      erro
+    );
+
+  } finally {
+
+    atualizacaoPesadaEmAndamento = false;
+
+  }
+}
+
+
+/*
+===========================================================
+NÍVEL 1 — 5 SEGUNDOS
+===========================================================
+*/
+
+setInterval(
+  atualizarNivelTempoReal,
+  5000
+);
+
+
+/*
+===========================================================
+NÍVEL 2 — 30 SEGUNDOS
+===========================================================
+*/
+
+setInterval(
+  atualizarNivelOperacional,
+  30000
+);
+
+
+/*
+===========================================================
+NÍVEL 3 — 60 SEGUNDOS
+===========================================================
+*/
+
+setInterval(
+  atualizarNivelPesado,
+  60000
+);
 
     </script>
     <div id="auditActionModal" class="audit-action-overlay" aria-hidden="true">

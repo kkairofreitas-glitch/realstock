@@ -3333,37 +3333,97 @@ if (modo === "sem-base") {
   return;
 }
   /*
-    MODO COM BASE
-  */
-  if (modo === "com-base") {
-    inventario = [];
-    historicoAlteracoes = [];
-    historicoAuditoriaItens = [];
-    contagens = [];
-    itemAuditoriaAtual = null;
+  ==========================================================
+  MODO COM BASE
+  ==========================================================
+*/
+if (modo === "com-base") {
+  inventario = [];
+  historicoAlteracoes = [];
+  historicoAuditoriaItens = [];
+  contagens = [];
+  itemAuditoriaAtual = null;
 
-    auditoriaImportacao = {
-      totalImportadoBruto: 0,
-      totalUnicosBruto: 0,
-      duplicatasRemovidas: 0,
-      itensZeradosIgnorados: 0,
-    };
-
-    await salvarProdutosNoBanco([]);
-    await salvarContagens();
-    await salvarEnderecamentos();
-
-    return;
-  }
+  auditoriaImportacao = {
+    totalImportadoBruto: 0,
+    totalUnicosBruto: 0,
+    duplicatasRemovidas: 0,
+    itensZeradosIgnorados: 0,
+  };
 
   /*
-    WMS:
-    neste ponto não apagamos dados dos outros modos.
+    Remove somente os endereços
+    pertencentes ao modo COM BASE.
+
+    Endereços de outros modos permanecem.
   */
-  await salvarEnderecamentos();
+  enderecamentos = (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  ).filter(
+    (endereco) =>
+      normalizarModoOperacao(
+        endereco?.modoOperacao
+      ) !== "com-base"
+  );
+
+  await salvarProdutosNoBanco([]);
+
+  await salvarContagens();
+
+  /*
+    permitirVazio = true é obrigatório
+    para que, caso não existam endereços
+    de outros modos, o PostgreSQL também
+    seja realmente limpo.
+  */
+  await salvarEnderecamentos({
+    permitirVazio: true,
+  });
+
+  console.log(
+    "✅ Inventário COM BASE encerrado: " +
+    "produtos, contagens e endereços removidos."
+  );
+
+  return;
+}
+ /*
+  ==========================================================
+  MODO WMS
+  ==========================================================
+
+  Remove somente os endereços pertencentes
+  ao WMS que acabou de ser encerrado.
+
+  Endereços dos outros modos permanecem.
+*/
+if (modo === "wms") {
+  enderecamentos = (
+    Array.isArray(enderecamentos)
+      ? enderecamentos
+      : []
+  ).filter(
+    (endereco) =>
+      normalizarModoOperacao(
+        endereco?.modoOperacao
+      ) !== "wms"
+  );
+
+  await salvarEnderecamentos({
+    permitirVazio: true,
+  });
+
+  console.log(
+    "✅ Inventário WMS encerrado: " +
+    "endereços WMS removidos."
+  );
+
+  return;
 }
 
-
+}
 function garantirPastaData() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -5875,54 +5935,93 @@ async function lerLinhasTxtPorStream(caminhoArquivo) {
 }
 
 async function salvarProdutosNoBanco(listaProdutos) {
-  const lista = Array.isArray(listaProdutos) ? listaProdutos : [];
+  const lista = Array.isArray(listaProdutos)
+    ? listaProdutos
+    : [];
 
   if (usarPostgres) {
     await salvarProdutosPostgres(lista);
     return;
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     db.serialize(() => {
-      db.run("DELETE FROM produtos", (erroDelete) => {
-        if (erroDelete) {
-          console.error("Erro ao limpar tabela produtos:", erroDelete.message);
-          return resolve();
-        }
+      db.run("BEGIN TRANSACTION");
 
-        const stmt = db.prepare(`
-        INSERT INTO produtos (
-          codigoBarras,
-          codigo,
-          descricao,
-          categoria,
-          tipo,
-          custoUnitario,
-          qtdeCongelada,
-          qtdeContada
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `);
+      db.run(
+        "DELETE FROM produtos",
+        (erroDelete) => {
+          if (erroDelete) {
+            console.error(
+              "Erro ao limpar tabela produtos:",
+              erroDelete.message
+            );
 
-        for (const item of lista) {
-          stmt.run(
-            item.codigoBarras || "",
-            item.codigo || item.codigoInterno || "",
-            item.descricao || "",
-            item.categoria || "",
-            item.tipo || "",
-            Number(item.custoUnitario) || 0,
-            Number(item.qtdeCongelada) || 0,
-            Number(item.qtdeContada) || 0
-          );
-        }
-
-        stmt.finalize((erroFinalize) => {
-          if (erroFinalize) {
-            console.error("Erro ao salvar produtos no SQLite:", erroFinalize.message);
+            db.run("ROLLBACK");
+            return reject(erroDelete);
           }
-          resolve();
-        });
-      });
+
+          const stmt = db.prepare(`
+            INSERT INTO produtos (
+              codigoBarras,
+              codigo,
+              descricao,
+              categoria,
+              tipo,
+              custoUnitario,
+              qtdeCongelada,
+              qtdeContada
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+
+          for (const item of lista) {
+            stmt.run(
+              item.codigoBarras || "",
+              item.codigo || item.codigoInterno || "",
+              item.descricao || "",
+              item.categoria || "",
+              item.tipo || "",
+              Number(item.custoUnitario) || 0,
+              Number(item.qtdeCongelada) || 0,
+              Number(item.qtdeContada) || 0
+            );
+          }
+
+          stmt.finalize((erroFinalize) => {
+            if (erroFinalize) {
+              console.error(
+                "Erro ao finalizar gravação dos produtos:",
+                erroFinalize.message
+              );
+
+              db.run("ROLLBACK");
+              return reject(erroFinalize);
+            }
+
+            db.run(
+              "COMMIT",
+              (erroCommit) => {
+                if (erroCommit) {
+                  console.error(
+                    "Erro ao confirmar gravação dos produtos:",
+                    erroCommit.message
+                  );
+
+                  db.run("ROLLBACK");
+                  return reject(erroCommit);
+                }
+
+                console.log(
+                  `✅ Produtos salvos no SQLite: ${lista.length} itens`
+                );
+
+                resolve();
+              }
+            );
+          });
+        }
+      );
     });
   });
 }

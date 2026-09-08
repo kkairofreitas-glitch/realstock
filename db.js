@@ -297,39 +297,108 @@ async function salvarUsuariosPostgres(listaUsuarios) {
   console.log(`✅ Usuários salvos no PostgreSQL: ${lista.length}`);
 }
 async function salvarProdutosPostgres(listaProdutos = []) {
-  await pool.query("DELETE FROM produtos");
+  const lista = Array.isArray(listaProdutos)
+    ? listaProdutos
+    : [];
 
-  for (const item of listaProdutos) {
-    await pool.query(
-      `
-      INSERT INTO produtos (
-        codigo_barras,
-        codigo,
-        codigo_interno,
-        descricao,
-        categoria,
-        tipo,
-        custo_unitario,
-        qtde_congelada,
-        qtde_contada
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-      `,
-      [
-        item.codigoBarras || "",
-        item.codigo || item.codigoInterno || "",
-        item.codigoInterno || item.codigo || "",
-        item.descricao || "",
-        item.categoria || "",
-item.tipo || "",
-Number(item.custoUnitario) || 0,
-Number(item.qtdeCongelada) || 0,
-Number(item.qtdeContada) || 0,
-      ]
+  const TAMANHO_LOTE = 500;
+
+  const client = await pool.connect();
+
+  try {
+    console.log(
+      `📦 Iniciando gravação de ${lista.length} produtos no PostgreSQL...`
     );
-  }
 
-  console.log(`✅ Produtos salvos no PostgreSQL: ${listaProdutos.length}`);
+    await client.query("BEGIN");
+
+    await client.query("DELETE FROM produtos");
+
+    for (
+      let inicio = 0;
+      inicio < lista.length;
+      inicio += TAMANHO_LOTE
+    ) {
+      const lote = lista.slice(
+        inicio,
+        inicio + TAMANHO_LOTE
+      );
+
+      const valores = [];
+
+      const placeholders = lote
+        .map((item, indice) => {
+          const base = indice * 9;
+
+          valores.push(
+            item.codigoBarras || "",
+            item.codigo || item.codigoInterno || "",
+            item.codigoInterno || item.codigo || "",
+            item.descricao || "",
+            item.categoria || "",
+            item.tipo || "",
+            Number(item.custoUnitario) || 0,
+            Number(item.qtdeCongelada) || 0,
+            Number(item.qtdeContada) || 0
+          );
+
+          return `(
+            $${base + 1},
+            $${base + 2},
+            $${base + 3},
+            $${base + 4},
+            $${base + 5},
+            $${base + 6},
+            $${base + 7},
+            $${base + 8},
+            $${base + 9}
+          )`;
+        })
+        .join(",");
+
+      await client.query(
+        `
+        INSERT INTO produtos (
+          codigo_barras,
+          codigo,
+          codigo_interno,
+          descricao,
+          categoria,
+          tipo,
+          custo_unitario,
+          qtde_congelada,
+          qtde_contada
+        )
+        VALUES ${placeholders}
+        `,
+        valores
+      );
+
+      console.log(
+        `📦 Produtos gravados: ${Math.min(
+          inicio + lote.length,
+          lista.length
+        )}/${lista.length}`
+      );
+    }
+
+    await client.query("COMMIT");
+
+    console.log(
+      `✅ Produtos salvos no PostgreSQL: ${lista.length} itens`
+    );
+  } catch (erro) {
+    await client.query("ROLLBACK");
+
+    console.error(
+      "❌ Erro ao salvar produtos no PostgreSQL:",
+      erro.message
+    );
+
+    throw erro;
+  } finally {
+    client.release();
+  }
 }
 
 async function carregarProdutosPostgres() {
