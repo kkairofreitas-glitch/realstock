@@ -127,6 +127,9 @@ let auditoriaImportacao = {
   duplicatasRemovidas: 0,
   itensZeradosIgnorados: 0,
 };
+// Flag para controlar atualização do dashboard
+let atualizacaoDashboardEmAndamento = false;
+
 let itemAuditoriaAtual = null;
 let tipoUltimaImportacao = "--";
 let ultimaImportacao = {
@@ -8462,6 +8465,198 @@ app.get("/inventario", autenticar, (req, res) => {
 
   res.json(resultado);
 });
+
+app.get(
+  "/inventario-dashboard-paginado",
+  autenticar,
+  (req, res) => {
+    try {
+      const paginaSolicitada = Math.max(
+        1,
+        Number.parseInt(req.query.pagina, 10) || 1
+      );
+
+      const limite = Math.min(
+        200,
+        Math.max(
+          1,
+          Number.parseInt(req.query.limite, 10) || 100
+        )
+      );
+
+      let resultado;
+
+      if (modoOperacao === "sem-base") {
+        resultado = montarLinhasSemBaseParaTabela({
+          busca: req.query.busca || "",
+        });
+      } else {
+        resultado = filtrarInventario({
+          categoria: req.query.categoria || "",
+          ordem: req.query.ordem || "",
+          busca: req.query.busca || "",
+        });
+      }
+
+      const total = resultado.length;
+
+      const totalPaginas = Math.max(
+        1,
+        Math.ceil(total / limite)
+      );
+
+      const pagina = Math.min(
+        paginaSolicitada,
+        totalPaginas
+      );
+
+      const inicio = (pagina - 1) * limite;
+
+      const itens = resultado.slice(
+        inicio,
+        inicio + limite
+      );
+
+      let totalValorCongelado = 0;
+      let totalValorContado = 0;
+      let totalValorDivergencia = 0;
+      let itensComDivergencia = 0;
+      let itensContados = 0;
+
+      const categorias = new Set();
+
+      if (modoOperacao !== "sem-base") {
+        inventario.forEach((item) => {
+          if (
+            parseQuantidade(item.qtdeCongelada) > 0 &&
+            item.categoria
+          ) {
+            categorias.add(
+              String(item.categoria).trim()
+            );
+          }
+        });
+      }
+      
+      const arquivoBaseAmostra = [];
+
+      const itensContadosAmostra = [];
+
+      const codigosBase = new Set();
+      const codigosContados = new Set();
+
+      resultado.forEach((item) => {
+        const codigo = String(
+          item.codigo ||
+          item.codigoInterno ||
+          item.codigoBarras ||
+          ""
+        ).trim();
+
+        const qtdeContada =
+          Number(item.qtdeContada) || 0;
+
+        totalValorCongelado +=
+          Number(item.valorCongelado) || 0;
+
+        totalValorContado +=
+          Number(item.valorContado) || 0;
+
+        totalValorDivergencia +=
+          Number(item.valorDivergencia) || 0;
+
+        if (qtdeContada > 0 && codigo) {
+          itensContados++;
+        }
+
+        if (
+          Math.abs(
+            Number(item.divergencia) || 0
+          ) > 0
+        ) {
+          itensComDivergencia++;
+        }
+
+        
+
+        if (
+          codigo &&
+          !codigosBase.has(codigo) &&
+          arquivoBaseAmostra.length < 100
+        ) {
+          codigosBase.add(codigo);
+          arquivoBaseAmostra.push(item);
+        }
+
+        if (
+          qtdeContada > 0 &&
+          codigo &&
+          !codigosContados.has(codigo) &&
+          itensContadosAmostra.length < 100
+        ) {
+          codigosContados.add(codigo);
+          itensContadosAmostra.push(item);
+        }
+      });
+
+      return res.json({
+        sucesso: true,
+
+        itens,
+
+        paginacao: {
+          pagina,
+          limite,
+          total,
+          totalPaginas,
+        },
+
+        resumo: {
+          totalProdutos:
+            modoOperacao === "sem-base"
+              ? 0
+              : total,
+
+          itensContados:
+            modoOperacao === "sem-base"
+              ? total
+              : itensContados,
+
+          itensComDivergencia:
+            modoOperacao === "sem-base"
+              ? 0
+              : itensComDivergencia,
+
+          totalValorCongelado,
+          totalValorContado,
+          totalValorDivergencia,
+        },
+
+        categorias: Array.from(categorias).sort(
+          (a, b) =>
+            String(a).localeCompare(
+              String(b),
+              "pt-BR"
+            )
+        ),
+
+        arquivoBaseAmostra,
+        itensContadosAmostra,
+      });
+    } catch (erro) {
+      console.error(
+        "Erro no inventário paginado do dashboard:",
+        erro
+      );
+
+      return res.status(500).json({
+        sucesso: false,
+        erro:
+          "Falha ao carregar inventário do dashboard.",
+      });
+    }
+  }
+);
 
 function normalizarChaveUsuarioRanking(valor) {
   return String(valor || "")
