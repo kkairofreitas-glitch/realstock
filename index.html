@@ -10954,6 +10954,164 @@ body {
 #sidebar .sidebar-item {
   max-width: 100% !important;
 }
+/* ==========================================================
+   AJUSTE FINAL REAL - PAINÉIS INFERIORES DO DASHBOARD
+   Classes conferidas no HTML
+========================================================== */
+
+@media (min-width: 1201px) {
+
+/* ========================================================
+   CABEÇALHO DAS 3 CAIXAS
+======================================================== */
+
+.operacional-live-head {
+  min-height: 52px !important;
+  padding: 9px 12px !important;
+  gap: 8px !important;
+}
+
+/* MOVIMENTO / CONCLUSÕES / OPERAÇÃO */
+.operacional-live-kicker {
+  font-size: 9px !important;
+  line-height: 1 !important;
+  letter-spacing: 0.55px !important;
+  margin-bottom: 3px !important;
+}
+
+/* Títulos reais */
+.operacional-live-head h3 {
+  margin: 0 !important;
+  font-size: 13px !important;
+  line-height: 1.15 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Ícones dos títulos */
+.operacional-live-head h3 i {
+  font-size: 12px !important;
+  margin-right: 4px !important;
+}
+
+/* Contadores 0 / 100 no canto superior direito */
+.operacional-live-head > small {
+  min-width: 28px !important;
+  height: 24px !important;
+  padding: 0 8px !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+
+/* ========================================================
+   ÚLTIMAS LEITURAS / FINALIZAÇÕES
+======================================================== */
+
+.operacional-live-list {
+  padding: 9px !important;
+}
+
+.operacional-live-empty {
+  min-height: 54px !important;
+  padding: 8px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+}
+
+
+/* ========================================================
+   LEGENDA DO MAPA
+======================================================== */
+
+.mapa-enderecos-legenda {
+  min-height: 34px !important;
+  padding: 5px 10px !important;
+  gap: 8px !important;
+}
+
+.mapa-enderecos-legenda span {
+  font-size: 9px !important;
+  line-height: 1 !important;
+  gap: 4px !important;
+}
+
+.mapa-enderecos-legenda b {
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+
+  font-size: 9px !important;
+  line-height: 1 !important;
+}
+
+.mapa-status {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+
+/* ========================================================
+   GRADE DO MAPA
+======================================================== */
+
+.mapa-enderecos-grid {
+  padding: 8px !important;
+  gap: 6px !important;
+
+  /*
+    Mais cards por linha e consequentemente
+    cards menores.
+  */
+  grid-template-columns:
+    repeat(auto-fill, minmax(68px, 1fr)) !important;
+}
+
+
+/* ========================================================
+   CARD INDIVIDUAL DO ENDEREÇO
+   ESTA É A CLASSE REAL DO ARQUIVO
+======================================================== */
+
+.mapa-endereco-item {
+  min-height: 48px !important;
+  height: 48px !important;
+
+  padding: 5px 4px !important;
+  gap: 2px !important;
+
+  border-radius: 9px !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Número: 1, 2, 3... */
+.mapa-endereco-item strong {
+  font-size: 10px !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+}
+
+/* Pendente / Concluído / Em contagem */
+.mapa-endereco-item span {
+  font-size: 8px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+}
+}
     </style>
   </head>
 
