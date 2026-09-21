@@ -7696,28 +7696,78 @@ function filtrarInventario({ categoria, ordem, busca }) {
       valorDivergencia: custo * divergencia,
     };
   });
-  if (ordem === "divergencia_asc") {
-    resultado.sort((a, b) => a.divergencia - b.divergencia);
-  } else if (ordem === "divergencia_desc") {
-    resultado.sort((a, b) => b.divergencia - a.divergencia);
-  } else if (ordem === "maior-divergencia") {
-    resultado = resultado.filter((i) => i.divergencia > 0);
-    resultado.sort((a, b) => b.divergencia - a.divergencia);
-  } else if (ordem === "menor-divergencia") {
-    resultado = resultado.filter((i) => i.divergencia < 0);
-    resultado.sort((a, b) => a.divergencia - b.divergencia);
-  } else if (ordem === "neutra") {
-    resultado = resultado.filter((i) => {
-      const qtdeContada = Number(i.qtdeContada) || 0;
-      const qtdeCongelada = parseQuantidade(i.qtdeCongelada);
-      return qtdeContada > 0 && Math.abs(qtdeContada - qtdeCongelada) < 0.000001;
-    });
-  } else if (ordem === "sem-contagem") {
-    resultado = resultado.filter((i) => {
-      const qtdeContada = Number(i.qtdeContada) || 0;
-      return qtdeContada === 0;
-    });
-  }
+  // ==========================================================
+// FILTROS DE DIVERGÊNCIA
+// negativo = FALTA
+// positivo = SOBRA
+// ==========================================================
+
+if (ordem === "faltas") {
+  // FALTAS EM QUANTIDADE
+  resultado = resultado
+    .filter((item) => Number(item.divergencia || 0) < 0)
+    .sort(
+      (a, b) =>
+        Number(a.divergencia || 0) -
+        Number(b.divergencia || 0)
+    );
+
+} else if (ordem === "sobras") {
+  // SOBRAS EM QUANTIDADE
+  resultado = resultado
+    .filter((item) => Number(item.divergencia || 0) > 0)
+    .sort(
+      (a, b) =>
+        Number(b.divergencia || 0) -
+        Number(a.divergencia || 0)
+    );
+
+} else if (ordem === "faltas-valores") {
+  // FALTAS EM VALOR
+  resultado = resultado
+    .filter((item) => Number(item.valorDivergencia || 0) < 0)
+    .sort(
+      (a, b) =>
+        Number(a.valorDivergencia || 0) -
+        Number(b.valorDivergencia || 0)
+    );
+
+} else if (ordem === "sobras-valores") {
+  // SOBRAS EM VALOR
+  resultado = resultado
+    .filter((item) => Number(item.valorDivergencia || 0) > 0)
+    .sort(
+      (a, b) =>
+        Number(b.valorDivergencia || 0) -
+        Number(a.valorDivergencia || 0)
+    );
+
+} else if (ordem === "neutra") {
+  // PRODUTOS CONTADOS SEM DIVERGÊNCIA
+  resultado = resultado.filter((item) => {
+    const qtdeContada =
+      Number(item.qtdeContada) || 0;
+
+    const qtdeCongelada =
+      parseQuantidade(item.qtdeCongelada);
+
+    return (
+      qtdeContada > 0 &&
+      Math.abs(
+        qtdeContada - qtdeCongelada
+      ) < 0.000001
+    );
+  });
+
+} else if (ordem === "sem-contagem") {
+  // PRODUTOS AINDA NÃO CONTADOS
+  resultado = resultado.filter((item) => {
+    const qtdeContada =
+      Number(item.qtdeContada) || 0;
+
+    return qtdeContada === 0;
+  });
+}
 
   return resultado;
 }

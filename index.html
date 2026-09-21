@@ -11949,12 +11949,17 @@ body {
                 <option value="">Todas as Categorias</option>
               </select>
               <select id="ordenarDivergencia" class="filter-select">
-                <option value="">Ordenar / Filtrar divergência</option>
-                <option value="maior-divergencia">Maior Divergência</option>
-                <option value="menor-divergencia">Menor Divergência</option>
-                <option value="neutra">Sem Divergência</option>
-                <option value="sem-contagem">Sem Contagem</option>
-              </select>
+              <option value="">Filtrar divergência</option>
+            
+              <option value="faltas">Faltas</option>
+              <option value="sobras">Sobras</option>
+            
+              <option value="faltas-valores">Faltas em Valores</option>
+              <option value="sobras-valores">Sobras em Valores</option>
+            
+              <option value="neutra">Sem Divergência</option>
+              <option value="sem-contagem">Sem Contagem</option>
+            </select>
             </div>
 
             <div class="tabela-container">
@@ -17739,14 +17744,8 @@ if (typeof atualizarDashboardCompleto === "function") {
   formatarDataBR(
     dadosInventario.dataInventario
   );
-        let ordem = '';
-        if (ordenacaoFrontEnd === 'menor-divergencia')
-          ordem = 'divergencia_asc';
-          if (ordenacaoFrontEnd === 'maior-divergencia')
-  ordem = 'maior-divergencia';
-        if (ordenacaoFrontEnd === 'sem-contagem') ordem = 'sem-contagem';
-        if (ordenacaoFrontEnd === 'neutra') ordem = 'neutra';
-
+        
+        const ordem = ordenacaoFrontEnd;
         const url =
           `/exportar-pdf?categoria=${encodeURIComponent(categoria)}` +
           `&busca=${encodeURIComponent(busca)}` +
@@ -22628,34 +22627,7 @@ function desmarcarTodasColunasPdf() {
     dadosInventario.dataInventario
   );
   
-  let ordem = "";
-
-  if (
-    ordenacaoFrontEnd ===
-    "menor-divergencia"
-  ) {
-    ordem = "divergencia_asc";
-  }
-
-  if (
-    ordenacaoFrontEnd ===
-    "maior-divergencia"
-  ) {
-    ordem = "maior-divergencia";
-  }
-
-  if (
-    ordenacaoFrontEnd ===
-    "sem-contagem"
-  ) {
-    ordem = "sem-contagem";
-  }
-
-  if (
-    ordenacaoFrontEnd === "neutra"
-  ) {
-    ordem = "neutra";
-  }
+  const ordem = ordenacaoFrontEnd;
 
   const colunas =
     selecionadas
@@ -22886,13 +22858,7 @@ async function exportarCurvaABCPdf() {
         const liderOperacao = dadosInventario.liderOperacao || '';
         const observacoes = dadosInventario.observacoes || '';
 
-        let ordem = '';
-        if (ordenacaoFrontEnd === 'menor-divergencia')
-          ordem = 'divergencia_asc';
-          if (ordenacaoFrontEnd === 'maior-divergencia')
-  ordem = 'maior-divergencia';
-        if (ordenacaoFrontEnd === 'sem-contagem') ordem = 'sem-contagem';
-        if (ordenacaoFrontEnd === 'neutra') ordem = 'neutra';
+        const ordem = ordenacaoFrontEnd;
 
         registrarStatusExportacao(
           'CURVA ABC PDF',
@@ -22982,14 +22948,8 @@ async function exportarCurvaABCPdf() {
         const loja = dadosInventario.loja || '';
         const data = dadosInventario.dataInventario || '';
 
-        let ordem = '';
-        if (ordenacaoFrontEnd === 'menor-divergencia')
-          ordem = 'divergencia_asc';
-          if (ordenacaoFrontEnd === 'maior-divergencia')
-  ordem = 'maior-divergencia';
-        if (ordenacaoFrontEnd === 'sem-contagem') ordem = 'sem-contagem';
-        if (ordenacaoFrontEnd === 'neutra') ordem = 'neutra';
-
+        const ordem = ordenacaoFrontEnd;
+        
         registrarStatusExportacao(
           'EXCEL',
           'Exportação iniciada',
