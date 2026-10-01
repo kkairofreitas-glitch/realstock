@@ -8346,15 +8346,27 @@ function montarMapaEnderecosDashboard() {
 
         let status = "pendente";
 
+const possuiNovaContagemAposConsolidacao =
+  finalizacoesNumero.length >
+  consolidacoesNumero.length;
+
 if (
+  consolidacoesNumero.length > 0 &&
+  possuiNovaContagemAposConsolidacao
+) {
+  status = "duplicado";
+
+} else if (
   finalizacoesNumero.length > 1 &&
   consolidacoesNumero.length === 0
 ) {
   status = "duplicado";
+
 } else if (
   consolidacoesNumero.length > 0
 ) {
   status = "concluido";
+
 } else if (
   transmissoesNumero.length > 0 ||
   finalizacoesNumero.length > 0 ||
