@@ -13964,197 +13964,414 @@ app.post('/auditoria/corrigir-item', autenticar, (req, res) => {
 });
 app.delete('/excluir-finalizacao/:finalizacaoId', autenticar, async (req, res) => {
   try {
-    const finalizacaoId = String(req.params.finalizacaoId || '').trim();
+    const finalizacaoId = String(
+      req.params.finalizacaoId || ''
+    ).trim();
 
     if (!finalizacaoId) {
-      return res.status(400).json({ erro: 'finalizacaoId é obrigatório.' });
+      return res.status(400).json({
+        erro: 'finalizacaoId é obrigatório.'
+      });
     }
 
-    let encontrou = false;
     const agoraIso = new Date().toISOString();
+
     const usuarioExclusao =
       req.session?.usuario?.usuario ||
       req.session?.usuario?.nome ||
       'sistema';
 
+    let encontrou = false;
+    let enderecoNumeroAfetado = null;
+    let enderecoIdAfetado = null;
+
     enderecamentos = enderecamentos.map((endereco) => {
-      const finalizacoes = Array.isArray(endereco.finalizacoes) ? endereco.finalizacoes : [];
-      const transmissoes = Array.isArray(endereco.transmissoes) ? endereco.transmissoes : [];
 
-      const novasFinalizacoes = finalizacoes.map((fin) => {
-        if (String(fin.id) !== finalizacaoId || fin.excluida) return fin;
+      const finalizacoes =
+        Array.isArray(endereco.finalizacoes)
+          ? endereco.finalizacoes
+          : [];
 
-        encontrou = true;
+      const transmissoes =
+        Array.isArray(endereco.transmissoes)
+          ? endereco.transmissoes
+          : [];
 
-        return {
-          ...fin,
-          excluida: true,
-          excluidaEm: agoraIso,
-          excluidaPor: usuarioExclusao,
-        };
-      });
+      /*
+        IMPORTANTE:
+        precisa reproduzir exatamente o índice virtual
+        usado pela auditoria.
+      */
+      const eventosValidos = transmissoes.filter(
+        (evento) => {
+          if (!evento || evento.excluida) {
+            return false;
+          }
 
-      const novasTransmissoes = transmissoes.map((trans, index) => {
+          if (evento.tipo !== 'transmissao') {
+            return true;
+          }
 
-        const idReal = String(trans.id || '').trim();
-const idVirtual = `TRANS-${Number(endereco.id)}-${Number(trans.enderecoNumero)}-${index}`;
+          const itens =
+            Array.isArray(evento.itens)
+              ? evento.itens
+              : [];
 
-if (
-  trans.excluida ||
-  (
-    idReal !== finalizacaoId &&
-    idVirtual !== finalizacaoId
-  )
-) {
-  return trans;
-}
-        encontrou = true;
+          return itens.some(
+            (itemEvento) =>
+              String(
+                itemEvento?.codigoBarras ||
+                itemEvento?.ean ||
+                itemEvento?.codigo ||
+                ''
+              ).trim() !== '' &&
+              Number(
+                itemEvento?.quantidade
+              ) > 0
+          );
+        }
+      );
 
-        return {
-          ...trans,
-          excluida: true,
-          statusConsolidacao: 'excluida',
-          excluidaEm: agoraIso,
-          excluidaPor: usuarioExclusao,
-        };
-      });
+      /*
+        =============================================
+        LOCALIZA FINALIZAÇÃO REAL
+        =============================================
+      */
+      const novasFinalizacoes =
+        finalizacoes.map((fin) => {
+
+          if (
+            fin.excluida ||
+            String(fin.id || '') !== finalizacaoId
+          ) {
+            return fin;
+          }
+
+          encontrou = true;
+
+          enderecoNumeroAfetado =
+            Number(fin.enderecoNumero);
+
+          enderecoIdAfetado =
+            Number(endereco.id);
+
+          return {
+            ...fin,
+
+            excluida: true,
+
+            excluidaEm: agoraIso,
+
+            excluidaPor:
+              usuarioExclusao,
+          };
+        });
+
+      /*
+        =============================================
+        LOCALIZA TRANSMISSÃO
+        =============================================
+      */
+      const novasTransmissoes =
+        transmissoes.map((trans) => {
+
+          if (!trans || trans.excluida) {
+            return trans;
+          }
+
+          const idReal =
+            String(trans.id || '').trim();
+
+          /*
+            MESMO índice usado em
+            gerarAuditoriaDuplicidadeEnderecos()
+          */
+          const indiceVirtual =
+            eventosValidos.indexOf(trans);
+
+          const idVirtual =
+            `TRANS-${Number(endereco.id)}-${Number(trans.enderecoNumero)}-${indiceVirtual}`;
+
+          if (
+            idReal !== finalizacaoId &&
+            idVirtual !== finalizacaoId
+          ) {
+            return trans;
+          }
+
+          encontrou = true;
+
+          enderecoNumeroAfetado =
+            Number(trans.enderecoNumero);
+
+          enderecoIdAfetado =
+            Number(endereco.id);
+
+          return {
+            ...trans,
+
+            excluida: true,
+
+            statusConsolidacao:
+              'excluida',
+
+            excluidaEm:
+              agoraIso,
+
+            excluidaPor:
+              usuarioExclusao,
+          };
+        });
+
+      /*
+        Se não foi neste endereço, não mexe nele.
+      */
+      if (
+        Number(endereco.id) !==
+        Number(enderecoIdAfetado)
+      ) {
+        return endereco;
+      }
+
+      const numero =
+        Number(enderecoNumeroAfetado);
+
+      /*
+        =============================================
+        CONTAGENS RESTANTES DA POSIÇÃO
+        =============================================
+      */
+      const transmissoesRestantes =
+        novasTransmissoes.filter(
+          (trans) =>
+            trans &&
+            !trans.excluida &&
+            trans.tipo === 'transmissao' &&
+            Number(
+              trans.enderecoNumero
+            ) === numero
+        );
+
+      /*
+        Após a revisão sobrou UMA contagem.
+
+        Essa contagem obrigatoriamente volta para
+        a fila de consolidação.
+      */
+      let transmissoesCorrigidas =
+        novasTransmissoes;
+
+      if (
+        transmissoesRestantes.length === 1
+      ) {
+
+        const transmissaoRestante =
+          transmissoesRestantes[0];
+
+        transmissoesCorrigidas =
+          novasTransmissoes.map(
+            (trans) => {
+
+              if (
+                trans !==
+                transmissaoRestante
+              ) {
+                return trans;
+              }
+
+              return {
+                ...trans,
+
+                statusConsolidacao:
+                  'pendente',
+
+                consolidadoEm:
+                  null,
+
+                consolidadoPor:
+                  null,
+
+                revisadoEm:
+                  agoraIso,
+
+                revisadoPor:
+                  usuarioExclusao,
+              };
+            }
+          );
+      }
+
+      /*
+        =============================================
+        INVALIDA CONSOLIDAÇÃO ANTERIOR
+        =============================================
+      */
+      const consolidacoesAtualizadas =
+        Array.isArray(
+          endereco.consolidacoesPorNumero
+        )
+          ? endereco.consolidacoesPorNumero.map(
+              (consolidacao) => {
+
+                if (
+                  Number(
+                    consolidacao.enderecoNumero
+                  ) !== numero
+                ) {
+                  return consolidacao;
+                }
+
+                return {
+                  ...consolidacao,
+
+                  consolidado:
+                    false,
+
+                  invalidadoPorRecontagem:
+                    true,
+
+                  invalidadoEm:
+                    agoraIso,
+
+                  invalidadoPor:
+                    usuarioExclusao,
+                };
+              }
+            )
+          : [];
 
       let enderecoAtualizado = {
         ...endereco,
-        finalizacoes: novasFinalizacoes,
-        transmissoes: novasTransmissoes,
-        atualizadoEm: agoraIso,
+
+        finalizacoes:
+          novasFinalizacoes,
+
+        transmissoes:
+          transmissoesCorrigidas,
+
+        consolidacoesPorNumero:
+          consolidacoesAtualizadas,
+
+        atualizadoEm:
+          agoraIso,
       };
 
-      /*
-  =====================================================
-  REVISÃO DE DUPLICIDADE
-  =====================================================
+      const resumoFaixa =
+        recalcularStatusFaixa(
+          enderecoAtualizado
+        );
 
-  Se a contagem antiga foi excluída e ficou uma nova
-  transmissão pendente para a mesma posição, a antiga
-  consolidação não pode continuar marcando essa posição
-  como concluída.
-
-  A nova contagem passa a ser a contagem válida e deve
-  voltar para a fila de consolidação.
-*/
-
-const numerosComTransmissaoPendente =
-  new Set(
-    novasTransmissoes
-      .filter(
-        (trans) =>
-          !trans.excluida &&
-          trans.tipo === "transmissao" &&
-          String(
-            trans.statusConsolidacao || ""
-          ).toLowerCase() === "pendente"
-      )
-      .map(
-        (trans) =>
-          Number(trans.enderecoNumero)
-      )
-  );
-
-
-const consolidacoesAtualizadas =
-  Array.isArray(
-    enderecoAtualizado.consolidacoesPorNumero
-  )
-    ? enderecoAtualizado.consolidacoesPorNumero.map(
-        (consolidacao) => {
-
-          const numero =
-            Number(
-              consolidacao.enderecoNumero
-            );
-
-          /*
-            Se ainda existe uma transmissão pendente
-            para uma posição que possuía consolidação
-            anterior, essa consolidação antiga não pode
-            continuar marcando a posição como concluída.
-
-            A transmissão pendente passa a ser a
-            contagem que deverá ser consolidada.
-          */
-          if (
-            consolidacao?.consolidado === true &&
-            numerosComTransmissaoPendente.has(
-              numero
-            )
-          ) {
-            return {
-              ...consolidacao,
-
-              consolidado: false,
-
-              invalidadoPorRecontagem: true,
-
-              invalidadoEm: agoraIso,
-
-              invalidadoPor:
-                usuarioExclusao,
-            };
-          }
-
-          return consolidacao;
-        }
-      )
-    : [];
-
-
-enderecoAtualizado = {
-  ...enderecoAtualizado,
-
-  consolidacoesPorNumero:
-    consolidacoesAtualizadas,
-};
-
-      const resumoFaixa = recalcularStatusFaixa(enderecoAtualizado);
-
-      return {
+      enderecoAtualizado = {
         ...enderecoAtualizado,
-        status: resumoFaixa.status,
-        totalPosicoes: resumoFaixa.totalPosicoes,
-        posicoesConcluidas: resumoFaixa.concluidos,
-        posicoesPendentes: resumoFaixa.pendentes,
-        posicoesEmContagem: resumoFaixa.emContagem,
-        posicoesDuplicadas: resumoFaixa.duplicados,
-        contagensRecebidas: novasTransmissoes.filter(
-          (t) => t.tipo === 'transmissao' && !t.excluida
-        ).length,
+
+        status:
+          resumoFaixa.status,
+
+        totalPosicoes:
+          resumoFaixa.totalPosicoes,
+
+        posicoesConcluidas:
+          resumoFaixa.concluidos,
+
+        posicoesPendentes:
+          resumoFaixa.pendentes,
+
+        posicoesEmContagem:
+          resumoFaixa.emContagem,
+
+        posicoesDuplicadas:
+          resumoFaixa.duplicados,
+
+        contagensRecebidas:
+          transmissoesCorrigidas.filter(
+            (trans) =>
+              trans &&
+              !trans.excluida &&
+              trans.tipo ===
+                'transmissao'
+          ).length,
       };
+
+      return enderecoAtualizado;
     });
 
     if (!encontrou) {
-      return res.status(404).json({ erro: 'Finalização/transmissão não encontrada.' });
+      return res.status(404).json({
+        erro:
+          'Finalização/transmissão não encontrada.'
+      });
+    }
+
+    /*
+      =============================================
+      REMOVE A CONSOLIDAÇÃO ANTIGA DA CONTAGEM
+      =============================================
+
+      Evita somar novamente a contagem antiga quando
+      a finalização restante for reconsolidada.
+    */
+    if (
+      modoOperacao !== 'sem-base' &&
+      enderecoIdAfetado &&
+      enderecoNumeroAfetado
+    ) {
+
+      contagens = contagens.filter(
+        (contagem) =>
+          !(
+            Number(
+              contagem.enderecoId
+            ) ===
+              Number(
+                enderecoIdAfetado
+              ) &&
+
+            Number(
+              contagem.enderecoNumero
+            ) ===
+              Number(
+                enderecoNumeroAfetado
+              )
+          )
+      );
+
+      await salvarContagens();
+
+      recalcularInventarioComBaseNasContagens();
+
+      await salvarProdutosNoBanco(
+        inventario
+      );
     }
 
     await salvarEnderecamentos();
 
-    if (
-      modoOperacao !== "sem-base"
-    ) {
-      recalcularInventarioComBaseNasContagens();
-    
-      await salvarProdutosNoBanco(
-        inventario
-      );
-    
-      broadcastInventario();
-    }
-const painelAtualizado = gerarPainelTransmissoesConsolidacao();
+    broadcastInventario();
+
+    const painelAtualizado =
+      gerarPainelTransmissoesConsolidacao();
 
     return res.json({
       sucesso: true,
-      mensagem: 'Finalização excluída com sucesso.',
-      painel: painelAtualizado,
+
+      mensagem:
+        'Finalização excluída. A contagem restante voltou para a fila de consolidação.',
+
+      painel:
+        painelAtualizado,
     });
+
   } catch (erro) {
-    console.error('Erro ao excluir finalização:', erro);
-    return res.status(500).json({ erro: 'Erro ao excluir finalização.' });
+
+    console.error(
+      'Erro ao excluir finalização:',
+      erro
+    );
+
+    return res.status(500).json({
+      erro:
+        'Erro ao excluir finalização.'
+    });
   }
 });
 app.post("/encerrar-inventario", autenticar, async (req, res) => {
