@@ -3920,14 +3920,58 @@ function existeFaixaDuplicadaOuSobreposta({ idIgnorar = null, tipo, inicio, fim 
 }
 
 
-function obterConsolidacaoPorNumero(endereco, enderecoNumero) {
-  const consolidacoes = Array.isArray(endereco?.consolidacoesPorNumero)
-    ? endereco.consolidacoesPorNumero
-    : [];
+function obterConsolidacaoPorNumero(
+  endereco,
+  enderecoNumero
+) {
 
-  return consolidacoes.find(
-    (item) => Number(item.enderecoNumero) === Number(enderecoNumero)
-  ) || null;
+  const consolidacoes =
+    Array.isArray(
+      endereco?.consolidacoesPorNumero
+    )
+      ? endereco.consolidacoesPorNumero
+      : [];
+
+  const numero =
+    Number(enderecoNumero);
+
+  /*
+    Prioriza uma consolidação ATIVA.
+
+    Isso evita que uma consolidação antiga,
+    invalidada durante uma recontagem,
+    continue sendo interpretada como válida.
+  */
+  const consolidacaoAtiva =
+    [...consolidacoes]
+      .reverse()
+      .find(
+        (item) =>
+          Number(
+            item.enderecoNumero
+          ) === numero &&
+          item?.consolidado === true
+      );
+
+  if (consolidacaoAtiva) {
+    return consolidacaoAtiva;
+  }
+
+  /*
+    Se não existir consolidação ativa,
+    devolve apenas o último histórico
+    daquela posição.
+  */
+  return (
+    [...consolidacoes]
+      .reverse()
+      .find(
+        (item) =>
+          Number(
+            item.enderecoNumero
+          ) === numero
+      ) || null
+  );
 }
 function recalcularStatusFaixa(endereco) {
   const inicio = Number(endereco?.inicio) || 0;
@@ -4052,27 +4096,46 @@ const qtdFin =
 const qtdConsolidacoes =
   mapaConsolidacoes.get(numero) || 0;
 
-  if (qtdFin > 1 && qtdConsolidacoes === 0) {
-    duplicados += 1;
-    continue;
-  }
-  
-  if (qtdConsolidacoes > 0) {
-    concluidos += 1;
-    continue;
-  }
-  
-  if (
-    qtdTrans > 0 ||
-    qtdAberturas > 0 ||
-    qtdFin > 0
-  ) {
-    emContagem += 1;
-    continue;
-  }
+  const qtdTransPendentes =
+  eventos.filter(
+    (evento) =>
+      evento.tipo === "transmissao" &&
+      Number(evento.enderecoNumero) === numero &&
+      String(
+        evento.statusConsolidacao || ""
+      ).toLowerCase() === "pendente"
+  ).length;
 
-    pendentes += 1;
-  }
+  const possuiDuplicidade =
+  qtdFin > 1 ||
+  qtdTransPendentes > 1 ||
+  (
+    qtdConsolidacoes > 0 &&
+    qtdTransPendentes > 0
+  );
+
+if (possuiDuplicidade) {
+  duplicados += 1;
+  continue;
+}
+
+if (qtdConsolidacoes > 0) {
+  concluidos += 1;
+  continue;
+}
+
+if (
+  qtdTrans > 0 ||
+  qtdAberturas > 0 ||
+  qtdFin > 0
+) {
+  emContagem += 1;
+  continue;
+}
+
+pendentes += 1;
+continue;
+}
 
   let status = "pendente";
 
@@ -8346,25 +8409,30 @@ function montarMapaEnderecosDashboard() {
 
         let status = "pendente";
 
-const possuiNovaContagemAposConsolidacao =
-  finalizacoesNumero.length >
-  consolidacoesNumero.length;
+const transmissoesPendentesNumero =
+  transmissoesNumero.filter(
+    (item) =>
+      String(
+        item.statusConsolidacao || ""
+      ).toLowerCase() === "pendente"
+  );
 
-if (
-  consolidacoesNumero.length > 0 &&
-  possuiNovaContagemAposConsolidacao
-) {
-  status = "duplicado";
+const possuiDuplicidade =
+  finalizacoesNumero.length > 1 ||
+  transmissoesPendentesNumero.length > 1 ||
+  (
+    consolidacoesNumero.length > 0 &&
+    transmissoesPendentesNumero.length > 0
+  );
 
-} else if (
-  finalizacoesNumero.length > 1 &&
-  consolidacoesNumero.length === 0
-) {
+if (possuiDuplicidade) {
+
   status = "duplicado";
 
 } else if (
   consolidacoesNumero.length > 0
 ) {
+
   status = "concluido";
 
 } else if (
@@ -8372,6 +8440,7 @@ if (
   finalizacoesNumero.length > 0 ||
   aberturasNumero.length > 0
 ) {
+
   status = "em-contagem";
 }
         
@@ -13950,12 +14019,98 @@ if (
         };
       });
 
-      const enderecoAtualizado = {
+      let enderecoAtualizado = {
         ...endereco,
         finalizacoes: novasFinalizacoes,
         transmissoes: novasTransmissoes,
         atualizadoEm: agoraIso,
       };
+
+      /*
+  =====================================================
+  REVISÃO DE DUPLICIDADE
+  =====================================================
+
+  Se a contagem antiga foi excluída e ficou uma nova
+  transmissão pendente para a mesma posição, a antiga
+  consolidação não pode continuar marcando essa posição
+  como concluída.
+
+  A nova contagem passa a ser a contagem válida e deve
+  voltar para a fila de consolidação.
+*/
+
+const numerosComTransmissaoPendente =
+  new Set(
+    novasTransmissoes
+      .filter(
+        (trans) =>
+          !trans.excluida &&
+          trans.tipo === "transmissao" &&
+          String(
+            trans.statusConsolidacao || ""
+          ).toLowerCase() === "pendente"
+      )
+      .map(
+        (trans) =>
+          Number(trans.enderecoNumero)
+      )
+  );
+
+
+const consolidacoesAtualizadas =
+  Array.isArray(
+    enderecoAtualizado.consolidacoesPorNumero
+  )
+    ? enderecoAtualizado.consolidacoesPorNumero.map(
+        (consolidacao) => {
+
+          const numero =
+            Number(
+              consolidacao.enderecoNumero
+            );
+
+          /*
+            Se ainda existe uma transmissão pendente
+            para uma posição que possuía consolidação
+            anterior, essa consolidação antiga não pode
+            continuar marcando a posição como concluída.
+
+            A transmissão pendente passa a ser a
+            contagem que deverá ser consolidada.
+          */
+          if (
+            consolidacao?.consolidado === true &&
+            numerosComTransmissaoPendente.has(
+              numero
+            )
+          ) {
+            return {
+              ...consolidacao,
+
+              consolidado: false,
+
+              invalidadoPorRecontagem: true,
+
+              invalidadoEm: agoraIso,
+
+              invalidadoPor:
+                usuarioExclusao,
+            };
+          }
+
+          return consolidacao;
+        }
+      )
+    : [];
+
+
+enderecoAtualizado = {
+  ...enderecoAtualizado,
+
+  consolidacoesPorNumero:
+    consolidacoesAtualizadas,
+};
 
       const resumoFaixa = recalcularStatusFaixa(enderecoAtualizado);
 
