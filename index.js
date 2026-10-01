@@ -11232,14 +11232,16 @@ app.post("/transmissoes-consolidacao/consolidar", autenticar, async (req, res) =
       totalConsolidadas += 1;
 }
 
-    salvarEnderecamentos();
+await salvarEnderecamentos();
 
     if (modoOperacao === "sem-base") {
       await salvarContagemSemBase();
       await salvarFinalizacoesSemBase();
     } else {
-      salvarContagens();
+      await salvarContagens();
+    
       recalcularInventarioComBaseNasContagens();
+    
       await salvarProdutosNoBanco(inventario);
     }
     
@@ -14860,7 +14862,7 @@ app.get("/exportar-avaliacao-inventario-pdf", autenticar, (req, res) => {
   }
 });
 
-app.post("/transmitir-endereco", autenticar, (req, res) => {
+app.post("/transmitir-endereco", autenticar, async (req, res) => {
   try {
     const { enderecoNumero, itens } = req.body || {};
 
@@ -14892,12 +14894,34 @@ app.post("/transmitir-endereco", autenticar, (req, res) => {
     const agoraIso = new Date().toISOString();
 
     const itensValidos = itens
-      .map((item) => ({
-        codigoBarras: String(item.codigoBarras || item.codigo || "").trim(),
-        quantidade: Number(item.quantidade) || 0,
-      }))
-      .filter((i) => i.codigoBarras && i.quantidade > 0);
+  .map((item) => ({
+    codigoBarras: String(
+      item.codigoBarras ||
+      item.eanOuCodigo ||
+      item.ean ||
+      ""
+    ).trim(),
 
+    codigo: String(
+      item.codigo ||
+      ""
+    ).trim(),
+
+    quantidade:
+      Number(item.quantidade) || 0,
+
+    descricao: String(
+      item.descricao || ""
+    ).trim(),
+  }))
+  .filter(
+    (item) =>
+      (
+        item.codigoBarras ||
+        item.codigo
+      ) &&
+      item.quantidade > 0
+  );
     if (!itensValidos.length) {
       return res.status(400).json({ erro: "Nenhum item válido." });
     }
@@ -14925,7 +14949,7 @@ endereco.finalizadoEm = agoraIso;
     endereco.ultimaContagemEm = agoraIso;
     endereco.atualizadoEm = agoraIso;
 
-    salvarEnderecamentos();
+    await salvarEnderecamentos();
 
     const painel = gerarPainelTransmissoesConsolidacao();
 

@@ -4479,11 +4479,33 @@ produtoAtual = null;
   })
 });
 
-        const data = await res.json();
+const textoResposta = await res.text();
 
-        if (!res.ok) {
-          throw new Error(data.erro || 'Erro ao transmitir endereço.');
-        }
+let data = {};
+
+if (textoResposta) {
+  try {
+    data = JSON.parse(textoResposta);
+  } catch (erroJson) {
+    throw new Error(
+      `Servidor retornou uma resposta inválida. HTTP ${res.status}.`
+    );
+  }
+}
+
+if (!res.ok) {
+  throw new Error(
+    data.erro ||
+    `Erro ao transmitir endereço. HTTP ${res.status}.`
+  );
+}
+
+if (!data.sucesso) {
+  throw new Error(
+    data.erro ||
+    'O servidor não confirmou a transmissão.'
+  );
+}
 
         const indexAtual = filaTransmissao.findIndex(
           (item) =>
@@ -4540,11 +4562,33 @@ renderFilaTransmissao();
   })
 });
 
-      const data = await res.json();
+const textoResposta = await res.text();
 
-      if (!res.ok) {
-        throw new Error(data.erro || 'Erro ao transmitir endereço.');
-      }
+let data = {};
+
+if (textoResposta) {
+  try {
+    data = JSON.parse(textoResposta);
+  } catch (erroJson) {
+    throw new Error(
+      `Servidor retornou uma resposta inválida. HTTP ${res.status}.`
+    );
+  }
+}
+
+if (!res.ok) {
+  throw new Error(
+    data.erro ||
+    `Erro ao transmitir endereço. HTTP ${res.status}.`
+  );
+}
+
+if (!data.sucesso) {
+  throw new Error(
+    data.erro ||
+    'O servidor não confirmou a transmissão.'
+  );
+}
 
       filaTransmissao.splice(index, 1);
 salvarEstadoColetaMobile();
